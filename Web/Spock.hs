@@ -38,10 +38,10 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 
 import Network.HTTP.Types
-
 import Network.Wai
 import Network.Wai.Handler.Warp -- for 'run'
-import Network.Wai.Util
+
+import Web.Spock.Util
 
 data SpockState = SpockState {
         middlewares :: [Middleware],
@@ -56,7 +56,7 @@ newtype SpockM a = S { runS :: MS.StateT SpockState IO a }
 
 -- | Run a spock application using the warp server.
 spock :: Port -> SpockM () -> IO ()
-spock p s = putStrLn "Setting phasers to stun..." >> (run p =<< spockApp s)
+spock p s = putStrLn "Setting phasers to stun... (ctrl-c to quit)" >> (run p =<< spockApp s)
 
 -- | Turn a spock application into a WAI 'Application', which can be
 -- run with any WAI handler.

@@ -22,6 +22,10 @@ Spock is the logical choice for writing RESTful, declarative web applications.
 
 See example.hs to see Spock in action.
 
+    > runghc example.hs
+    Setting phasers to stun... (ctrl-c to quit)
+    (visit localhost:3000/somepath)
+
 This design has been done in Haskell at least once before (to my knowledge) by
 the miku framework. My problem with miku is that it uses the Hack2 interface
 instead of WAI (they are analogous, but the latter seems to have more traction),

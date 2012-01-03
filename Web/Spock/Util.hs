@@ -1,4 +1,4 @@
-module Network.Wai.Util
+module Web.Spock.Util
     ( setContent, setHeader, setStatus
     ) where
 
