@@ -1,12 +1,24 @@
 {-# LANGUAGE OverloadedStrings, GeneralizedNewtypeDeriving #-}
 module Web.Spock
-    ( spock, spockApp -- spock-to-WAI
-    , SpockM, ActionM -- Types
-    , middleware, get, post, put, delete, addroute -- building apps
-    , request, params, param -- getting input
-    , status, header, redirect -- editing response and redirect
-    , text, html, file, json -- setting output
-    , raise, rescue          -- error handling
+    ( -- * spock-to-WAI
+      spock, spockApp
+      -- * Defining Middleware and Routes
+      --
+      -- | 'Middleware' and routes are run in the order in which they
+      -- are defined. All middleware is run first, followed by all routes.
+      -- If no route matches, a 404 response is given.
+    , middleware, get, post, put, delete, addroute
+      -- * Defining Actions
+      -- ** Accessing the Request, Captures, and Query Parameters
+    , request, param
+      -- ** Modifying the Response and Redirecting
+    , status, header, redirect
+      -- ** Setting Response
+    , text, html, file, json
+      -- ** Exceptions
+    , raise, rescue
+      -- * Types
+    , SpockM, ActionM
     ) where
 
 import Blaze.ByteString.Builder (fromByteString, fromLazyByteString)
@@ -42,9 +54,12 @@ instance Default SpockState where
 newtype SpockM a = S { runS :: MS.StateT SpockState IO a }
     deriving (Monad, Functor, MS.MonadState SpockState)
 
+-- | Run a spock application using the warp server.
 spock :: Port -> SpockM () -> IO ()
 spock p s = putStrLn "Setting phasers to stun..." >> (run p =<< spockApp s)
 
+-- | Turn a spock application into a WAI 'Application', which can be
+-- run with any WAI handler.
 spockApp :: SpockM () -> IO Application
 spockApp defs = do
     s <- MS.execStateT (runS defs) def
@@ -54,6 +69,8 @@ notFoundApp :: Application
 notFoundApp _ = return $ ResponseBuilder status404 [("Content-Type","text/html")]
                        $ fromByteString "<h1>404: File Not Found!</h1>"
 
+-- | Use given middleware. Middleware is nested such that the first declared
+-- is G
 middleware :: Middleware -> SpockM ()
 middleware m = MS.modify (\ (SpockState ms rs) -> SpockState (m:ms) rs)
 
@@ -67,7 +84,7 @@ instance Error ActionError where
     strMsg = ActionError . T.pack
 
 newtype ActionM a = AM { runAM :: ErrorT ActionError (ReaderT (Request,[Param]) (MS.StateT Response IO)) a }
-    deriving ( Monad, MonadIO, MonadFix, Functor
+    deriving ( Monad, MonadIO, Functor
              , MonadReader (Request,[Param]), MS.MonadState Response, MonadError ActionError)
 
 runAction :: [Param] -> ActionM () -> Application
@@ -94,12 +111,9 @@ rescue action handler = catchError action $ \e -> case e of
 request :: ActionM Request
 request = fst <$> ask
 
-params :: ActionM [Param]
-params = snd <$> ask
-
 param :: T.Text -> ActionM T.Text
 param k = do
-    val <- lookup k <$> params
+    val <- lookup k <$> snd <$> ask
     maybe (raise $ mconcat ["Param: ", k, " not found!"]) return val
 
 get, post, put, delete :: T.Text -> ActionM () -> SpockM ()
