@@ -149,28 +149,19 @@ redirect :: T.Text -> ActionM ()
 redirect = throwError . Redirect
 
 text :: T.Text -> ActionM ()
-text = MS.put . textResponse
+text t = do
+    header "Content-Type" "text/plain"
+    MS.modify $ setContent $ Left $ fromByteString $ E.encodeUtf8 t
 
 html :: T.Text -> ActionM ()
-html t = text t >> MS.modify (setHeader ("Content-Type", "text/html"))
+html t = do
+    header "Content-Type" "text/html"
+    MS.modify $ setContent $ Left $ fromByteString $ E.encodeUtf8 t
 
 file :: FilePath -> ActionM ()
-file = MS.put . fileResponse
+file = MS.modify . setContent . Right
 
 json :: (A.ToJSON a) => a -> ActionM ()
-json val = MS.put $ ResponseBuilder status200
-                                    [ ("Content-Type", "application/json") ]
-                                    $ fromLazyByteString $ A.encode val
-
--- TODO: look up MIME type based on extension?
-fileResponse :: FilePath -> Response
-fileResponse fp = ResponseFile status200 [] fp Nothing
-
-textResponse :: T.Text -> Response
-textResponse t = ResponseBuilder status200
-                                 [ ("Content-Type", "text/plain"), ("Content-Length", BS.pack $ show $ T.length t) ]
-                                 $ fromByteString $ E.encodeUtf8 t
-
-htmlResponse :: T.Text -> Response
-htmlResponse = setHeader ("Content-Type", "text/html") . textResponse
-
+json v = do
+    header "Content-Type" "application/json"
+    MS.modify $ setContent $ Left $ fromLazyByteString $ A.encode v
