@@ -88,17 +88,20 @@ newtype ActionM a = AM { runAM :: ErrorT ActionError (ReaderT (Request,[Param]) 
              , MonadReader (Request,[Param]), MS.MonadState Response, MonadError ActionError)
 
 runAction :: [Param] -> ActionM () -> Application
-runAction ps action req = lift $ flip MS.execStateT def $ runReaderT (runErrorT $ runAM $ handleErrors action) (req,ps)
+runAction ps action req = lift
+                        $ flip MS.execStateT def
+                        $ flip runReaderT (req,ps)
+                        $ runErrorT
+                        $ runAM
+                        $ action `catchError` defaultHandler
 
-handleErrors :: ActionM () -> ActionM ()
-handleErrors action = catchError action $ \e ->
-    case e of
-        Redirect url -> do
-            status status302
-            header "Location" url
-        ActionError msg -> do
-            html $ mconcat ["<h1>500 Internal Server Error</h1>", msg]
-            status status500
+defaultHandler :: ActionError -> ActionM ()
+defaultHandler (Redirect url) = do
+    status status302
+    header "Location" url
+defaultHandler (ActionError msg) = do
+    status status500
+    html $ mconcat ["<h1>500 Internal Server Error</h1>", msg]
 
 raise :: T.Text -> ActionM a
 raise = throwError . ActionError
