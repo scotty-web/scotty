@@ -1,1 +1,32 @@
-Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp.
+Spock
+=====
+
+A Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp.
+
+  {-# LANGUAGE OverloadedStrings #-}
+  import Web.Spock
+
+  import Data.Monoid
+
+  main = spock 3000 $ do
+    get "/:word" $ do
+      long <- param "word"
+      html $ mconcat ["<h1>Live ", long, " and prosper!</h1>"]
+
+Spock is the logical choice for writing RESTful, declarative web applications.
+
+  * A page is as simple as defining the verb, url pattern, and Text content.
+  * It is template-language agnostic. Anything that returns a Text value will do.
+  * Conforms to WAI Application interface.
+  * Uses very fast Warp webserver by default.
+
+See example.hs to see Spock in action.
+
+This design has been done in Haskell at least once before (to my knowledge) by
+the miku framework. My problem with miku is that it uses the Hack2 interface
+instead of WAI (they are analogous, but the latter seems to have more traction),
+and that it is written using a custom prelude called Air (which appears to be an
+attempt to turn Haskell into Ruby syntactically). I wanted something that
+depends on relatively few other packages, with an API that fits on one page.
+
+Copyright (c) 2012 Andrew Farmer
