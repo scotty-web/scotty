@@ -5,23 +5,32 @@ import Control.Concurrent.MVar
 import Control.Monad.IO.Class
 import qualified Data.Map as M
 import Data.Monoid (mconcat)
-import qualified Data.Text as T
+import qualified Data.Text.Lazy as T
 
+import Network.HTTP.Types
 import Network.Wai.Middleware.RequestLogger
 
+import qualified Text.Blaze.Html5 as H
+import Text.Blaze.Html5.Attributes
+import Text.Blaze.Renderer.Text (renderHtml)
+
 -- TODO:
--- Use some HTML combinators
 -- Implement some kind of session and/or cookies
 -- Add links
--- Figure out no parse?
 
+main :: IO ()
 main = spock 3000 $ do
     middleware logStdoutDev
 
     m <- liftIO $ newMVar (0::Int,M.empty)
 
     get "/" $ do
-        html $ "<form method=get action=/shorten><input type=text name=url><input type=submit></form>"
+        html $ renderHtml
+             $ H.html $ do
+                H.body $ do
+                    H.form H.! method "get" H.! action "/shorten" $ do
+                        H.input H.! type_ "text" H.! name "url"
+                        H.input H.! type_ "submit"
 
     -- this should be a 'post', but WAI is broken right now
     get "/shorten" $ do
@@ -32,6 +41,9 @@ main = spock 3000 $ do
     get "/list" $ do
         db <- liftIO $ withMVar m $ \(_,db) -> return (M.toList db)
         json db
+
+    -- todo: static serving middleware
+    get "/favicon.ico" $ status status404
 
     get "/:hash" $ do
         hash <- param "hash"

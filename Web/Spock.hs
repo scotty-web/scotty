@@ -33,8 +33,8 @@ import qualified Data.CaseInsensitive as CI
 import Data.Default (Default, def)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (mconcat)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
+import qualified Data.Text.Lazy as T
+import qualified Data.Text.Lazy.Encoding as E
 
 import Network.HTTP.Types
 import Network.Wai
@@ -136,13 +136,13 @@ addroute method path action = MS.modify (\ (SpockState ms rs) -> SpockState ms (
 route :: StdMethod -> T.Text -> ActionM () -> Middleware
 route method path action app req =
     if Right method == parseMethod (requestMethod req)
-    then case matchRoute path (E.decodeUtf8 $ rawPathInfo req) of
+    then case matchRoute path (strictByteStringToLazyText $ rawPathInfo req) of
             Just params -> runAction (addQueryParams req params) action req
             Nothing -> app req
     else app req
 
 addQueryParams :: Request -> [Param] -> [Param]
-addQueryParams req = (++ [ (k, fromMaybe "" v) | (k,v) <- parseQueryText (rawQueryString req) ])
+addQueryParams req = (++ [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText (rawQueryString req) ])
 
 matchRoute :: T.Text -> T.Text -> Maybe [Param]
 matchRoute pat req = go (T.split (=='/') pat) (T.split (=='/') req) []
@@ -161,7 +161,7 @@ status :: Status -> ActionM ()
 status = MS.modify . setStatus
 
 header :: T.Text -> T.Text -> ActionM ()
-header k v = MS.modify $ setHeader (CI.mk $ E.encodeUtf8 k, E.encodeUtf8 v)
+header k v = MS.modify $ setHeader (CI.mk $ lazyTextToStrictByteString k, lazyTextToStrictByteString v)
 
 redirect :: T.Text -> ActionM ()
 redirect = throwError . Redirect
@@ -169,12 +169,12 @@ redirect = throwError . Redirect
 text :: T.Text -> ActionM ()
 text t = do
     header "Content-Type" "text/plain"
-    MS.modify $ setContent $ Left $ fromByteString $ E.encodeUtf8 t
+    MS.modify $ setContent $ Left $ fromLazyByteString $ E.encodeUtf8 t
 
 html :: T.Text -> ActionM ()
 html t = do
     header "Content-Type" "text/html"
-    MS.modify $ setContent $ Left $ fromByteString $ E.encodeUtf8 t
+    MS.modify $ setContent $ Left $ fromLazyByteString $ E.encodeUtf8 t
 
 file :: FilePath -> ActionM ()
 file = MS.modify . setContent . Right

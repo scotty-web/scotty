@@ -1,5 +1,7 @@
 module Web.Spock.Util
-    ( setContent, setHeader, setStatus
+    ( lazyTextToStrictByteString
+    , strictByteStringToLazyText
+    , setContent, setHeader, setStatus
     ) where
 
 import Network.Wai
@@ -11,8 +13,18 @@ import Data.CaseInsensitive (CI)
 import Data.Default
 import Data.Monoid
 
+import qualified Data.ByteString as B
+import qualified Data.Text.Lazy as T
+import qualified Data.Text.Encoding as ES
+
 instance Default Response where
     def = ResponseBuilder status200 [] mempty
+
+lazyTextToStrictByteString :: T.Text -> B.ByteString
+lazyTextToStrictByteString = ES.encodeUtf8 . T.toStrict
+
+strictByteStringToLazyText :: B.ByteString -> T.Text
+strictByteStringToLazyText = T.fromStrict . ES.decodeUtf8
 
 -- Note: ResponseEnumerator is about to go away in favor of ResponseSource
 

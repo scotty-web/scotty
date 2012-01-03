@@ -9,6 +9,7 @@ import System.Random
 
 import Network.HTTP.Types (status302)
 
+main :: IO ()
 main = spock 3000 $ do
     -- Add any WAI middleware, they are run top-down.
     middleware logStdoutDev
