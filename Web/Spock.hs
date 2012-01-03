@@ -29,7 +29,6 @@ import Control.Monad.Reader
 import qualified Control.Monad.State as MS
 
 import qualified Data.Aeson as A
-import qualified Data.ByteString.Char8 as BS
 import qualified Data.CaseInsensitive as CI
 import Data.Default
 import Data.Maybe
@@ -141,6 +140,7 @@ route method path action app req =
             Nothing -> app req
     else app req
 
+addQueryParams :: Request -> [Param] -> [Param]
 addQueryParams req = (++ [ (k, fromMaybe "" v) | (k,v) <- parseQueryText (rawQueryString req) ])
 
 matchRoute :: T.Text -> T.Text -> Maybe [Param]

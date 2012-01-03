@@ -39,12 +39,11 @@ Extra-source-files:
     example.hs
 
 Library
-  Exposed-modules:     Network.Wai.Util, Web.Spock
+  Exposed-modules:     Web.Spock
   default-language:    Haskell2010
   Build-depends:       aeson            >= 0.5,
                        base             >= 4.3.1 && < 5,
                        blaze-builder    >= 0.3,
-                       bytestring       >= 0.9.1,
                        case-insensitive >= 0.4,
                        data-default     >= 0.3,
                        http-types       >= 0.6.8,
@@ -52,6 +51,8 @@ Library
                        text             >= 0.11.1,
                        wai              >= 0.4.3,
                        warp             >= 0.4.6
+
+  GHC-options: -O2 -Wall -fno-warn-orphans -Werror
 
 source-repository head
   type:     git
