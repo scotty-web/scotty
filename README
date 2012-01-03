@@ -6,7 +6,7 @@ A Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp.
   {-# LANGUAGE OverloadedStrings #-}
   import Web.Spock
 
-  import Data.Monoid
+  import Data.Monoid (mconcat)
 
   main = spock 3000 $ do
     get "/:word" $ do
