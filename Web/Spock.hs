@@ -62,7 +62,7 @@ spock p s = putStrLn "Setting phasers to stun... (ctrl-c to quit)" >> (run p =<<
 spockApp :: SpockM () -> IO Application
 spockApp defs = do
     s <- MS.execStateT (runS defs) def
-    return $ foldl (flip ($)) notFoundApp $ middlewares s ++ routes s
+    return $ foldl (flip ($)) notFoundApp $ routes s ++ middlewares s
 
 notFoundApp :: Application
 notFoundApp _ = return $ ResponseBuilder status404 [("Content-Type","text/html")]
