@@ -1,0 +1,39 @@
+Name:                spock
+Version:             0.0.1
+Synopsis:            Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp
+Homepage:            https://github.com/xich/spock
+Bug-reports:         https://github.com/xich/spock/issues
+License:             BSD3
+License-file:        LICENSE
+Author:              Andrew Farmer <anfarmer@ku.edu>
+Maintainer:          Andrew Farmer <anfarmer@ku.edu>
+Copyright:           (c) 2012 Andrew Farmer
+Category:            Web
+Stability:           experimental
+Build-type:          Simple
+Cabal-version:       >= 1.10
+-- A longer description of the package.
+-- Description:
+
+Extra-source-files:
+    README
+    example.hs
+
+Library
+  Exposed-modules:     Network.Wai.Util, Web.Spock
+  default-language:    Haskell2010
+  Build-depends:       aeson            >= 0.5,
+                       base             >= 4.3.1,
+                       blaze-builder    >= 0.3,
+                       bytestring       >= 0.9.1,
+                       case-insensitive >= 0.4,
+                       data-default     >= 0.3,
+                       http-types       >= 0.6.8,
+                       mtl              >= 2.0.1,
+                       text             >= 0.11.1,
+                       wai              >= 0.4.3,
+                       warp             >= 0.4.6
+
+source-repository head
+  type:     git
+  location: git://github.com/xich/spock.git
