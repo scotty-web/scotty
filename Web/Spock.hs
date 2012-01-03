@@ -30,15 +30,15 @@ import qualified Control.Monad.State as MS
 
 import qualified Data.Aeson as A
 import qualified Data.CaseInsensitive as CI
-import Data.Default
-import Data.Maybe
-import Data.Monoid
+import Data.Default (Default, def)
+import Data.Maybe (fromMaybe)
+import Data.Monoid (mconcat)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 
 import Network.HTTP.Types
 import Network.Wai
-import Network.Wai.Handler.Warp -- for 'run'
+import Network.Wai.Handler.Warp (Port, run)
 
 import Web.Spock.Util
 
@@ -51,7 +51,7 @@ instance Default SpockState where
     def = SpockState [] []
 
 newtype SpockM a = S { runS :: MS.StateT SpockState IO a }
-    deriving (Monad, Functor, MS.MonadState SpockState)
+    deriving (Monad, MonadIO, Functor, MS.MonadState SpockState)
 
 -- | Run a spock application using the warp server.
 spock :: Port -> SpockM () -> IO ()
@@ -69,7 +69,8 @@ notFoundApp _ = return $ ResponseBuilder status404 [("Content-Type","text/html")
                        $ fromByteString "<h1>404: File Not Found!</h1>"
 
 -- | Use given middleware. Middleware is nested such that the first declared
--- is G
+-- is the outermost middleware (it has first dibs on the request and last action
+-- on the response). Every middleware is run on each request.
 middleware :: Middleware -> SpockM ()
 middleware m = MS.modify (\ (SpockState ms rs) -> SpockState (m:ms) rs)
 
