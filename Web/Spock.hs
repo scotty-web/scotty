@@ -110,7 +110,10 @@ delete = addroute DELETE
 
 addroute :: StdMethod -> T.Text -> ActionM () -> SpockM ()
 addroute method path action = MS.modify (\ (SpockState ms rs) -> SpockState ms (r:rs))
-    where r = route method path action
+    where r = route method withSlash action
+          withSlash = case T.uncons path of
+                        Just ('/',_) -> path
+                        _            -> T.cons '/' path
 
 -- todo: wildcards?
 route :: StdMethod -> T.Text -> ActionM () -> Middleware
