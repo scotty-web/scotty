@@ -51,7 +51,8 @@ spockApp defs = do
     return $ foldl (flip ($)) notFoundApp $ middlewares s ++ routes s
 
 notFoundApp :: Application
-notFoundApp _ = return $ setStatus status404 $ htmlResponse "404: File Not Found!"
+notFoundApp _ = return $ ResponseBuilder status404 [("Content-Type","text/html")]
+                       $ fromByteString "<h1>404: File Not Found!</h1>"
 
 middleware :: Middleware -> SpockM ()
 middleware m = MS.modify (\ (SpockState ms rs) -> SpockState (m:ms) rs)
