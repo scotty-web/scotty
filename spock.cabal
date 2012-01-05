@@ -39,6 +39,7 @@ Extra-source-files:
 
 Library
   Exposed-modules:     Web.Spock
+  other-modules:       Web.Spock.Util
   default-language:    Haskell2010
   Build-depends:       aeson            >= 0.5,
                        base             >= 4.3.1 && < 5,

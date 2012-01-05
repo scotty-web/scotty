@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings, GeneralizedNewtypeDeriving #-}
+-- | It should be noted that most of the code snippets below depend on the
+-- OverloadedStrings language pragma.
 module Web.Spock
     ( -- * spock-to-WAI
       spock, spockApp
@@ -14,6 +16,9 @@ module Web.Spock
       -- ** Modifying the Response and Redirecting
     , status, header, redirect
       -- ** Setting Response
+      --
+      -- | Note: only one of these should be present in any given route
+      -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json
       -- ** Exceptions
     , raise, rescue
@@ -106,28 +111,68 @@ defaultHandler (ActionError msg) = do
     status status500
     html $ mconcat ["<h1>500 Internal Server Error</h1>", msg]
 
+-- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
+-- turn into HTTP 500 responses.
 raise :: T.Text -> ActionM a
 raise = throwError . ActionError
 
+-- | Catch an exception thrown by 'raise'.
+--
+-- > raise "just kidding" `rescue` (\msg -> text msg)
 rescue :: ActionM a -> (T.Text -> ActionM a) -> ActionM a
 rescue action handler = catchError action $ \e -> case e of
     ActionError msg -> handler msg  -- handle errors
     r               -> throwError r -- rethrow redirects
 
+-- | Redirect to given URL. Like throwing an uncatchable exception. Any code after the call to redirect
+-- will not be run.
+--
+-- > redirect "http://www.google.com"
+--
+-- OR
+--
+-- > redirect "/foo/bar"
+redirect :: T.Text -> ActionM ()
+redirect = throwError . Redirect
+
+-- | Get the 'Request' object.
 request :: ActionM Request
 request = fst <$> ask
 
+-- | Get a parameter. First looks in captures, then form data, then query parameters. Raises
+-- an exception which can be caught by 'rescue' if parameter is not found.
 param :: T.Text -> ActionM T.Text
 param k = do
     val <- lookup k <$> snd <$> ask
     maybe (raise $ mconcat ["Param: ", k, " not found!"]) return val
 
-get, post, put, delete :: T.Text -> ActionM () -> SpockM ()
+-- | get = addroute 'GET'
+get :: T.Text -> ActionM () -> SpockM ()
 get    = addroute GET
+
+-- | post = addroute 'POST'
+post :: T.Text -> ActionM () -> SpockM ()
 post   = addroute POST
+
+-- | put = addroute 'PUT'
+put :: T.Text -> ActionM () -> SpockM ()
 put    = addroute PUT
+
+-- | delete = addroute 'DELETE'
+delete :: T.Text -> ActionM () -> SpockM ()
 delete = addroute DELETE
 
+-- | Define a route with a 'StdMethod', 'T.Text' value representing the path spec,
+-- and a body ('ActionM') which modifies the response.
+--
+-- > addroute GET "/" $ text "beam me up!"
+--
+-- The path spec can include values starting with a colon, which are interpreted
+-- as \"captures\". These are named wildcards that can be looked up with 'param'.
+--
+-- > addroute GET "/foo/:bar" $ do
+-- >     v <- param "bar"
+-- >     text v
 addroute :: StdMethod -> T.Text -> ActionM () -> SpockM ()
 addroute method path action = MS.modify (\ (SpockState ms rs) -> SpockState ms (r:rs))
     where r = route method withSlash action
@@ -174,28 +219,36 @@ addQueryParams = parseEncodedParams . rawQueryString
 parseEncodedParams :: B.ByteString -> [Param] -> [Param]
 parseEncodedParams bs = (++ [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ])
 
+-- | Set the HTTP response status. Default is 200.
 status :: Status -> ActionM ()
 status = MS.modify . setStatus
 
+-- | Set one of the response headers. Will override any previously set value for that header.
+-- Header names are case-insensitive.
 header :: T.Text -> T.Text -> ActionM ()
 header k v = MS.modify $ setHeader (CI.mk $ lazyTextToStrictByteString k, lazyTextToStrictByteString v)
 
-redirect :: T.Text -> ActionM ()
-redirect = throwError . Redirect
-
+-- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
+-- header to \"text/plain\".
 text :: T.Text -> ActionM ()
 text t = do
     header "Content-Type" "text/plain"
     MS.modify $ setContent $ Left $ fromLazyByteString $ E.encodeUtf8 t
 
+-- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
+-- header to \"text/html\".
 html :: T.Text -> ActionM ()
 html t = do
     header "Content-Type" "text/html"
     MS.modify $ setContent $ Left $ fromLazyByteString $ E.encodeUtf8 t
 
+-- | Send a file as the response. Doesn't set the \"Content-Type\" header, so you probably
+-- want to do that on your own with 'header'.
 file :: FilePath -> ActionM ()
 file = MS.modify . setContent . Right
 
+-- | Set the body of the response to the JSON encoding of the given value. Also sets \"Content-Type\"
+-- header to \"application/json\".
 json :: (A.ToJSON a) => a -> ActionM ()
 json v = do
     header "Content-Type" "application/json"
