@@ -25,8 +25,6 @@ Description:
   .
     * Uses very fast Warp webserver by default.
   .
-  See example.hs to see Spock in action.
-  .
   This design has been done in Haskell at least once before (to my knowledge) by
   the miku framework. My issue with miku is that it uses the Hack2 interface
   instead of WAI (they are analogous, but the latter seems to have more traction),
@@ -36,7 +34,8 @@ Description:
 
 Extra-source-files:
     README
-    example.hs
+    examples/basic.hs
+    examples/urlshortener.hs
 
 Library
   Exposed-modules:     Web.Spock

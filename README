@@ -20,9 +20,9 @@ Spock is the logical choice for writing RESTful, declarative web applications.
   * Conforms to WAI Application interface.
   * Uses very fast Warp webserver by default.
 
-See example.hs to see Spock in action.
+See examples/basic.hs to see Spock in action.
 
-    > runghc example.hs
+    > runghc examples/basic.hs
     Setting phasers to stun... (ctrl-c to quit)
     (visit localhost:3000/somepath)
 
