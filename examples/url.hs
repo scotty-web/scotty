@@ -28,12 +28,11 @@ main = spock 3000 $ do
         html $ renderHtml
              $ H.html $ do
                 H.body $ do
-                    H.form H.! method "get" H.! action "/shorten" $ do
+                    H.form H.! method "post" H.! action "/shorten" $ do
                         H.input H.! type_ "text" H.! name "url"
                         H.input H.! type_ "submit"
 
-    -- this should be a 'post', but WAI is broken right now
-    get "/shorten" $ do
+    post "/shorten" $ do
         url <- param "url"
         liftIO $ modifyMVar_ m $ \(i,db) -> return (i+1, M.insert i url db)
         redirect "/list"

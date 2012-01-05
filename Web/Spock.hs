@@ -29,8 +29,11 @@ import Control.Monad.Reader
 import qualified Control.Monad.State as MS
 
 import qualified Data.Aeson as A
+import qualified Data.ByteString.Char8 as B
 import qualified Data.CaseInsensitive as CI
 import Data.Default (Default, def)
+import Data.Enumerator.List (consume)
+import Data.Enumerator.Internal (Iteratee)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (mconcat)
 import qualified Data.Text.Lazy as T
@@ -137,12 +140,11 @@ route :: StdMethod -> T.Text -> ActionM () -> Middleware
 route method path action app req =
     if Right method == parseMethod (requestMethod req)
     then case matchRoute path (strictByteStringToLazyText $ rawPathInfo req) of
-            Just params -> runAction (addQueryParams req params) action req
+            Just params -> do
+                formParams <- parseFormData method req
+                runAction (addQueryParams req $ params ++ formParams) action req
             Nothing -> app req
     else app req
-
-addQueryParams :: Request -> [Param] -> [Param]
-addQueryParams req = (++ [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText (rawQueryString req) ])
 
 matchRoute :: T.Text -> T.Text -> Maybe [Param]
 matchRoute pat req = go (T.split (=='/') pat) (T.split (=='/') req) []
@@ -156,6 +158,21 @@ matchRoute pat req = go (T.split (=='/') pat) (T.split (=='/') req) []
                                | T.head p == ':' = go ps rs $ (T.tail p, r) : prs
                                                                 -- p is a capture, add to params
                                | otherwise       = Nothing      -- both literals, but unequal, fail
+
+-- TODO: this is probably better implemented as middleware
+parseFormData :: StdMethod -> Request -> Iteratee B.ByteString IO [Param]
+parseFormData POST req = case lookup "Content-Type" [(CI.mk k, CI.mk v) | (k,v) <- requestHeaders req] of
+                            Just "application/x-www-form-urlencoded" -> do reqBody <- mconcat <$> consume
+                                                                           return $ parseEncodedParams reqBody []
+                            _ -> do lift $ putStrLn "Unsupported form data encoding. TODO: Fix"
+                                    return []
+parseFormData _    _   = return []
+
+addQueryParams :: Request -> [Param] -> [Param]
+addQueryParams = parseEncodedParams . rawQueryString
+
+parseEncodedParams :: B.ByteString -> [Param] -> [Param]
+parseEncodedParams bs = (++ [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ])
 
 status :: Status -> ActionM ()
 status = MS.modify . setStatus
