@@ -1,4 +1,4 @@
-module Web.Spock.Util
+module Web.Scotty.Util
     ( lazyTextToStrictByteString
     , strictByteStringToLazyText
     , setContent, setHeader, setStatus

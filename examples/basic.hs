@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-import Web.Spock
+import Web.Scotty
 
 import Network.Wai.Middleware.RequestLogger
 
@@ -10,7 +10,7 @@ import System.Random
 import Network.HTTP.Types (status302)
 
 main :: IO ()
-main = spock 3000 $ do
+main = scotty 3000 $ do
     -- Add any WAI middleware, they are run top-down.
     middleware logStdoutDev
 
@@ -64,7 +64,7 @@ main = spock 3000 $ do
 import Network.Wai.Handler.FastCGI (run)
 
 main = do
-    myApp <- spockApp $ do
+    myApp <- scottyApp $ do
         get "/" $ text "hello world"
 
     run myApp

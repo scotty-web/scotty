@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-import Web.Spock
+import Web.Scotty
 
 import Control.Concurrent.MVar
 import Control.Monad.IO.Class
@@ -19,7 +19,7 @@ import Text.Blaze.Renderer.Text (renderHtml)
 -- Add links
 
 main :: IO ()
-main = spock 3000 $ do
+main = scotty 3000 $ do
     middleware logStdoutDev
 
     m <- liftIO $ newMVar (0::Int,M.empty)

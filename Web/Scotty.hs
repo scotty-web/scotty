@@ -1,14 +1,14 @@
 {-# LANGUAGE OverloadedStrings, GeneralizedNewtypeDeriving #-}
 -- | It should be noted that most of the code snippets below depend on the
 -- OverloadedStrings language pragma.
-module Web.Spock
-    ( -- * spock-to-WAI
-      spock, spockApp
+module Web.Scotty
+    ( -- * scotty-to-WAI
+      scotty, scottyApp
       -- * Defining Middleware and Routes
       --
       -- | 'Middleware' and routes are run in the order in which they
-      -- are defined. All middleware is run first, followed by all routes.
-      -- If no route matches, a 404 response is given.
+      -- are defined. All middleware is run first, followed by the first
+      -- route that matches. If no route matches, a 404 response is given.
     , middleware, get, post, put, delete, addroute
       -- * Defining Actions
       -- ** Accessing the Request, Captures, and Query Parameters
@@ -23,7 +23,7 @@ module Web.Spock
       -- ** Exceptions
     , raise, rescue
       -- * Types
-    , SpockM, ActionM
+    , ScottyM, ActionM
     ) where
 
 import Blaze.ByteString.Builder (fromByteString, fromLazyByteString)
@@ -48,27 +48,27 @@ import Network.HTTP.Types
 import Network.Wai
 import Network.Wai.Handler.Warp (Port, run)
 
-import Web.Spock.Util
+import Web.Scotty.Util
 
-data SpockState = SpockState {
+data ScottyState = ScottyState {
         middlewares :: [Middleware],
         routes :: [Middleware]
     }
 
-instance Default SpockState where
-    def = SpockState [] []
+instance Default ScottyState where
+    def = ScottyState [] []
 
-newtype SpockM a = S { runS :: MS.StateT SpockState IO a }
-    deriving (Monad, MonadIO, Functor, MS.MonadState SpockState)
+newtype ScottyM a = S { runS :: MS.StateT ScottyState IO a }
+    deriving (Monad, MonadIO, Functor, MS.MonadState ScottyState)
 
--- | Run a spock application using the warp server.
-spock :: Port -> SpockM () -> IO ()
-spock p s = putStrLn "Setting phasers to stun... (ctrl-c to quit)" >> (run p =<< spockApp s)
+-- | Run a scotty application using the warp server.
+scotty :: Port -> ScottyM () -> IO ()
+scotty p s = putStrLn "Setting phasers to stun... (ctrl-c to quit)" >> (run p =<< scottyApp s)
 
--- | Turn a spock application into a WAI 'Application', which can be
+-- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
-spockApp :: SpockM () -> IO Application
-spockApp defs = do
+scottyApp :: ScottyM () -> IO Application
+scottyApp defs = do
     s <- MS.execStateT (runS defs) def
     return $ foldl (flip ($)) notFoundApp $ routes s ++ middlewares s
 
@@ -79,8 +79,8 @@ notFoundApp _ = return $ ResponseBuilder status404 [("Content-Type","text/html")
 -- | Use given middleware. Middleware is nested such that the first declared
 -- is the outermost middleware (it has first dibs on the request and last action
 -- on the response). Every middleware is run on each request.
-middleware :: Middleware -> SpockM ()
-middleware m = MS.modify (\ (SpockState ms rs) -> SpockState (m:ms) rs)
+middleware :: Middleware -> ScottyM ()
+middleware m = MS.modify (\ (ScottyState ms rs) -> ScottyState (m:ms) rs)
 
 type Param = (T.Text, T.Text)
 
@@ -147,19 +147,19 @@ param k = do
     maybe (raise $ mconcat ["Param: ", k, " not found!"]) return val
 
 -- | get = addroute 'GET'
-get :: T.Text -> ActionM () -> SpockM ()
+get :: T.Text -> ActionM () -> ScottyM ()
 get    = addroute GET
 
 -- | post = addroute 'POST'
-post :: T.Text -> ActionM () -> SpockM ()
+post :: T.Text -> ActionM () -> ScottyM ()
 post   = addroute POST
 
 -- | put = addroute 'PUT'
-put :: T.Text -> ActionM () -> SpockM ()
+put :: T.Text -> ActionM () -> ScottyM ()
 put    = addroute PUT
 
 -- | delete = addroute 'DELETE'
-delete :: T.Text -> ActionM () -> SpockM ()
+delete :: T.Text -> ActionM () -> ScottyM ()
 delete = addroute DELETE
 
 -- | Define a route with a 'StdMethod', 'T.Text' value representing the path spec,
@@ -168,13 +168,16 @@ delete = addroute DELETE
 -- > addroute GET "/" $ text "beam me up!"
 --
 -- The path spec can include values starting with a colon, which are interpreted
--- as \"captures\". These are named wildcards that can be looked up with 'param'.
+-- as /captures/. These are named wildcards that can be looked up with 'param'.
 --
 -- > addroute GET "/foo/:bar" $ do
 -- >     v <- param "bar"
 -- >     text v
-addroute :: StdMethod -> T.Text -> ActionM () -> SpockM ()
-addroute method path action = MS.modify (\ (SpockState ms rs) -> SpockState ms (r:rs))
+--
+-- >>> curl http://localhost:3000/foo/something
+-- something
+addroute :: StdMethod -> T.Text -> ActionM () -> ScottyM ()
+addroute method path action = MS.modify (\ (ScottyState ms rs) -> ScottyState ms (r:rs))
     where r = route method withSlash action
           withSlash = case T.uncons path of
                         Just ('/',_) -> path
