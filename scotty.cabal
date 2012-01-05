@@ -74,7 +74,7 @@ Library
                        wai              >= 0.4.3,
                        warp             >= 0.4.6
 
-  GHC-options: -O2 -Wall -fno-warn-orphans -Werror
+  GHC-options: -Wall -fno-warn-orphans
 
 source-repository head
   type:     git
