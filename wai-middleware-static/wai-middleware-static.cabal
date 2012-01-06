@@ -1,0 +1,40 @@
+Name:                wai-middleware-static
+Version:             0.0.1
+Synopsis:            WAI middleware that intercepts requests to static files.
+Homepage:            https://github.com/xich/scotty
+Bug-reports:         https://github.com/xich/scotty/issues
+License:             BSD3
+License-file:        LICENSE
+Author:              Andrew Farmer <anfarmer@ku.edu>
+Maintainer:          Andrew Farmer <anfarmer@ku.edu>
+Copyright:           (c) 2012 Andrew Farmer
+Category:            Web
+Stability:           experimental
+Build-type:          Simple
+Cabal-version:       >= 1.10
+Description:
+  WAI middleware that intercepts requests to static files and serves them
+  if they exist.
+  .
+  [WAI] <http://hackage.haskell.org/package/wai>
+
+-- Extra-source-files:
+
+Library
+  Exposed-modules:     Network.Wai.Middleware.Static
+  default-language:    Haskell2010
+  Build-depends:       base             >= 4.3.1 && < 5,
+                       bytestring       >= 0.9.1,
+                       containers       >= 0.4,
+                       directory        >= 1.1,
+                       http-types       >= 0.6.8,
+                       mtl              >= 2.0.1,
+                       system-filepath  >= 0.4.4,
+                       text             >= 0.11.1,
+                       wai              >= 0.4.3
+
+  GHC-options: -Wall -fno-warn-orphans
+
+source-repository head
+  type:     git
+  location: git://github.com/xich/scotty.git
