@@ -21,7 +21,7 @@ module Web.Scotty
       -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json
       -- ** Exceptions
-    , raise, rescue
+    , raise, rescue, continue
       -- * Types
     , ScottyM, ActionM
     ) where
@@ -86,6 +86,7 @@ type Param = (T.Text, T.Text)
 
 data ActionError = Redirect T.Text
                  | ActionError T.Text
+                 | Continue
     deriving (Eq,Show)
 
 instance Error ActionError where
@@ -95,13 +96,16 @@ newtype ActionM a = AM { runAM :: ErrorT ActionError (ReaderT (Request,[Param]) 
     deriving ( Monad, MonadIO, Functor
              , MonadReader (Request,[Param]), MS.MonadState Response, MonadError ActionError)
 
-runAction :: [Param] -> ActionM () -> Application
-runAction ps action req = lift
-                        $ flip MS.execStateT def
-                        $ flip runReaderT (req,ps)
-                        $ runErrorT
-                        $ runAM
-                        $ action `catchError` defaultHandler
+-- Nothing indicates route failed (due to Continue) and pattern matching should continue.
+-- Just indicates a successful response.
+runAction :: [Param] -> ActionM () -> Request -> Iteratee B.ByteString IO (Maybe Response)
+runAction ps action req = do
+    (e,r) <- lift $ flip MS.runStateT def
+                  $ flip runReaderT (req,ps)
+                  $ runErrorT
+                  $ runAM
+                  $ action `catchError` defaultHandler
+    return $ either (const Nothing) (const $ Just r) e
 
 defaultHandler :: ActionError -> ActionM ()
 defaultHandler (Redirect url) = do
@@ -110,11 +114,28 @@ defaultHandler (Redirect url) = do
 defaultHandler (ActionError msg) = do
     status status500
     html $ mconcat ["<h1>500 Internal Server Error</h1>", msg]
+defaultHandler Continue = continue
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
 raise :: T.Text -> ActionM a
 raise = throwError . ActionError
+
+-- | Abort execution of this action and continue pattern matching routes.
+-- Like an exception, any code after 'continue' is not executed.
+--
+-- As an example, these two routes overlap. The only way the second one will
+-- ever run is if the first one calls 'continue'.
+--
+-- > get "/foo/:number" $ do
+-- >   n <- param "number"
+-- >   if all isDigit n then text "a number" else continue
+-- >
+-- > get "/foo/:bar" $ do
+-- >   bar <- param "bar"
+-- >   text "not a number"
+continue :: ActionM a
+continue = throwError Continue
 
 -- | Catch an exception thrown by 'raise'.
 --
@@ -122,7 +143,7 @@ raise = throwError . ActionError
 rescue :: ActionM a -> (T.Text -> ActionM a) -> ActionM a
 rescue action handler = catchError action $ \e -> case e of
     ActionError msg -> handler msg  -- handle errors
-    r               -> throwError r -- rethrow redirects
+    other           -> throwError other -- rethrow redirects and continues
 
 -- | Redirect to given URL. Like throwing an uncatchable exception. Any code after the call to redirect
 -- will not be run.
@@ -190,9 +211,11 @@ route method path action app req =
     then case matchRoute path (strictByteStringToLazyText $ rawPathInfo req) of
             Just params -> do
                 formParams <- parseFormData method req
-                runAction (addQueryParams req $ params ++ formParams) action req
-            Nothing -> app req
-    else app req
+                res <- runAction (addQueryParams req $ params ++ formParams) action req
+                maybe tryNext return res
+            Nothing -> tryNext
+    else tryNext
+  where tryNext = app req
 
 matchRoute :: T.Text -> T.Text -> Maybe [Param]
 matchRoute pat req = go (T.split (=='/') pat) (T.split (=='/') req) []

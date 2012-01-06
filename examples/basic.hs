@@ -53,6 +53,10 @@ main = scotty 3000 $ do
     -- Files are streamed directly to the client.
     get "/404" $ file "404.html"
 
+    get "/random" $ do
+        continue
+        redirect "http://www.we-never-go-here.com"
+
     -- You can do IO with liftIO, and you can return JSON content.
     get "/random" $ do
         g <- liftIO newStdGen
