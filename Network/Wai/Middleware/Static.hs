@@ -18,12 +18,12 @@ import Debug.Trace
 static :: Middleware
 static app req = do
     exists <- liftIO $ doesFileExist fStr
-    if trace ("exists: " ++ show exists ++ " :exists") exists
+    if exists -- trace ("exists: " ++ show exists ++ " :exists") exists
     then return $ ResponseFile status200 [] fStr Nothing
     else app req
   where
         fp = F.collapse $ F.fromText $ T.dropWhile (=='/') $ E.decodeUtf8 $ rawPathInfo req
-        fStr = trace ("fs: " ++ F.encodeString fp ++ " :fs") $ F.encodeString fp
+        fStr = F.encodeString fp -- trace ("fs: " ++ F.encodeString fp ++ " :fs") $ F.encodeString fp
 
 getMimeType :: F.FilePath -> B.ByteString
 getMimeType fp = undefined
