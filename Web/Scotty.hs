@@ -1,4 +1,5 @@
-{-# LANGUAGE OverloadedStrings, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings, GeneralizedNewtypeDeriving, ScopedTypeVariables,
+             TypeSynonymInstances, FlexibleInstances, UndecidableInstances, OverlappingInstances #-}
 -- | It should be noted that most of the code snippets below depend on the
 -- OverloadedStrings language pragma.
 module Web.Scotty
@@ -23,12 +24,14 @@ module Web.Scotty
       -- ** Exceptions
     , raise, rescue, continue
       -- * Types
-    , ScottyM, ActionM
+    , ScottyM, ActionM, Parsable
     ) where
 
 import Blaze.ByteString.Builder (fromByteString, fromLazyByteString)
 
 import Control.Applicative
+import qualified Control.Exception as E
+import qualified Control.DeepSeq as DS
 import Control.Monad.Error
 import Control.Monad.Reader
 import qualified Control.Monad.State as MS
@@ -47,6 +50,8 @@ import qualified Data.Text.Lazy.Encoding as E
 import Network.HTTP.Types
 import Network.Wai
 import Network.Wai.Handler.Warp (Port, run)
+
+import Prelude hiding (catch) -- this always trips me up
 
 import Web.Scotty.Util
 
@@ -161,12 +166,48 @@ redirect = throwError . Redirect
 request :: ActionM Request
 request = fst <$> ask
 
--- | Get a parameter. First looks in captures, then form data, then query parameters. Raises
--- an exception which can be caught by 'rescue' if parameter is not found.
-param :: T.Text -> ActionM T.Text
+-- | Get a parameter. First looks in captures, then form data, then query parameters.
+--
+-- * Raises an exception which can be caught by 'rescue' if parameter is not found.
+--
+-- * If parameter is found, but 'read' fails to parse to the correct type, 'continue' is called.
+--   This means captures are somewhat typed, in that a route won't match if a correctly typed
+--   capture cannot be parsed.
+param :: (Parsable a) => T.Text -> ActionM a
 param k = do
     val <- lookup k <$> snd <$> ask
-    maybe (raise $ mconcat ["Param: ", k, " not found!"]) return val
+    maybe (raise $ mconcat ["Param: ", k, " not found!"]) getParam val
+
+-- Called by getParam. Uses 'read' to attempt to parse Text value, catching
+-- any ErrorCall exceptions (which should be the No Parse error). If an exception
+-- occurs, 'continue' is called.
+--
+-- Things I don't like: being forced to deepseq the read. Is there a way around this?
+readOrContinue :: (Read a, DS.NFData a) => T.Text -> ActionM a
+readOrContinue tv = do
+    parsed <- liftIO $ E.handleJust E.fromException
+                                    (\(_::E.ErrorCall) -> return Nothing)
+                                    $ return DS.$!! Just $ read $ T.unpack tv
+    maybe continue return parsed
+
+-- A necessary evil, I suppose, to handle the following three special cases.
+class Parsable a where
+    getParam :: T.Text -> ActionM a
+
+-- Text doesn't have a NFData instance, and I don't want to define one.
+instance Parsable T.Text where
+    getParam = return
+
+-- 'read' expects quotes, but http query params have none.
+instance Parsable String where
+    getParam t = readOrContinue $ mconcat ["\"", t, "\""]
+
+-- 'read' expects single quotes, but http query params have none.
+instance Parsable Char where
+    getParam t = readOrContinue $ mconcat ["'", t, "'"]
+
+instance (Read a, DS.NFData a) => Parsable a where
+    getParam = readOrContinue
 
 -- | get = addroute 'GET'
 get :: T.Text -> ActionM () -> ScottyM ()

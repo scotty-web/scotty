@@ -40,20 +40,20 @@ main = scotty 3000 $ do
         liftIO $ modifyMVar_ m $ \(i,db) -> return (i+1, M.insert i url db)
         redirect "/list"
 
-    -- we have to be careful here, because this route can match pretty much anything
-    -- if the hash is not composed entirely of digits, we use continue to abort this
-    -- route and keep matching.
+    -- We have to be careful here, because this route can match pretty much anything.
+    -- Thankfully, the type system knows that 'hash' must be an Int, so this route
+    -- only matches if 'read' can successfully parse the hash capture as an Int.
+    -- Otherwise, the pattern match will fail and Scotty will continue matching
+    -- subsequent routes.
     get "/:hash" $ do
         hash <- param "hash"
-        if T.all isDigit hash
-        then do (_,db) <- liftIO $ readMVar m
-                case M.lookup (read $ T.unpack $ hash) db of
-                    Nothing -> raise $ mconcat ["URL hash #", hash, " not found in database!"]
-                    Just url -> redirect url
-        else continue
+        (_,db) <- liftIO $ readMVar m
+        case M.lookup hash db of
+            Nothing -> raise $ mconcat ["URL hash #", T.pack $ show $ hash, " not found in database!"]
+            Just url -> redirect url
 
-    -- we put /list down here to show that continue works
+    -- We put /list down here to show that it will not match the '/:hash' route above.
     get "/list" $ do
-        db <- liftIO $ withMVar m $ \(_,db) -> return (M.toList db)
-        json db
+        (_,db) <- liftIO $ readMVar m
+        json $ M.toList db
 
