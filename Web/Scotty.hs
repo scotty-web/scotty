@@ -129,7 +129,8 @@ raise = throwError . ActionError
 --
 -- > get "/foo/:number" $ do
 -- >   n <- param "number"
--- >   if all isDigit n then text "a number" else continue
+-- >   unless (all isDigit n) $ continue
+-- >   text "a number"
 -- >
 -- > get "/foo/:bar" $ do
 -- >   bar <- param "bar"
