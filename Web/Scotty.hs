@@ -1,5 +1,4 @@
-{-# LANGUAGE OverloadedStrings, GeneralizedNewtypeDeriving, ScopedTypeVariables,
-             TypeSynonymInstances, FlexibleInstances, UndecidableInstances, OverlappingInstances #-}
+{-# LANGUAGE OverloadedStrings, GeneralizedNewtypeDeriving, ScopedTypeVariables #-}
 -- | It should be noted that most of the code snippets below depend on the
 -- OverloadedStrings language pragma.
 module Web.Scotty
@@ -194,20 +193,24 @@ readOrContinue tv = do
 class Parsable a where
     getParam :: T.Text -> ActionM a
 
+    getParamList :: T.Text -> ActionM [a]
+    getParamList _ = error "Parsable: Need default getParamList definition."
+
 -- Text doesn't have a NFData instance, and I don't want to define one.
 instance Parsable T.Text where
     getParam = return
 
--- 'read' expects quotes, but http query params have none.
-instance Parsable String where
-    getParam t = readOrContinue $ mconcat ["\"", t, "\""]
-
 -- 'read' expects single quotes, but http query params have none.
 instance Parsable Char where
     getParam t = readOrContinue $ mconcat ["'", t, "'"]
+    getParamList t = readOrContinue $ mconcat ["\"", t, "\""]
 
-instance (Read a, DS.NFData a) => Parsable a where
-    getParam = readOrContinue
+instance (Parsable a) => Parsable [a] where
+    getParam = getParamList
+
+instance Parsable Int where getParam = readOrContinue
+
+--instance (Read a, DS.NFData a) => Parsable a where getParam = readOrContinue
 
 -- | get = addroute 'GET'
 get :: T.Text -> ActionM () -> ScottyM ()

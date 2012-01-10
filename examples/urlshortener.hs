@@ -37,7 +37,7 @@ main = scotty 3000 $ do
 
     post "/shorten" $ do
         url <- param "url"
-        liftIO $ modifyMVar_ m $ \(i,db) -> return (i+1, M.insert i url db)
+        liftIO $ modifyMVar_ m $ \(i,db) -> return (i+1, M.insert i (T.pack url) db)
         redirect "/list"
 
     -- We have to be careful here, because this route can match pretty much anything.
