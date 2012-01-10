@@ -56,4 +56,3 @@ main = scotty 3000 $ do
     get "/list" $ do
         (_,db) <- liftIO $ readMVar m
         json $ M.toList db
-

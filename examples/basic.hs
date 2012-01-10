@@ -62,6 +62,10 @@ main = scotty 3000 $ do
         g <- liftIO newStdGen
         json $ take 20 $ randomRs (1::Int,100) g
 
+    get "/ints/:is" $ do
+        is <- param "is"
+        json $ [(1::Int)..10] ++ is
+
 {- If you don't want to use Warp as your webserver,
    you can use any WAI handler.
 

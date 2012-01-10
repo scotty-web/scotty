@@ -175,42 +175,44 @@ request = fst <$> ask
 param :: (Parsable a) => T.Text -> ActionM a
 param k = do
     val <- lookup k <$> snd <$> ask
-    maybe (raise $ mconcat ["Param: ", k, " not found!"]) getParam val
+    case val of
+        Nothing -> raise $ mconcat ["Param: ", k, " not found!"]
+        Just v  -> maybe continue return =<< liftIO (parseParam v)
 
--- Called by getParam. Uses 'read' to attempt to parse Text value, catching
--- any ErrorCall exceptions (which should be the No Parse error). If an exception
--- occurs, 'continue' is called.
---
--- Things I don't like: being forced to deepseq the read. Is there a way around this?
-readOrContinue :: (Read a, DS.NFData a) => T.Text -> ActionM a
-readOrContinue tv = do
-    parsed <- liftIO $ E.handleJust E.fromException
-                                    (\(_::E.ErrorCall) -> return Nothing)
-                                    $ return DS.$!! Just $ read $ T.unpack tv
-    maybe continue return parsed
-
--- A necessary evil, I suppose, to handle the following three special cases.
+-- This needs to be in IO to catch parse errors from 'read', but is otherwise pure.
 class Parsable a where
-    getParam :: T.Text -> ActionM a
+    parseParam :: T.Text -> IO (Maybe a)
 
-    getParamList :: T.Text -> ActionM [a]
-    getParamList _ = error "Parsable: Need default getParamList definition."
+    -- if any individual element fails to parse, the whole list fails to parse.
+    parseParamList :: T.Text -> IO (Maybe [a])
+    parseParamList t = sequence <$> mapM parseParam (T.split (==',') t)
 
--- Text doesn't have a NFData instance, and I don't want to define one.
-instance Parsable T.Text where
-    getParam = return
-
--- 'read' expects single quotes, but http query params have none.
+-- No point using 'read' for Text, ByteString, Char, and String.
+instance Parsable T.Text where parseParam = return . Just
+instance Parsable B.ByteString where parseParam = return . Just . lazyTextToStrictByteString
 instance Parsable Char where
-    getParam t = readOrContinue $ mconcat ["'", t, "'"]
-    getParamList t = readOrContinue $ mconcat ["\"", t, "\""]
+    parseParam t = case T.unpack t of
+                    [c] -> return $ Just c
+                    _   -> return Nothing
+    parseParamList = return . Just . T.unpack
+instance Parsable () where
+    parseParam t = if T.null t then return (Just ()) else return Nothing
 
-instance (Parsable a) => Parsable [a] where
-    getParam = getParamList
+-- Classic trick to parse String.
+instance (Parsable a) => Parsable [a] where parseParam = parseParamList
 
-instance Parsable Int where getParam = readOrContinue
+instance Parsable Bool where parseParam = readMaybe
+instance Parsable Double where parseParam = readMaybe
+instance Parsable Float where parseParam = readMaybe
+instance Parsable Int where parseParam = readMaybe
+instance Parsable Integer where parseParam = readMaybe
 
---instance (Read a, DS.NFData a) => Parsable a where getParam = readOrContinue
+-- Called by parseParam. Uses 'read' to attempt to parse Text value, catching
+-- any ErrorCall exceptions (which should be the No Parse error).
+readMaybe :: (Read a, DS.NFData a) => T.Text -> IO (Maybe a)
+readMaybe tv = E.handleJust E.fromException
+                            (\(_::E.ErrorCall) -> return Nothing)
+                            $ return DS.$!! Just $ read $ T.unpack tv
 
 -- | get = addroute 'GET'
 get :: T.Text -> ActionM () -> ScottyM ()
