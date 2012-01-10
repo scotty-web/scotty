@@ -1,8 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Network.Wai.Middleware.Static (static) where
+module Network.Wai.Middleware.Static (static, staticRoot) where
 
 import Control.Monad.Trans (liftIO)
+import Data.List (isInfixOf)
 import qualified Data.Map as M
+import Data.Maybe (fromMaybe)
 import qualified Data.ByteString as B
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
@@ -13,20 +15,30 @@ import System.Directory (doesFileExist)
 
 import Network.Wai
 
-import Debug.Trace
-
+-- | Serve static files out of the application root (current directory).
+-- If file is found, it is streamed to the client and no further middleware is run.
 static :: Middleware
-static app req = do
-    exists <- liftIO $ doesFileExist fStr
-    if exists -- trace ("exists: " ++ show exists ++ " :exists") exists
-    then return $ ResponseFile status200 [] fStr Nothing
-    else app req
-  where
-        fp = F.collapse $ F.fromText $ T.dropWhile (=='/') $ E.decodeUtf8 $ rawPathInfo req
-        fStr = F.encodeString fp -- trace ("fs: " ++ F.encodeString fp ++ " :fs") $ F.encodeString fp
+static = staticRoot ""
+
+-- | Like 'static', but only looks for static files in the given directory.
+-- Supplied path may be relative or absolute and is prepended to the requested path.
+--
+-- > static = staticRoot ""
+staticRoot :: T.Text -> Middleware
+staticRoot base app req =
+    if ".." `isInfixOf` fStr
+      then app req
+      else do exists <- liftIO $ doesFileExist fStr
+              if exists
+                then return $ ResponseFile status200 [("Content-Type", getMimeType fp)] fStr Nothing
+                else app req
+  where fp = F.collapse $ F.fromText $ T.dropWhile (=='/') $ E.decodeUtf8 $ rawPathInfo req
+        fStr = F.encodeString $ F.fromText base F.</> fp
 
 getMimeType :: F.FilePath -> B.ByteString
-getMimeType fp = undefined
+getMimeType = go . map E.encodeUtf8 . F.extensions
+    where go [] = defaultMimeType
+          go exts = fromMaybe (go $ tail exts) $ M.lookup (B.intercalate "." exts) defaultMimeTypes
 
 type MimeMap = M.Map B.ByteString B.ByteString
 

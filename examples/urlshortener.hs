@@ -3,12 +3,10 @@ import Web.Scotty
 
 import Control.Concurrent.MVar
 import Control.Monad.IO.Class
-import Data.Char (isDigit)
 import qualified Data.Map as M
 import Data.Monoid (mconcat)
 import qualified Data.Text.Lazy as T
 
-import Network.HTTP.Types
 import Network.Wai.Middleware.RequestLogger
 import Network.Wai.Middleware.Static
 
@@ -23,7 +21,7 @@ import Text.Blaze.Renderer.Text (renderHtml)
 main :: IO ()
 main = scotty 3000 $ do
     middleware logStdoutDev
-    middleware static
+    middleware $ staticRoot "static"
 
     m <- liftIO $ newMVar (0::Int,M.empty)
 
