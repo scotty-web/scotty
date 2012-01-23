@@ -105,7 +105,7 @@ newtype ActionM a = AM { runAM :: ErrorT ActionError (ReaderT (Request,[Param]) 
 runAction :: [Param] -> ActionM () -> Request -> Iteratee B.ByteString IO (Maybe Response)
 runAction ps action req = do
     (e,r) <- lift $ flip MS.runStateT def
-                  $ flip runReaderT (req,ps)
+                  $ flip runReaderT (req, ps ++ queryParams req)
                   $ runErrorT
                   $ runAM
                   $ action `catchError` defaultHandler
@@ -147,7 +147,7 @@ continue = throwError Continue
 -- > raise "just kidding" `rescue` (\msg -> text msg)
 rescue :: ActionM a -> (T.Text -> ActionM a) -> ActionM a
 rescue action handler = catchError action $ \e -> case e of
-    ActionError msg -> handler msg  -- handle errors
+    ActionError msg -> handler msg      -- handle errors
     other           -> throwError other -- rethrow redirects and continues
 
 -- | Redirect to given URL. Like throwing an uncatchable exception. Any code after the call to redirect
@@ -194,11 +194,10 @@ instance Parsable Char where
     parseParam t = case T.unpack t of
                     [c] -> return $ Just c
                     _   -> return Nothing
-    parseParamList = return . Just . T.unpack
+    parseParamList = return . Just . T.unpack -- String
 instance Parsable () where
     parseParam t = if T.null t then return (Just ()) else return Nothing
 
--- Classic trick to parse String.
 instance (Parsable a) => Parsable [a] where parseParam = parseParamList
 
 instance Parsable Bool where parseParam = readMaybe
@@ -216,15 +215,15 @@ readMaybe tv = E.handleJust E.fromException
 
 -- | get = addroute 'GET'
 get :: T.Text -> ActionM () -> ScottyM ()
-get    = addroute GET
+get = addroute GET
 
 -- | post = addroute 'POST'
 post :: T.Text -> ActionM () -> ScottyM ()
-post   = addroute POST
+post = addroute POST
 
 -- | put = addroute 'PUT'
 put :: T.Text -> ActionM () -> ScottyM ()
-put    = addroute PUT
+put = addroute PUT
 
 -- | delete = addroute 'DELETE'
 delete :: T.Text -> ActionM () -> ScottyM ()
@@ -251,19 +250,19 @@ addroute method path action = MS.modify (\ (ScottyState ms rs) -> ScottyState ms
                         Just ('/',_) -> path
                         _            -> T.cons '/' path
 
--- todo: wildcards?
 route :: StdMethod -> T.Text -> ActionM () -> Middleware
 route method path action app req =
     if Right method == parseMethod (requestMethod req)
     then case matchRoute path (strictByteStringToLazyText $ rawPathInfo req) of
-            Just params -> do
+            Just captures -> do
                 formParams <- parseFormData method req
-                res <- runAction (addQueryParams req $ params ++ formParams) action req
+                res <- runAction (captures ++ formParams) action req
                 maybe tryNext return res
             Nothing -> tryNext
     else tryNext
   where tryNext = app req
 
+-- todo: wildcards?
 matchRoute :: T.Text -> T.Text -> Maybe [Param]
 matchRoute pat req = go (T.split (=='/') pat) (T.split (=='/') req) []
     where go [] [] ps = Just ps -- request string and pattern match!
@@ -277,20 +276,21 @@ matchRoute pat req = go (T.split (=='/') pat) (T.split (=='/') req) []
                                                                 -- p is a capture, add to params
                                | otherwise       = Nothing      -- both literals, but unequal, fail
 
--- TODO: this is probably better implemented as middleware
+-- TODO: this is probably better implemented as middleware,
+-- once the request body is included in Request
 parseFormData :: StdMethod -> Request -> Iteratee B.ByteString IO [Param]
 parseFormData POST req = case lookup "Content-Type" [(CI.mk k, CI.mk v) | (k,v) <- requestHeaders req] of
                             Just "application/x-www-form-urlencoded" -> do reqBody <- mconcat <$> consume
-                                                                           return $ parseEncodedParams reqBody []
+                                                                           return $ parseEncodedParams reqBody
                             _ -> do lift $ putStrLn "Unsupported form data encoding. TODO: Fix"
                                     return []
 parseFormData _    _   = return []
 
-addQueryParams :: Request -> [Param] -> [Param]
-addQueryParams = parseEncodedParams . rawQueryString
+queryParams :: Request -> [Param]
+queryParams = parseEncodedParams . rawQueryString
 
-parseEncodedParams :: B.ByteString -> [Param] -> [Param]
-parseEncodedParams bs = (++ [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ])
+parseEncodedParams :: B.ByteString -> [Param]
+parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]
 
 -- | Set the HTTP response status. Default is 200.
 status :: Status -> ActionM ()
