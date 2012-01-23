@@ -5,7 +5,7 @@ import Network.Wai.Middleware.RequestLogger
 
 import Control.Monad.Trans
 import Data.Monoid
-import System.Random
+import System.Random (newStdGen, randomRs)
 
 import Network.HTTP.Types (status302)
 
@@ -54,7 +54,7 @@ main = scotty 3000 $ do
     get "/404" $ file "404.html"
 
     get "/random" $ do
-        continue
+        next
         redirect "http://www.we-never-go-here.com"
 
     -- You can do IO with liftIO, and you can return JSON content.

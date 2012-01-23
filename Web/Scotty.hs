@@ -21,7 +21,7 @@ module Web.Scotty
       -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json
       -- ** Exceptions
-    , raise, rescue, continue
+    , raise, rescue, next
       -- * Types
     , ScottyM, ActionM, Parsable
     ) where
@@ -91,7 +91,7 @@ type Param = (T.Text, T.Text)
 
 data ActionError = Redirect T.Text
                  | ActionError T.Text
-                 | Continue
+                 | Next
     deriving (Eq,Show)
 
 instance Error ActionError where
@@ -101,7 +101,7 @@ newtype ActionM a = AM { runAM :: ErrorT ActionError (ReaderT (Request,[Param]) 
     deriving ( Monad, MonadIO, Functor
              , MonadReader (Request,[Param]), MS.MonadState Response, MonadError ActionError)
 
--- Nothing indicates route failed (due to Continue) and pattern matching should continue.
+-- Nothing indicates route failed (due to Next) and pattern matching should continue.
 -- Just indicates a successful response.
 runAction :: [Param] -> ActionM () -> Request -> ResourceT IO (Maybe Response)
 runAction ps action req = do
@@ -119,7 +119,7 @@ defaultHandler (Redirect url) = do
 defaultHandler (ActionError msg) = do
     status status500
     html $ mconcat ["<h1>500 Internal Server Error</h1>", msg]
-defaultHandler Continue = continue
+defaultHandler Next = next
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
@@ -127,21 +127,21 @@ raise :: T.Text -> ActionM a
 raise = throwError . ActionError
 
 -- | Abort execution of this action and continue pattern matching routes.
--- Like an exception, any code after 'continue' is not executed.
+-- Like an exception, any code after 'next' is not executed.
 --
 -- As an example, these two routes overlap. The only way the second one will
--- ever run is if the first one calls 'continue'.
+-- ever run is if the first one calls 'next'.
 --
 -- > get "/foo/:number" $ do
 -- >   n <- param "number"
--- >   unless (all isDigit n) $ continue
+-- >   unless (all isDigit n) $ next
 -- >   text "a number"
 -- >
 -- > get "/foo/:bar" $ do
 -- >   bar <- param "bar"
 -- >   text "not a number"
-continue :: ActionM a
-continue = throwError Continue
+next :: ActionM a
+next = throwError Next
 
 -- | Catch an exception thrown by 'raise'.
 --
@@ -149,7 +149,7 @@ continue = throwError Continue
 rescue :: ActionM a -> (T.Text -> ActionM a) -> ActionM a
 rescue action handler = catchError action $ \e -> case e of
     ActionError msg -> handler msg      -- handle errors
-    other           -> throwError other -- rethrow redirects and continues
+    other           -> throwError other -- rethrow redirects and nexts
 
 -- | Redirect to given URL. Like throwing an uncatchable exception. Any code after the call to redirect
 -- will not be run.
@@ -170,7 +170,7 @@ request = fst <$> ask
 --
 -- * Raises an exception which can be caught by 'rescue' if parameter is not found.
 --
--- * If parameter is found, but 'read' fails to parse to the correct type, 'continue' is called.
+-- * If parameter is found, but 'read' fails to parse to the correct type, 'next' is called.
 --   This means captures are somewhat typed, in that a route won't match if a correctly typed
 --   capture cannot be parsed.
 param :: (Parsable a) => T.Text -> ActionM a
@@ -178,7 +178,7 @@ param k = do
     val <- lookup k <$> snd <$> ask
     case val of
         Nothing -> raise $ mconcat ["Param: ", k, " not found!"]
-        Just v  -> maybe continue return =<< liftIO (parseParam v)
+        Just v  -> maybe next return =<< liftIO (parseParam v)
 
 -- This needs to be in IO to catch parse errors from 'read', but is otherwise pure.
 class Parsable a where
