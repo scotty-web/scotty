@@ -31,7 +31,7 @@ Library
                        mtl              >= 2.0.1,
                        system-filepath  >= 0.4.4,
                        text             >= 0.11.1,
-                       wai              >= 0.4.3
+                       wai              >= 1.0.0
 
   GHC-options: -Wall -fno-warn-orphans
 
