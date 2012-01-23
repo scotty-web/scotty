@@ -21,7 +21,7 @@ import Text.Blaze.Renderer.Text (renderHtml)
 main :: IO ()
 main = scotty 3000 $ do
     middleware logStdoutDev
-    middleware $ staticRoot "static"
+    middleware static
 
     m <- liftIO $ newMVar (0::Int,M.empty)
 
