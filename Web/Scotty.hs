@@ -34,13 +34,14 @@ import qualified Control.DeepSeq as DS
 import Control.Monad.Error
 import Control.Monad.Reader
 import qualified Control.Monad.State as MS
+import Control.Monad.Trans.Resource (ResourceT)
 
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Char8 as B
 import qualified Data.CaseInsensitive as CI
 import Data.Default (Default, def)
-import Data.Enumerator.List (consume)
-import Data.Enumerator.Internal (Iteratee)
+import Data.Conduit.List (consume)
+import Data.Conduit (($$))
 import Data.Maybe (fromMaybe)
 import Data.Monoid (mconcat)
 import qualified Data.Text.Lazy as T
@@ -102,7 +103,7 @@ newtype ActionM a = AM { runAM :: ErrorT ActionError (ReaderT (Request,[Param]) 
 
 -- Nothing indicates route failed (due to Continue) and pattern matching should continue.
 -- Just indicates a successful response.
-runAction :: [Param] -> ActionM () -> Request -> Iteratee B.ByteString IO (Maybe Response)
+runAction :: [Param] -> ActionM () -> Request -> ResourceT IO (Maybe Response)
 runAction ps action req = do
     (e,r) <- lift $ flip MS.runStateT def
                   $ flip runReaderT (req, ps ++ queryParams req)
@@ -276,11 +277,10 @@ matchRoute pat req = go (T.split (=='/') pat) (T.split (=='/') req) []
                                                                 -- p is a capture, add to params
                                | otherwise       = Nothing      -- both literals, but unequal, fail
 
--- TODO: this is probably better implemented as middleware,
--- once the request body is included in Request
-parseFormData :: StdMethod -> Request -> Iteratee B.ByteString IO [Param]
+-- TODO: this is probably better implemented as middleware
+parseFormData :: StdMethod -> Request -> ResourceT IO [Param]
 parseFormData POST req = case lookup "Content-Type" [(CI.mk k, CI.mk v) | (k,v) <- requestHeaders req] of
-                            Just "application/x-www-form-urlencoded" -> do reqBody <- mconcat <$> consume
+                            Just "application/x-www-form-urlencoded" -> do reqBody <- mconcat <$> (requestBody req $$ consume)
                                                                            return $ parseEncodedParams reqBody
                             _ -> do lift $ putStrLn "Unsupported form data encoding. TODO: Fix"
                                     return []
