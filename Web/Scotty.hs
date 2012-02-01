@@ -53,6 +53,7 @@ import Network.Wai.Handler.Warp (Port, run)
 
 import Prelude hiding (catch) -- this always trips me up
 
+import System.IO.Unsafe (unsafePerformIO)
 import Web.Scotty.Util
 
 data ScottyState = ScottyState {
@@ -185,26 +186,25 @@ param k = do
     val <- lookup k <$> snd3 <$> ask
     case val of
         Nothing -> raise $ mconcat ["Param: ", k, " not found!"]
-        Just v  -> maybe next return =<< liftIO (parseParam v)
+        Just v  -> maybe next return $ parseParam v
 
--- This needs to be in IO to catch parse errors from 'read', but is otherwise pure.
 class Parsable a where
-    parseParam :: T.Text -> IO (Maybe a)
+    parseParam :: T.Text -> Maybe a
 
     -- if any individual element fails to parse, the whole list fails to parse.
-    parseParamList :: T.Text -> IO (Maybe [a])
-    parseParamList t = sequence <$> mapM parseParam (T.split (==',') t)
+    parseParamList :: T.Text -> Maybe [a]
+    parseParamList t = sequence $ map parseParam (T.split (==',') t)
 
 -- No point using 'read' for Text, ByteString, Char, and String.
-instance Parsable T.Text where parseParam = return . Just
-instance Parsable B.ByteString where parseParam = return . Just . lazyTextToStrictByteString
+instance Parsable T.Text where parseParam = Just
+instance Parsable B.ByteString where parseParam = Just . lazyTextToStrictByteString
 instance Parsable Char where
     parseParam t = case T.unpack t of
-                    [c] -> return $ Just c
-                    _   -> return Nothing
-    parseParamList = return . Just . T.unpack -- String
+                    [c] -> Just c
+                    _   -> Nothing
+    parseParamList = Just . T.unpack -- String
 instance Parsable () where
-    parseParam t = if T.null t then return (Just ()) else return Nothing
+    parseParam t = if T.null t then Just () else Nothing
 
 instance (Parsable a) => Parsable [a] where parseParam = parseParamList
 
@@ -216,10 +216,13 @@ instance Parsable Integer where parseParam = readMaybe
 
 -- Called by parseParam. Uses 'read' to attempt to parse Text value, catching
 -- any ErrorCall exceptions (which should be the No Parse error).
-readMaybe :: (Read a, DS.NFData a) => T.Text -> IO (Maybe a)
-readMaybe tv = E.handleJust E.fromException
-                            (\(_::E.ErrorCall) -> return Nothing)
-                            $ return DS.$!! Just $ read $ T.unpack tv
+-- I use unsafePerformIO to avoid polluting the Parsable class with IO,
+-- but I'm not sure it's entirely safe due to the DeepSeq.
+{-# NOINLINE readMaybe #-}
+readMaybe :: (Read a, DS.NFData a) => T.Text -> Maybe a
+readMaybe tv = unsafePerformIO $ E.handleJust E.fromException
+                                              (\(_::E.ErrorCall) -> return Nothing)
+                                              $ return DS.$!! Just $ read $ T.unpack tv
 
 -- | get = addroute 'GET'
 get :: T.Text -> ActionM () -> ScottyM ()
