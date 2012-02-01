@@ -45,7 +45,7 @@ import Data.Conduit.Lazy (lazyConsume)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (mconcat)
 import qualified Data.Text.Lazy as T
-import qualified Data.Text.Lazy.Encoding as E
+import Data.Text.Lazy.Encoding (encodeUtf8)
 
 import Network.HTTP.Types
 import Network.Wai
@@ -311,14 +311,14 @@ header k v = MS.modify $ setHeader (CI.mk $ lazyTextToStrictByteString k, lazyTe
 text :: T.Text -> ActionM ()
 text t = do
     header "Content-Type" "text/plain"
-    MS.modify $ setContent $ Left $ fromLazyByteString $ E.encodeUtf8 t
+    MS.modify $ setContent $ Left $ fromLazyByteString $ encodeUtf8 t
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
 -- header to \"text/html\".
 html :: T.Text -> ActionM ()
 html t = do
     header "Content-Type" "text/html"
-    MS.modify $ setContent $ Left $ fromLazyByteString $ E.encodeUtf8 t
+    MS.modify $ setContent $ Left $ fromLazyByteString $ encodeUtf8 t
 
 -- | Send a file as the response. Doesn't set the \"Content-Type\" header, so you probably
 -- want to do that on your own with 'header'.
