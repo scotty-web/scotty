@@ -263,12 +263,27 @@ route method path action app req =
     if Right method == parseMethod (requestMethod req)
     then case matchRoute path (strictByteStringToLazyText $ rawPathInfo req) of
             Just captures -> do
-                body <- BL.fromChunks <$> (lazyConsume $ requestBody req)
-                res <- runAction (req, captures ++ formParams method req body ++ queryParams req, body) action
+                env <- mkEnv method req captures
+                res <- runAction env action
                 maybe tryNext return res
             Nothing -> tryNext
     else tryNext
   where tryNext = app req
+
+mkEnv :: StdMethod -> Request -> [Param] -> ResourceT IO ActionEnv
+mkEnv method req captures = do
+    body <- BL.fromChunks <$> (lazyConsume $ requestBody req)
+
+    let params = captures ++ formparams ++ queryparams
+        formparams = case (method, lookup "Content-Type" [(CI.mk k, CI.mk v) | (k,v) <- requestHeaders req]) of
+                        (POST, Just "application/x-www-form-urlencoded") -> parseEncodedParams $ mconcat $ BL.toChunks body
+                        _ -> []
+        queryparams = parseEncodedParams $ rawQueryString req
+
+    return (req, params, body)
+
+parseEncodedParams :: B.ByteString -> [Param]
+parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]
 
 -- todo: wildcards?
 matchRoute :: T.Text -> T.Text -> Maybe [Param]
@@ -283,19 +298,6 @@ matchRoute pat req = go (T.split (=='/') pat) (T.split (=='/') req) []
                                | T.head p == ':' = go ps rs $ (T.tail p, r) : prs
                                                                 -- p is a capture, add to params
                                | otherwise       = Nothing      -- both literals, but unequal, fail
-
-formParams :: StdMethod -> Request -> BL.ByteString -> [Param]
-formParams POST req body = case lookup "Content-Type" [(CI.mk k, CI.mk v) | (k,v) <- requestHeaders req] of
-                            Just "application/x-www-form-urlencoded" -> parseEncodedParams $ mconcat $ BL.toChunks body
-                            Just "application/json" -> []
-                            _ -> [] -- do lift $ putStrLn "Unsupported form data encoding. TODO: Fix"
-formParams _    _   _ = []
-
-queryParams :: Request -> [Param]
-queryParams = parseEncodedParams . rawQueryString
-
-parseEncodedParams :: B.ByteString -> [Param]
-parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]
 
 -- | Set the HTTP response status. Default is 200.
 status :: Status -> ActionM ()
