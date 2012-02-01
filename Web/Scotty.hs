@@ -12,7 +12,7 @@ module Web.Scotty
     , middleware, get, post, put, delete, addroute
       -- * Defining Actions
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, param
+    , request, param, jsonData
       -- ** Modifying the Response and Redirecting
     , status, header, redirect
       -- ** Setting Response
@@ -38,10 +38,10 @@ import Control.Monad.Trans.Resource (ResourceT)
 
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive as CI
 import Data.Default (Default, def)
-import Data.Conduit.List (consume)
-import Data.Conduit (($$))
+import Data.Conduit.Lazy (lazyConsume)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (mconcat)
 import qualified Data.Text.Lazy as T
@@ -97,16 +97,18 @@ data ActionError = Redirect T.Text
 instance Error ActionError where
     strMsg = ActionError . T.pack
 
-newtype ActionM a = AM { runAM :: ErrorT ActionError (ReaderT (Request,[Param]) (MS.StateT Response IO)) a }
+type ActionEnv = (Request,[Param],BL.ByteString)
+
+newtype ActionM a = AM { runAM :: ErrorT ActionError (ReaderT ActionEnv (MS.StateT Response IO)) a }
     deriving ( Monad, MonadIO, Functor
-             , MonadReader (Request,[Param]), MS.MonadState Response, MonadError ActionError)
+             , MonadReader ActionEnv, MS.MonadState Response, MonadError ActionError)
 
 -- Nothing indicates route failed (due to Next) and pattern matching should continue.
 -- Just indicates a successful response.
-runAction :: [Param] -> ActionM () -> Request -> ResourceT IO (Maybe Response)
-runAction ps action req = do
+runAction :: ActionEnv -> ActionM () -> ResourceT IO (Maybe Response)
+runAction env action = do
     (e,r) <- lift $ flip MS.runStateT def
-                  $ flip runReaderT (req, ps ++ queryParams req)
+                  $ flip runReaderT env
                   $ runErrorT
                   $ runAM
                   $ action `catchError` defaultHandler
@@ -164,7 +166,12 @@ redirect = throwError . Redirect
 
 -- | Get the 'Request' object.
 request :: ActionM Request
-request = fst <$> ask
+request = fst3 <$> ask
+
+jsonData :: (A.FromJSON a) => ActionM a
+jsonData = do
+    body <- thd3 <$> ask
+    maybe (raise "unable to parse JSON!") return $ A.decode body
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
@@ -175,7 +182,7 @@ request = fst <$> ask
 --   capture cannot be parsed.
 param :: (Parsable a) => T.Text -> ActionM a
 param k = do
-    val <- lookup k <$> snd <$> ask
+    val <- lookup k <$> snd3 <$> ask
     case val of
         Nothing -> raise $ mconcat ["Param: ", k, " not found!"]
         Just v  -> maybe next return =<< liftIO (parseParam v)
@@ -256,8 +263,8 @@ route method path action app req =
     if Right method == parseMethod (requestMethod req)
     then case matchRoute path (strictByteStringToLazyText $ rawPathInfo req) of
             Just captures -> do
-                formParams <- parseFormData method req
-                res <- runAction (captures ++ formParams) action req
+                body <- BL.fromChunks <$> (lazyConsume $ requestBody req)
+                res <- runAction (req, captures ++ formParams method req body ++ queryParams req, body) action
                 maybe tryNext return res
             Nothing -> tryNext
     else tryNext
@@ -277,14 +284,12 @@ matchRoute pat req = go (T.split (=='/') pat) (T.split (=='/') req) []
                                                                 -- p is a capture, add to params
                                | otherwise       = Nothing      -- both literals, but unequal, fail
 
--- TODO: this is probably better implemented as middleware
-parseFormData :: StdMethod -> Request -> ResourceT IO [Param]
-parseFormData POST req = case lookup "Content-Type" [(CI.mk k, CI.mk v) | (k,v) <- requestHeaders req] of
-                            Just "application/x-www-form-urlencoded" -> do reqBody <- mconcat <$> (requestBody req $$ consume)
-                                                                           return $ parseEncodedParams reqBody
-                            _ -> do lift $ putStrLn "Unsupported form data encoding. TODO: Fix"
-                                    return []
-parseFormData _    _   = return []
+formParams :: StdMethod -> Request -> BL.ByteString -> [Param]
+formParams POST req body = case lookup "Content-Type" [(CI.mk k, CI.mk v) | (k,v) <- requestHeaders req] of
+                            Just "application/x-www-form-urlencoded" -> parseEncodedParams $ mconcat $ BL.toChunks body
+                            Just "application/json" -> []
+                            _ -> [] -- do lift $ putStrLn "Unsupported form data encoding. TODO: Fix"
+formParams _    _   _ = []
 
 queryParams :: Request -> [Param]
 queryParams = parseEncodedParams . rawQueryString
