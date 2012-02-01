@@ -29,8 +29,6 @@ module Web.Scotty
 import Blaze.ByteString.Builder (fromByteString, fromLazyByteString)
 
 import Control.Applicative
-import qualified Control.Exception as E
-import qualified Control.DeepSeq as DS
 import Control.Monad.Error
 import Control.Monad.Reader
 import qualified Control.Monad.State as MS
@@ -51,9 +49,6 @@ import Network.HTTP.Types
 import Network.Wai
 import Network.Wai.Handler.Warp (Port, run)
 
-import Prelude hiding (catch) -- this always trips me up
-
-import System.IO.Unsafe (unsafePerformIO)
 import Web.Scotty.Util
 
 data ScottyState = ScottyState {
@@ -186,43 +181,39 @@ param k = do
     val <- lookup k <$> snd3 <$> ask
     case val of
         Nothing -> raise $ mconcat ["Param: ", k, " not found!"]
-        Just v  -> maybe next return $ parseParam v
+        Just v  -> either (const next) return $ parseParam v
 
 class Parsable a where
-    parseParam :: T.Text -> Maybe a
+    parseParam :: T.Text -> Either T.Text a
 
     -- if any individual element fails to parse, the whole list fails to parse.
-    parseParamList :: T.Text -> Maybe [a]
+    parseParamList :: T.Text -> Either T.Text [a]
     parseParamList t = sequence $ map parseParam (T.split (==',') t)
 
 -- No point using 'read' for Text, ByteString, Char, and String.
-instance Parsable T.Text where parseParam = Just
-instance Parsable B.ByteString where parseParam = Just . lazyTextToStrictByteString
+instance Parsable T.Text where parseParam = Right
+instance Parsable B.ByteString where parseParam = Right . lazyTextToStrictByteString
 instance Parsable Char where
     parseParam t = case T.unpack t of
-                    [c] -> Just c
-                    _   -> Nothing
-    parseParamList = Just . T.unpack -- String
+                    [c] -> Right c
+                    _   -> Left "parseParam Char: no parse"
+    parseParamList = Right . T.unpack -- String
 instance Parsable () where
-    parseParam t = if T.null t then Just () else Nothing
+    parseParam t = if T.null t then Right () else Left "parseParam Unit: no parse"
 
 instance (Parsable a) => Parsable [a] where parseParam = parseParamList
 
-instance Parsable Bool where parseParam = readMaybe
-instance Parsable Double where parseParam = readMaybe
-instance Parsable Float where parseParam = readMaybe
-instance Parsable Int where parseParam = readMaybe
-instance Parsable Integer where parseParam = readMaybe
+instance Parsable Bool where parseParam = readEither
+instance Parsable Double where parseParam = readEither
+instance Parsable Float where parseParam = readEither
+instance Parsable Int where parseParam = readEither
+instance Parsable Integer where parseParam = readEither
 
--- Called by parseParam. Uses 'read' to attempt to parse Text value, catching
--- any ErrorCall exceptions (which should be the No Parse error).
--- I use unsafePerformIO to avoid polluting the Parsable class with IO,
--- but I'm not sure it's entirely safe due to the DeepSeq.
-{-# NOINLINE readMaybe #-}
-readMaybe :: (Read a, DS.NFData a) => T.Text -> Maybe a
-readMaybe tv = unsafePerformIO $ E.handleJust E.fromException
-                                              (\(_::E.ErrorCall) -> return Nothing)
-                                              $ return DS.$!! Just $ read $ T.unpack tv
+readEither :: (Read a) => T.Text -> Either T.Text a
+readEither t = case [ x | (x,"") <- reads (T.unpack t) ] of
+                [x] -> Right x
+                []  -> Left "readEither: no parse"
+                _   -> Left "readEither: ambiguous parse"
 
 -- | get = addroute 'GET'
 get :: T.Text -> ActionM () -> ScottyM ()
