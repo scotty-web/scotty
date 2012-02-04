@@ -100,13 +100,13 @@ newtype ActionM a = AM { runAM :: ErrorT ActionError (ReaderT ActionEnv (MS.Stat
 
 -- Nothing indicates route failed (due to Next) and pattern matching should continue.
 -- Just indicates a successful response.
-runAction :: ActionEnv -> ActionM () -> ResourceT IO (Maybe Response)
+runAction :: ActionEnv -> ActionM () -> IO (Maybe Response)
 runAction env action = do
-    (e,r) <- lift $ flip MS.runStateT def
-                  $ flip runReaderT env
-                  $ runErrorT
-                  $ runAM
-                  $ action `catchError` defaultHandler
+    (e,r) <- flip MS.runStateT def
+           $ flip runReaderT env
+           $ runErrorT
+           $ runAM
+           $ action `catchError` defaultHandler
     return $ either (const Nothing) (const $ Just r) e
 
 defaultHandler :: ActionError -> ActionM ()
@@ -258,7 +258,7 @@ route method path action app req =
     then case matchRoute path (strictByteStringToLazyText $ rawPathInfo req) of
             Just captures -> do
                 env <- mkEnv method req captures
-                res <- runAction env action
+                res <- lift $ runAction env action
                 maybe tryNext return res
             Nothing -> tryNext
     else tryNext
