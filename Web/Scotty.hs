@@ -93,7 +93,7 @@ data ActionError = Redirect T.Text
 instance Error ActionError where
     strMsg = ActionError . T.pack
 
-type ActionEnv = (Request,[Param],BL.ByteString)
+data ActionEnv = Env { getReq :: Request, getParams :: [Param], getBody :: BL.ByteString }
 
 newtype ActionM a = AM { runAM :: ErrorT ActionError (ReaderT ActionEnv (MS.StateT Response IO)) a }
     deriving ( Monad, MonadIO, Functor
@@ -162,12 +162,12 @@ redirect = throwError . Redirect
 
 -- | Get the 'Request' object.
 request :: ActionM Request
-request = fst3 <$> ask
+request = getReq <$> ask
 
 -- | Parse the request body as a JSON object and return it. Raises an exception if parse is unsuccessful.
 jsonData :: (A.FromJSON a) => ActionM a
 jsonData = do
-    body <- thd3 <$> ask
+    body <- getBody <$> ask
     maybe (raise "jsonData: no parse") return $ A.decode body
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
@@ -179,7 +179,7 @@ jsonData = do
 --   capture cannot be parsed.
 param :: (Parsable a) => T.Text -> ActionM a
 param k = do
-    val <- lookup k <$> snd3 <$> ask
+    val <- lookup k <$> getParams <$> ask
     case val of
         Nothing -> raise $ mconcat ["Param: ", k, " not found!"]
         Just v  -> either (const next) return $ parseParam v
@@ -275,7 +275,7 @@ mkEnv method req captures = do
                         _ -> []
         queryparams = parseEncodedParams $ rawQueryString req
 
-    return (req, params, body)
+    return $ Env req params body
 
 parseEncodedParams :: B.ByteString -> [Param]
 parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]
