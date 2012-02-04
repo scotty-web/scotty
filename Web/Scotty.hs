@@ -15,7 +15,7 @@ module Web.Scotty
     , request, param, jsonData
       -- ** Modifying the Response and Redirecting
     , status, header, redirect
-      -- ** Setting Response
+      -- ** Setting Response Body
       --
       -- | Note: only one of these should be present in any given route
       -- definition, as they completely replace the current 'Response' body.
@@ -51,10 +51,9 @@ import Network.Wai.Handler.Warp (Port, run)
 
 import Web.Scotty.Util
 
-data ScottyState = ScottyState {
-        middlewares :: [Middleware],
-        routes :: [Middleware]
-    }
+data ScottyState = ScottyState { middlewares :: [Middleware]
+                               , routes :: [Middleware]
+                               }
 
 instance Default ScottyState where
     def = ScottyState [] []
