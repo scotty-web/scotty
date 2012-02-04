@@ -164,10 +164,11 @@ redirect = throwError . Redirect
 request :: ActionM Request
 request = fst3 <$> ask
 
+-- | Parse the request body as a JSON object and return it. Raises an exception if parse is unsuccessful.
 jsonData :: (A.FromJSON a) => ActionM a
 jsonData = do
     body <- thd3 <$> ask
-    maybe (raise "unable to parse JSON!") return $ A.decode body
+    maybe (raise "jsonData: no parse") return $ A.decode body
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
