@@ -1,5 +1,5 @@
 Scotty
-=====
+======
 
 A Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp.
 
