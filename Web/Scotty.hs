@@ -156,7 +156,7 @@ rescue action handler = catchError action $ \e -> case e of
 -- OR
 --
 -- > redirect "/foo/bar"
-redirect :: T.Text -> ActionM ()
+redirect :: T.Text -> ActionM a
 redirect = throwError . Redirect
 
 -- | Get the 'Request' object.
