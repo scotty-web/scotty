@@ -12,7 +12,7 @@ module Web.Scotty
     , middleware, get, post, put, delete, addroute
       -- * Defining Actions
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, param, jsonData
+    , request, body, param, jsonData
       -- ** Modifying the Response and Redirecting
     , status, header, redirect
       -- ** Setting Response Body
@@ -163,11 +163,15 @@ redirect = throwError . Redirect
 request :: ActionM Request
 request = getReq <$> ask
 
+-- | Get the request body.
+body :: ActionM BL.ByteString
+body = getBody <$> ask
+
 -- | Parse the request body as a JSON object and return it. Raises an exception if parse is unsuccessful.
 jsonData :: (A.FromJSON a) => ActionM a
 jsonData = do
-    body <- getBody <$> ask
-    maybe (raise "jsonData: no parse") return $ A.decode body
+    b <- body
+    maybe (raise "jsonData: no parse") return $ A.decode b
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
@@ -266,15 +270,15 @@ route method path action app req =
 
 mkEnv :: StdMethod -> Request -> [Param] -> ResourceT IO ActionEnv
 mkEnv method req captures = do
-    body <- BL.fromChunks <$> (lazyConsume $ requestBody req)
+    b <- BL.fromChunks <$> (lazyConsume $ requestBody req)
 
     let params = captures ++ formparams ++ queryparams
         formparams = case (method, lookup "Content-Type" [(CI.mk k, CI.mk v) | (k,v) <- requestHeaders req]) of
-                        (POST, Just "application/x-www-form-urlencoded") -> parseEncodedParams $ mconcat $ BL.toChunks body
+                        (POST, Just "application/x-www-form-urlencoded") -> parseEncodedParams $ mconcat $ BL.toChunks b
                         _ -> []
         queryparams = parseEncodedParams $ rawQueryString req
 
-    return $ Env req params body
+    return $ Env req params b
 
 parseEncodedParams :: B.ByteString -> [Param]
 parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]

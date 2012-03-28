@@ -23,7 +23,7 @@ main = scotty 3000 $ do
     middleware logStdoutDev
     middleware static
 
-    m <- liftIO $ newMVar (0::Int,M.empty)
+    m <- liftIO $ newMVar (0::Int,M.empty :: M.Map Int T.Text)
 
     get "/" $ do
         html $ renderHtml

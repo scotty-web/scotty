@@ -9,6 +9,8 @@ import System.Random (newStdGen, randomRs)
 
 import Network.HTTP.Types (status302)
 
+import Data.Text.Lazy.Encoding (decodeUtf8)
+
 main :: IO ()
 main = scotty 3000 $ do
     -- Add any WAI middleware, they are run top-down.
@@ -65,6 +67,17 @@ main = scotty 3000 $ do
     get "/ints/:is" $ do
         is <- param "is"
         json $ [(1::Int)..10] ++ is
+
+    get "/setbody" $ do
+        html $ mconcat ["<form method=POST action=\"readbody\">"
+                       ,"<input type=text name=something>"
+                       ,"<input type=submit>"
+                       ,"</form>"
+                       ]
+
+    post "/readbody" $ do
+        b <- body
+        text $ decodeUtf8 b
 
 {- If you don't want to use Warp as your webserver,
    you can use any WAI handler.
