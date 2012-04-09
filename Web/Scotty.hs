@@ -284,9 +284,10 @@ delete :: RoutePattern -> ActionM () -> ScottyM ()
 delete = addroute DELETE
 
 -- | matchAll = Add a route of each type
-matchAll action = mapM_ (match action) [get, post, put, delete]
+matchAll :: ActionM () -> ScottyM ()
+matchAll action = mapM_ match [get, post, put, delete]
   where
-    match action method = method matchall $ action
+    match method = method matchall action
     matchall = Function (\x -> Just [("path", x)])
 
 -- | Define a route with a 'StdMethod', 'T.Text' value representing the path spec,
@@ -323,13 +324,13 @@ mkEnv :: StdMethod -> Request -> [Param] -> ResourceT IO ActionEnv
 mkEnv method req captures = do
     b <- BL.fromChunks <$> (lazyConsume $ requestBody req)
 
-    let params = captures ++ formparams ++ queryparams
+    let parameters = captures ++ formparams ++ queryparams
         formparams = case (method, lookup "Content-Type" [(CI.mk k, CI.mk v) | (k,v) <- requestHeaders req]) of
                         (POST, Just "application/x-www-form-urlencoded") -> parseEncodedParams $ mconcat $ BL.toChunks b
                         _ -> []
         queryparams = parseEncodedParams $ rawQueryString req
 
-    return $ Env req params b
+    return $ Env req parameters b
 
 parseEncodedParams :: B.ByteString -> [Param]
 parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]
