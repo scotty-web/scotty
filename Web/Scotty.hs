@@ -297,15 +297,6 @@ addroute :: StdMethod -> RoutePattern -> ActionM () -> ScottyM ()
 addroute method path action = MS.modify (\ (ScottyState ms rs) -> ScottyState ms (r:rs))
     where r = route method path action
 
--- Not sure why the slash is always being added... What's going on here?
-{-
-addroute method (Keyword path) action = MS.modify (\ (ScottyState ms rs) -> ScottyState ms (r:rs))
-    where r = route method withSlash action
-          withSlash = case T.uncons path of
-                        Just ('/',_) -> Literal path
-                        _            -> Literal (T.cons '/' path)
--}
-
 route :: StdMethod -> RoutePattern -> ActionM () -> Middleware
 route method path action app req =
     if Right method == parseMethod (requestMethod req)
