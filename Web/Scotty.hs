@@ -90,8 +90,9 @@ regexRoute pattern = Function rr
       where
         txt     = T.unpack t
         regex   = Regex.mkRegex pattern
-        results = fmap (map (T.pack . show *** T.pack) . zip [0 :: Int ..])
-                       (Regex.matchRegex regex txt)
+        results = fmap (map (T.pack . show *** T.pack) . zip [0 :: Int ..] . strip)
+                       (Regex.matchRegexAll regex txt)
+        strip (_, match, _, subs) = match : subs
 
 instance IsString RoutePattern where fromString x = Keyword (T.pack x)
 
