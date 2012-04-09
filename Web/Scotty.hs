@@ -55,6 +55,7 @@ import Web.Scotty.Util
 import Data.String
 
 import qualified Text.Regex as Regex
+import Control.Arrow
 
 -- | Provides an interface for defining how different routes can be specified
 --   This includes three options:
@@ -73,13 +74,21 @@ data RoutePattern = Keyword   T.Text
                   | Literal   T.Text
                   | Function (T.Text -> Maybe [Param])
 
-regexRoute :: String -> T.Text -> Maybe [T.Text]
-regexRoute pattern t = results
+-- | Provides a shorthand for creating a regex-based route pattern
+--   No named captures are supported at this point and instead you
+--   look up each match via its (Text) regex index number.
+--
+--   GET "/users/sam" -> regexRoute "^/u(.*)m$" -> Just [("0", "/users/sam"), ("1","sers/sa")]
+--
+regexRoute :: String -> RoutePattern
+regexRoute pattern = Function rr
   where
-    text    = T.unpack t
-    regex   = Regex.mkRegex pattern
-    results = fmap (map T.pack) $ Regex.matchRegex regex text
-
+    rr t = results
+      where
+        text    = T.unpack t
+        regex   = Regex.mkRegex pattern
+        results = fmap (map (T.pack . show *** T.pack) . zip [0..])
+                       (Regex.matchRegex regex text)
 
 instance IsString RoutePattern where fromString x = Keyword (T.pack x)
 
