@@ -24,6 +24,8 @@ module Web.Scotty
     , raise, rescue, next
       -- * Types
     , ScottyM, ActionM, Parsable
+    , RoutePattern(..)
+    , regexRoute
     ) where
 
 import Blaze.ByteString.Builder (fromByteString, fromLazyByteString)
@@ -50,6 +52,36 @@ import Network.Wai
 import Network.Wai.Handler.Warp (Port, run)
 
 import Web.Scotty.Util
+import Data.String
+
+import qualified Text.Regex as Regex
+
+-- | Provides an interface for defining how different routes can be specified
+--   This includes three options:
+--
+--   Keyword  - The standard approach to Sinatra style routes
+--              GET "/users/sam"   -> Keyword "/users/:user" -> Just [("user","sam")]
+--
+--   Function - Let the user specify how their route matches
+--              GET "/users/sam"   -> Function (const (Just [("hello", "world")])) -> Just [("hello","world")]
+--
+--   Literal  - Ignore route parameters and match literally
+--              GET "/users/sam"   -> Literal "/users/:user" -> Nothing
+--              GET "/users/:user" -> Literal "/users/:user" -> Just []
+--
+data RoutePattern = Keyword   T.Text
+                  | Literal   T.Text
+                  | Function (T.Text -> Maybe [Param])
+
+regexRoute :: String -> T.Text -> Maybe [T.Text]
+regexRoute pattern t = results
+  where
+    text    = T.unpack t
+    regex   = Regex.mkRegex pattern
+    results = fmap (map T.pack) $ Regex.matchRegex regex text
+
+
+instance IsString RoutePattern where fromString x = Keyword (T.pack x)
 
 data ScottyState = ScottyState { middlewares :: [Middleware]
                                , routes :: [Middleware]
@@ -220,19 +252,19 @@ readEither t = case [ x | (x,"") <- reads (T.unpack t) ] of
                 _   -> Left "readEither: ambiguous parse"
 
 -- | get = addroute 'GET'
-get :: T.Text -> ActionM () -> ScottyM ()
+get :: RoutePattern -> ActionM () -> ScottyM ()
 get = addroute GET
 
 -- | post = addroute 'POST'
-post :: T.Text -> ActionM () -> ScottyM ()
+post :: RoutePattern -> ActionM () -> ScottyM ()
 post = addroute POST
 
 -- | put = addroute 'PUT'
-put :: T.Text -> ActionM () -> ScottyM ()
+put :: RoutePattern -> ActionM () -> ScottyM ()
 put = addroute PUT
 
 -- | delete = addroute 'DELETE'
-delete :: T.Text -> ActionM () -> ScottyM ()
+delete :: RoutePattern -> ActionM () -> ScottyM ()
 delete = addroute DELETE
 
 -- | Define a route with a 'StdMethod', 'T.Text' value representing the path spec,
@@ -249,14 +281,20 @@ delete = addroute DELETE
 --
 -- >>> curl http://localhost:3000/foo/something
 -- something
-addroute :: StdMethod -> T.Text -> ActionM () -> ScottyM ()
+addroute :: StdMethod -> RoutePattern -> ActionM () -> ScottyM ()
 addroute method path action = MS.modify (\ (ScottyState ms rs) -> ScottyState ms (r:rs))
+    where r = route method path action
+
+-- Not sure why the slash is always being added... What's going on here?
+{-
+addroute method (Keyword path) action = MS.modify (\ (ScottyState ms rs) -> ScottyState ms (r:rs))
     where r = route method withSlash action
           withSlash = case T.uncons path of
-                        Just ('/',_) -> path
-                        _            -> T.cons '/' path
+                        Just ('/',_) -> Literal path
+                        _            -> Literal (T.cons '/' path)
+-}
 
-route :: StdMethod -> T.Text -> ActionM () -> Middleware
+route :: StdMethod -> RoutePattern -> ActionM () -> Middleware
 route method path action app req =
     if Right method == parseMethod (requestMethod req)
     then case matchRoute path (strictByteStringToLazyText $ rawPathInfo req) of
@@ -284,17 +322,22 @@ parseEncodedParams :: B.ByteString -> [Param]
 parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]
 
 -- todo: wildcards?
-matchRoute :: T.Text -> T.Text -> Maybe [Param]
-matchRoute pat req = go (T.split (=='/') pat) (T.split (=='/') req) []
-    where go [] [] ps = Just ps -- request string and pattern match!
-          go [] r  ps | T.null (mconcat r)  = Just ps -- in case request has trailing slashes
-                      | otherwise           = Nothing -- request string is longer than pattern
-          go p  [] ps | T.null (mconcat p)  = Just ps -- in case pattern has trailing slashes
-                      | otherwise           = Nothing -- request string is not long enough
+matchRoute :: RoutePattern -> T.Text -> Maybe [Param]
+
+matchRoute (Literal pat) req | pat == req = Just []
+                             | otherwise  = Nothing
+
+matchRoute (Function fun) req = fun req
+
+matchRoute (Keyword pat) req = go (T.split (=='/') pat) (T.split (=='/') req) []
+    where go [] [] prs = Just prs -- request string and pattern match!
+          go [] r  prs | T.null (mconcat r)  = Just prs -- in case request has trailing slashes
+                       | otherwise           = Nothing  -- request string is longer than pattern
+          go p  [] prs | T.null (mconcat p)  = Just prs -- in case pattern has trailing slashes
+                       | otherwise           = Nothing  -- request string is not long enough
           go (p:ps) (r:rs) prs | p == r          = go ps rs prs -- equal literals, keeping checking
                                | T.null p        = Nothing      -- p is null, but r is not, fail
-                               | T.head p == ':' = go ps rs $ (T.tail p, r) : prs
-                                                                -- p is a capture, add to params
+                               | T.head p == ':' = go ps rs $ (T.tail p, r) : prs -- p is a capture, add to params
                                | otherwise       = Nothing      -- both literals, but unequal, fail
 
 -- | Set the HTTP response status. Default is 200.
