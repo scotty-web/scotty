@@ -76,7 +76,8 @@ Library
                        mtl              >= 2.0.1,
                        text             >= 0.11.1,
                        wai              >= 1.0.0,
-                       warp             >= 1.0.0
+                       warp             >= 1.0.0,
+                       resourcet        >= 0.3.2
 
   GHC-options: -Wall -fno-warn-orphans
 
