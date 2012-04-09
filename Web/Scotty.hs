@@ -25,7 +25,6 @@ module Web.Scotty
       -- * Types
     , ScottyM, ActionM, Parsable
     , RoutePattern(..)
-    , regexRoute
     ) where
 
 import Blaze.ByteString.Builder (fromByteString, fromLazyByteString)
@@ -55,7 +54,7 @@ import Web.Scotty.Util
 import Data.String
 
 import qualified Text.Regex as Regex
-import Control.Arrow
+import Control.Arrow ((***))
 
 -- | Provides an interface for defining how different routes can be specified
 --   This includes three options:
@@ -70,13 +69,17 @@ import Control.Arrow
 --              GET "/users/sam"   -> Literal "/users/:user" -> Nothing
 --              GET "/users/:user" -> Literal "/users/:user" -> Just []
 --
+--   Regex    - Match path against a regular expression.
+--              GET "/users/sam" -> regexRoute "^/u(.*)m$" -> Just [("0", "/users/sam"), ("1","sers/sa")]
+--
 data RoutePattern = Keyword   T.Text
                   | Literal   T.Text
+                  | Regex     String
                   | Function (T.Text -> Maybe [Param])
 
--- | Provides a shorthand for creating a regex-based route pattern
---   No named captures are supported at this point and instead you
---   look up each match via its (Text) regex index number.
+-- Provides a shorthand for creating a regex-based route pattern
+-- No named captures are supported at this point and instead you
+-- look up each match via its (Text) regex index number.
 --
 --   GET "/users/sam" -> regexRoute "^/u(.*)m$" -> Just [("0", "/users/sam"), ("1","sers/sa")]
 --
@@ -85,10 +88,10 @@ regexRoute pattern = Function rr
   where
     rr t = results
       where
-        text    = T.unpack t
+        txt     = T.unpack t
         regex   = Regex.mkRegex pattern
-        results = fmap (map (T.pack . show *** T.pack) . zip [0..])
-                       (Regex.matchRegex regex text)
+        results = fmap (map (T.pack . show *** T.pack) . zip [0 :: Int ..])
+                       (Regex.matchRegex regex txt)
 
 instance IsString RoutePattern where fromString x = Keyword (T.pack x)
 
@@ -335,6 +338,8 @@ matchRoute :: RoutePattern -> T.Text -> Maybe [Param]
 
 matchRoute (Literal pat) req | pat == req = Just []
                              | otherwise  = Nothing
+
+matchRoute (Regex pat) req = matchRoute (regexRoute pat) req
 
 matchRoute (Function fun) req = fun req
 
