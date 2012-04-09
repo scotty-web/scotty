@@ -9,10 +9,10 @@ module Web.Scotty
       -- | 'Middleware' and routes are run in the order in which they
       -- are defined. All middleware is run first, followed by the first
       -- route that matches. If no route matches, a 404 response is given.
-    , middleware, get, post, put, delete, addroute
+    , middleware, get, post, put, delete, addroute, matchAll
       -- * Defining Actions
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, body, param, jsonData
+    , request, body, param, params, jsonData
       -- ** Modifying the Response and Redirecting
     , status, header, redirect
       -- ** Setting Response Body
@@ -232,6 +232,9 @@ param k = do
         Nothing -> raise $ mconcat ["Param: ", k, " not found!"]
         Just v  -> either (const next) return $ parseParam v
 
+params :: ActionM [(T.Text, T.Text)]
+params = getParams <$> ask
+
 class Parsable a where
     parseParam :: T.Text -> Either T.Text a
 
@@ -279,6 +282,12 @@ put = addroute PUT
 -- | delete = addroute 'DELETE'
 delete :: RoutePattern -> ActionM () -> ScottyM ()
 delete = addroute DELETE
+
+-- | matchAll = Add a route of each type
+matchAll action = mapM_ (match action) [get, post, put, delete]
+  where
+    match action method = method matchall $ action
+    matchall = Function (\x -> Just [("path", x)])
 
 -- | Define a route with a 'StdMethod', 'T.Text' value representing the path spec,
 -- and a body ('ActionM') which modifies the response.
