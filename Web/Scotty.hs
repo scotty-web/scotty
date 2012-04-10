@@ -59,18 +59,18 @@ import Control.Arrow ((***))
 -- | Provides an interface for defining how different routes can be specified
 --   This includes three options:
 --
---   Keyword  - The standard approach to Sinatra style routes
---              GET "/users/sam"   -> Keyword "/users/:user" -> Just [("user","sam")]
---
---   Function - Let the user specify how their route matches
---              GET "/users/sam"   -> Function (const (Just [("hello", "world")])) -> Just [("hello","world")]
---
---   Literal  - Ignore route parameters and match literally
---              GET "/users/sam"   -> Literal "/users/:user" -> Nothing
---              GET "/users/:user" -> Literal "/users/:user" -> Just []
---
---   Regex    - Match path against a regular expression.
---              GET "/users/sam" -> regexRoute "^/u(.*)m$" -> Just [("0", "/users/sam"), ("1","sers/sa")]
+-- > Keyword  - The standard approach to Sinatra style routes
+-- >            GET "/users/sam"   -> Keyword "/users/:user" -> Just [("user","sam")]
+-- >
+-- > Function - Let the user specify how their route matches
+-- >            GET "/users/sam"   -> Function (const (Just [("hello", "world")])) -> Just [("hello","world")]
+-- >
+-- > Literal  - Ignore route parameters and match literally
+-- >            GET "/users/sam"   -> Literal "/users/:user" -> Nothing
+-- >            GET "/users/:user" -> Literal "/users/:user" -> Just []
+-- >
+-- > Regex    - Match path against a regular expression.
+-- >            GET "/users/sam" -> regexRoute "^/u(.*)m$" -> Just [("0", "/users/sam"), ("1","sers/sa")]
 --
 data RoutePattern = Keyword   T.Text
                   | Literal   T.Text
@@ -81,7 +81,7 @@ data RoutePattern = Keyword   T.Text
 -- No named captures are supported at this point and instead you
 -- look up each match via its (Text) regex index number.
 --
---   GET "/users/sam" -> regexRoute "^/u(.*)m$" -> Just [("0", "/users/sam"), ("1","sers/sa")]
+-- > GET "/users/sam" -> regexRoute "^/u(.*)m$" -> Just [("0", "/users/sam"), ("1","sers/sa")]
 --
 regexRoute :: String -> RoutePattern
 regexRoute pattern = Function rr
@@ -108,7 +108,7 @@ newtype ScottyM a = S { runS :: MS.StateT ScottyState IO a }
 
 -- | Run a scotty application using the warp server.
 scotty :: Port -> ScottyM () -> IO ()
-scotty p s = putStrLn "Setting phasers to stun... (ctrl-c to quit)" >> (run p =<< scottyApp s)
+scotty p s = putStrLn ("Setting phasers to stun... (ctrl-c to quit) (port " ++ (show p) ++ ")") >> (run p =<< scottyApp s)
 
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
