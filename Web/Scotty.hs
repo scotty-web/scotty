@@ -9,7 +9,9 @@ module Web.Scotty
       -- | 'Middleware' and routes are run in the order in which they
       -- are defined. All middleware is run first, followed by the first
       -- route that matches. If no route matches, a 404 response is given.
-    , middleware, get, post, put, delete, addroute, matchAll
+      -- Be careful to ensure that notFound is the last route, as it will
+      -- match everything take precedence over later routes.
+    , middleware, get, post, put, delete, addroute, matchAll, notFound
       -- * Defining Actions
       -- ** Accessing the Request, Captures, and Query Parameters
     , request, body, param, params, jsonData
@@ -108,7 +110,7 @@ newtype ScottyM a = S { runS :: MS.StateT ScottyState IO a }
 
 -- | Run a scotty application using the warp server.
 scotty :: Port -> ScottyM () -> IO ()
-scotty p s = putStrLn ("Setting phasers to stun... (ctrl-c to quit) (port " ++ (show p) ++ ")") >> (run p =<< scottyApp s)
+scotty p s = putStrLn ("Setting phasers to stun... (ctrl-c to quit) (port " ++ show p ++ ")") >> (run p =<< scottyApp s)
 
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
@@ -240,7 +242,7 @@ class Parsable a where
 
     -- if any individual element fails to parse, the whole list fails to parse.
     parseParamList :: T.Text -> Either T.Text [a]
-    parseParamList t = sequence $ map parseParam (T.split (==',') t)
+    parseParamList t = mapM parseParam (T.split (== ',') t)
 
 -- No point using 'read' for Text, ByteString, Char, and String.
 instance Parsable T.Text where parseParam = Right
@@ -283,12 +285,13 @@ put = addroute PUT
 delete :: RoutePattern -> ActionM () -> ScottyM ()
 delete = addroute DELETE
 
--- | matchAll = Add a route of each type
-matchAll :: ActionM () -> ScottyM ()
-matchAll action = mapM_ match [get, post, put, delete]
-  where
-    match method = method matchall action
-    matchall = Function (\x -> Just [("path", x)])
+-- | Add a route for each StdMethod type
+matchAll :: RoutePattern -> ActionM () -> ScottyM ()
+matchAll pattern action = mapM_ (\m -> m pattern action) [get, post, put, delete]
+
+-- | Specify an action to take if nothing else is found
+notFound :: ActionM () -> ScottyM ()
+notFound action = matchAll (Function (\x -> Just [("path", x)])) (status status404 >> action)
 
 -- | Define a route with a 'StdMethod', 'T.Text' value representing the path spec,
 -- and a body ('ActionM') which modifies the response.
@@ -322,7 +325,7 @@ route method path action app req =
 
 mkEnv :: StdMethod -> Request -> [Param] -> ResourceT IO ActionEnv
 mkEnv method req captures = do
-    b <- BL.fromChunks <$> (lazyConsume $ requestBody req)
+    b <- BL.fromChunks <$> lazyConsume (requestBody req)
 
     let parameters = captures ++ formparams ++ queryparams
         formparams = case (method, lookup "Content-Type" [(CI.mk k, CI.mk v) | (k,v) <- requestHeaders req]) of
