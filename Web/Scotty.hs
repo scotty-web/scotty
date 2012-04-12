@@ -9,10 +9,12 @@ module Web.Scotty
       -- | 'Middleware' and routes are run in the order in which they
       -- are defined. All middleware is run first, followed by the first
       -- route that matches. If no route matches, a 404 response is given.
-    , middleware, get, post, put, delete, addroute
+      -- Be careful to ensure that notFound is the last route, as it will
+      -- match everything take precedence over later routes.
+    , middleware, get, post, put, delete, addroute, matchAll, notFound
       -- * Defining Actions
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, body, param, jsonData
+    , request, body, param, params, jsonData
       -- ** Modifying the Response and Redirecting
     , status, header, redirect
       -- ** Setting Response Body
@@ -24,6 +26,7 @@ module Web.Scotty
     , raise, rescue, next
       -- * Types
     , ScottyM, ActionM, Parsable
+    , RoutePattern(..)
     ) where
 
 import Blaze.ByteString.Builder (fromByteString, fromLazyByteString)
@@ -50,6 +53,50 @@ import Network.Wai
 import Network.Wai.Handler.Warp (Port, run)
 
 import Web.Scotty.Util
+import Data.String
+
+import qualified Text.Regex as Regex
+import Control.Arrow ((***))
+
+-- | Provides an interface for defining how different routes can be specified
+--   This includes three options:
+--
+-- > Keyword  - The standard approach to Sinatra style routes
+-- >            GET "/users/sam"   -> Keyword "/users/:user" -> Just [("user","sam")]
+-- >
+-- > Function - Let the user specify how their route matches
+-- >            GET "/users/sam"   -> Function (const (Just [("hello", "world")])) -> Just [("hello","world")]
+-- >
+-- > Literal  - Ignore route parameters and match literally
+-- >            GET "/users/sam"   -> Literal "/users/:user" -> Nothing
+-- >            GET "/users/:user" -> Literal "/users/:user" -> Just []
+-- >
+-- > Regex    - Match path against a regular expression.
+-- >            GET "/users/sam" -> regexRoute "^/u(.*)m$" -> Just [("0", "/users/sam"), ("1","sers/sa")]
+--
+data RoutePattern = Keyword   T.Text
+                  | Literal   T.Text
+                  | Regex     String
+                  | Function (T.Text -> Maybe [Param])
+
+-- Provides a shorthand for creating a regex-based route pattern
+-- No named captures are supported at this point and instead you
+-- look up each match via its (Text) regex index number.
+--
+-- > GET "/users/sam" -> regexRoute "^/u(.*)m$" -> Just [("0", "/users/sam"), ("1","sers/sa")]
+--
+regexRoute :: String -> RoutePattern
+regexRoute pattern = Function rr
+  where
+    rr t = results
+      where
+        txt     = T.unpack t
+        regex   = Regex.mkRegex pattern
+        results = fmap (map (T.pack . show *** T.pack) . zip [0 :: Int ..] . strip)
+                       (Regex.matchRegexAll regex txt)
+        strip (_, match, _, subs) = match : subs
+
+instance IsString RoutePattern where fromString x = Keyword (T.pack x)
 
 data ScottyState = ScottyState { middlewares :: [Middleware]
                                , routes :: [Middleware]
@@ -63,7 +110,7 @@ newtype ScottyM a = S { runS :: MS.StateT ScottyState IO a }
 
 -- | Run a scotty application using the warp server.
 scotty :: Port -> ScottyM () -> IO ()
-scotty p s = putStrLn "Setting phasers to stun... (ctrl-c to quit)" >> (run p =<< scottyApp s)
+scotty p s = putStrLn ("Setting phasers to stun... (ctrl-c to quit) (port " ++ show p ++ ")") >> (run p =<< scottyApp s)
 
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
@@ -187,12 +234,15 @@ param k = do
         Nothing -> raise $ mconcat ["Param: ", k, " not found!"]
         Just v  -> either (const next) return $ parseParam v
 
+params :: ActionM [(T.Text, T.Text)]
+params = getParams <$> ask
+
 class Parsable a where
     parseParam :: T.Text -> Either T.Text a
 
     -- if any individual element fails to parse, the whole list fails to parse.
     parseParamList :: T.Text -> Either T.Text [a]
-    parseParamList t = sequence $ map parseParam (T.split (==',') t)
+    parseParamList t = mapM parseParam (T.split (== ',') t)
 
 -- No point using 'read' for Text, ByteString, Char, and String.
 instance Parsable T.Text where parseParam = Right
@@ -220,20 +270,28 @@ readEither t = case [ x | (x,"") <- reads (T.unpack t) ] of
                 _   -> Left "readEither: ambiguous parse"
 
 -- | get = addroute 'GET'
-get :: T.Text -> ActionM () -> ScottyM ()
+get :: RoutePattern -> ActionM () -> ScottyM ()
 get = addroute GET
 
 -- | post = addroute 'POST'
-post :: T.Text -> ActionM () -> ScottyM ()
+post :: RoutePattern -> ActionM () -> ScottyM ()
 post = addroute POST
 
 -- | put = addroute 'PUT'
-put :: T.Text -> ActionM () -> ScottyM ()
+put :: RoutePattern -> ActionM () -> ScottyM ()
 put = addroute PUT
 
 -- | delete = addroute 'DELETE'
-delete :: T.Text -> ActionM () -> ScottyM ()
+delete :: RoutePattern -> ActionM () -> ScottyM ()
 delete = addroute DELETE
+
+-- | Add a route for each StdMethod type
+matchAll :: RoutePattern -> ActionM () -> ScottyM ()
+matchAll pattern action = mapM_ (\m -> m pattern action) [get, post, put, delete]
+
+-- | Specify an action to take if nothing else is found
+notFound :: ActionM () -> ScottyM ()
+notFound action = matchAll (Function (\x -> Just [("path", x)])) (status status404 >> action)
 
 -- | Define a route with a 'StdMethod', 'T.Text' value representing the path spec,
 -- and a body ('ActionM') which modifies the response.
@@ -249,14 +307,11 @@ delete = addroute DELETE
 --
 -- >>> curl http://localhost:3000/foo/something
 -- something
-addroute :: StdMethod -> T.Text -> ActionM () -> ScottyM ()
+addroute :: StdMethod -> RoutePattern -> ActionM () -> ScottyM ()
 addroute method path action = MS.modify (\ (ScottyState ms rs) -> ScottyState ms (r:rs))
-    where r = route method withSlash action
-          withSlash = case T.uncons path of
-                        Just ('/',_) -> path
-                        _            -> T.cons '/' path
+    where r = route method path action
 
-route :: StdMethod -> T.Text -> ActionM () -> Middleware
+route :: StdMethod -> RoutePattern -> ActionM () -> Middleware
 route method path action app req =
     if Right method == parseMethod (requestMethod req)
     then case matchRoute path (strictByteStringToLazyText $ rawPathInfo req) of
@@ -270,31 +325,38 @@ route method path action app req =
 
 mkEnv :: StdMethod -> Request -> [Param] -> ResourceT IO ActionEnv
 mkEnv method req captures = do
-    b <- BL.fromChunks <$> (lazyConsume $ requestBody req)
+    b <- BL.fromChunks <$> lazyConsume (requestBody req)
 
-    let params = captures ++ formparams ++ queryparams
+    let parameters = captures ++ formparams ++ queryparams
         formparams = case (method, lookup "Content-Type" [(CI.mk k, CI.mk v) | (k,v) <- requestHeaders req]) of
                         (POST, Just "application/x-www-form-urlencoded") -> parseEncodedParams $ mconcat $ BL.toChunks b
                         _ -> []
         queryparams = parseEncodedParams $ rawQueryString req
 
-    return $ Env req params b
+    return $ Env req parameters b
 
 parseEncodedParams :: B.ByteString -> [Param]
 parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]
 
 -- todo: wildcards?
-matchRoute :: T.Text -> T.Text -> Maybe [Param]
-matchRoute pat req = go (T.split (=='/') pat) (T.split (=='/') req) []
-    where go [] [] ps = Just ps -- request string and pattern match!
-          go [] r  ps | T.null (mconcat r)  = Just ps -- in case request has trailing slashes
-                      | otherwise           = Nothing -- request string is longer than pattern
-          go p  [] ps | T.null (mconcat p)  = Just ps -- in case pattern has trailing slashes
-                      | otherwise           = Nothing -- request string is not long enough
+matchRoute :: RoutePattern -> T.Text -> Maybe [Param]
+
+matchRoute (Literal pat) req | pat == req = Just []
+                             | otherwise  = Nothing
+
+matchRoute (Regex pat) req = matchRoute (regexRoute pat) req
+
+matchRoute (Function fun) req = fun req
+
+matchRoute (Keyword pat) req = go (T.split (=='/') pat) (T.split (=='/') req) []
+    where go [] [] prs = Just prs -- request string and pattern match!
+          go [] r  prs | T.null (mconcat r)  = Just prs -- in case request has trailing slashes
+                       | otherwise           = Nothing  -- request string is longer than pattern
+          go p  [] prs | T.null (mconcat p)  = Just prs -- in case pattern has trailing slashes
+                       | otherwise           = Nothing  -- request string is not long enough
           go (p:ps) (r:rs) prs | p == r          = go ps rs prs -- equal literals, keeping checking
                                | T.null p        = Nothing      -- p is null, but r is not, fail
-                               | T.head p == ':' = go ps rs $ (T.tail p, r) : prs
-                                                                -- p is a capture, add to params
+                               | T.head p == ':' = go ps rs $ (T.tail p, r) : prs -- p is a capture, add to params
                                | otherwise       = Nothing      -- both literals, but unequal, fail
 
 -- | Set the HTTP response status. Default is 200.
