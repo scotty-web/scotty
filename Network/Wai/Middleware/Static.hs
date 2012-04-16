@@ -26,7 +26,7 @@ static = staticRoot ""
 -- > static = staticRoot ""
 staticRoot :: T.Text -> Middleware
 staticRoot base app req =
-    if ".." `isInfixOf` fStr
+    if ".." `isInfixOf` (F.encodeString fp) -- for security reasons
       then app req
       else do exists <- liftIO $ doesFileExist fStr
               if exists
@@ -40,13 +40,11 @@ getMimeType = go . map E.encodeUtf8 . F.extensions
     where go [] = defaultMimeType
           go exts = fromMaybe (go $ tail exts) $ M.lookup (B.intercalate "." exts) defaultMimeTypes
 
-type MimeMap = M.Map B.ByteString B.ByteString
-
 defaultMimeType :: B.ByteString
 defaultMimeType = "application/octet-stream"
 
 -- This list taken from snap-core's Snap.Util.FileServe
-defaultMimeTypes :: MimeMap
+defaultMimeTypes :: M.Map B.ByteString B.ByteString
 defaultMimeTypes = M.fromList [
   ( "asc"     , "text/plain"                        ),
   ( "asf"     , "video/x-ms-asf"                    ),
