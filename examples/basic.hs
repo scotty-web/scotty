@@ -8,6 +8,8 @@ import Data.Monoid
 import System.Random (newStdGen, randomRs)
 
 import Network.HTTP.Types (status302)
+import Network.Wai
+import qualified Data.Text.Lazy as T
 
 import Data.Text.Lazy.Encoding (decodeUtf8)
 
@@ -15,6 +17,10 @@ main :: IO ()
 main = scotty 3000 $ do
     -- Add any WAI middleware, they are run top-down.
     middleware logStdoutDev
+
+--    get (function $ \req -> Just [("version", T.pack $ show $ httpVersion req)]) $ do
+--        v <- param "version"
+--        text v
 
     -- To demonstrate that routes are matched top-down.
     get "/" $ text "foobar"
