@@ -1,6 +1,4 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
--- | It should be noted that most of the code snippets below depend on the
--- OverloadedStrings language pragma.
 module Web.Scotty.Types where
 
 import Control.Monad.Error
@@ -14,12 +12,6 @@ import Data.Text.Lazy (Text, pack)
 import Network.Wai
 
 import Data.String (IsString(..))
-
-data RoutePattern = Capture   Text
-                  | Literal   Text
-                  | Function  (Request -> Maybe [Param])
-
-instance IsString RoutePattern where fromString = Capture . pack
 
 data ScottyState = ScottyState { middlewares :: [Middleware]
                                , routes :: [Middleware]
@@ -52,3 +44,9 @@ data ActionEnv = Env { getReq :: Request, getParams :: [Param], getBody :: ByteS
 newtype ActionM a = AM { runAM :: ErrorT ActionError (ReaderT ActionEnv (StateT Response IO)) a }
     deriving ( Monad, MonadIO, Functor
              , MonadReader ActionEnv, MonadState Response, MonadError ActionError)
+
+data RoutePattern = Capture   Text
+                  | Literal   Text
+                  | Function  (Request -> Maybe [Param])
+
+instance IsString RoutePattern where fromString = Capture . pack
