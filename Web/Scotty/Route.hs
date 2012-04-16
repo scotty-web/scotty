@@ -41,7 +41,8 @@ delete = addroute DELETE
 matchAny :: RoutePattern -> ActionM () -> ScottyM ()
 matchAny pattern action = mapM_ (\v -> addroute v pattern action) [minBound..maxBound]
 
--- | Specify an action to take if nothing else is found
+-- | Specify an action to take if nothing else is found. Note: this _always_ matches,
+-- so should generally be the last route specified.
 notFound :: ActionM () -> ScottyM ()
 notFound action = matchAny (Function (\req -> Just [("path", path req)])) (status status404 >> action)
 
