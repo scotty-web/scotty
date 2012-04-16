@@ -1,6 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
--- | It should be noted that most of the code snippets below depend on the
--- OverloadedStrings language pragma.
 module Web.Scotty.Route
     ( get, post, put, delete, addroute, matchAny, notFound,
       capture, regex, function, literal

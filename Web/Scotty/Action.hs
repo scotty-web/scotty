@@ -1,20 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
--- | It should be noted that most of the code snippets below depend on the
--- OverloadedStrings language pragma.
 module Web.Scotty.Action
-    ( -- * Defining Actions
-      -- ** Accessing the Request, Captures, and Query Parameters
-      request, body, param, jsonData
-      -- ** Modifying the Response and Redirecting
+    ( request, body, param, jsonData
     , status, header, redirect
-      -- ** Setting Response Body
-      --
-      -- | Note: only one of these should be present in any given route
-      -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json
-      -- ** Exceptions
     , raise, rescue, next
-      -- * Types
     , ActionM, Parsable, Param, mkEnv, runAction
     ) where
 
