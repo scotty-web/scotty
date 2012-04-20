@@ -12,11 +12,10 @@ import qualified Control.Monad.State as MS
 
 import Data.Monoid (mconcat)
 import qualified Data.Text.Lazy as T
+import qualified Data.Text as TS
 
 import Network.HTTP.Types
 import Network.Wai
-
-import Web.Scotty.Util
 
 import qualified Text.Regex as Regex
 import Control.Arrow ((***))
@@ -94,8 +93,9 @@ matchRoute (Capture pat) req = go (T.split (=='/') pat) (T.split (=='/') $ path 
                                | T.head p == ':' = go ps rs $ (T.tail p, r) : prs -- p is a capture, add to params
                                | otherwise       = Nothing      -- both literals, but unequal, fail
 
+-- Pretend we are at the top level.
 path :: Request -> T.Text
-path = strictByteStringToLazyText . rawPathInfo
+path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo
 
 -- | Match requests using a regular expression.
 --   Named captures are not yet supported.
