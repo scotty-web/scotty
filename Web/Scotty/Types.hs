@@ -7,11 +7,10 @@ import Control.Monad.State
 
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Default (Default, def)
+import Data.String (IsString(..))
 import Data.Text.Lazy (Text, pack)
 
 import Network.Wai
-
-import Data.String (IsString(..))
 
 data ScottyState = ScottyState { middlewares :: [Middleware]
                                , routes :: [Middleware]

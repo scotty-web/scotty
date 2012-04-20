@@ -4,9 +4,7 @@ module Web.Scotty.Route
       capture, regex, function, literal
     ) where
 
-import Web.Scotty.Action
-import Web.Scotty.Types
-
+import Control.Arrow ((***))
 import Control.Monad.Error
 import qualified Control.Monad.State as MS
 
@@ -18,7 +16,9 @@ import Network.HTTP.Types
 import Network.Wai
 
 import qualified Text.Regex as Regex
-import Control.Arrow ((***))
+
+import Web.Scotty.Action
+import Web.Scotty.Types
 
 -- | get = 'addroute' 'GET'
 get :: RoutePattern -> ActionM () -> ScottyM ()
