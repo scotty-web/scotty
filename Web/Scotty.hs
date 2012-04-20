@@ -28,10 +28,6 @@ module Web.Scotty
     , ScottyM, ActionM, Param, Parsable, RoutePattern
     ) where
 
-import Web.Scotty.Action
-import Web.Scotty.Route
-import Web.Scotty.Types
-
 import Blaze.ByteString.Builder (fromByteString)
 
 import Control.Monad.State (execStateT, modify)
@@ -41,6 +37,10 @@ import Data.Default (def)
 import Network.HTTP.Types (status404)
 import Network.Wai
 import Network.Wai.Handler.Warp (Port, run)
+
+import Web.Scotty.Action
+import Web.Scotty.Route
+import Web.Scotty.Types
 
 -- | Run a scotty application using the warp server.
 scotty :: Port -> ScottyM () -> IO ()
