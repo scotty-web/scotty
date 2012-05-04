@@ -4,7 +4,7 @@ module Web.Scotty.Action
     , status, header, redirect
     , text, html, file, json
     , raise, rescue, next
-    , ActionM, Parsable, Param, mkEnv, runAction
+    , ActionM, Parsable, Param, runAction
     ) where
 
 import Blaze.ByteString.Builder (fromLazyByteString)
@@ -13,15 +13,12 @@ import Control.Applicative
 import Control.Monad.Error
 import Control.Monad.Reader
 import qualified Control.Monad.State as MS
-import Control.Monad.Trans.Resource (ResourceT)
 
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive as CI
 import Data.Default (Default, def)
-import Data.Conduit.Lazy (lazyConsume)
-import Data.Maybe (fromMaybe)
 import Data.Monoid (mconcat)
 import qualified Data.Text.Lazy as T
 import Data.Text.Lazy.Encoding (encodeUtf8)
@@ -51,21 +48,6 @@ defaultHandler (ActionError msg) = do
     status status500
     html $ mconcat ["<h1>500 Internal Server Error</h1>", msg]
 defaultHandler Next = next
-
-mkEnv :: StdMethod -> Request -> [Param] -> ResourceT IO ActionEnv
-mkEnv method req captures = do
-    b <- BL.fromChunks <$> lazyConsume (requestBody req)
-
-    let parameters = captures ++ formparams ++ queryparams
-        formparams = case (method, lookup "Content-Type" [(CI.mk k, CI.mk v) | (k,v) <- requestHeaders req]) of
-                        (_, Just "application/x-www-form-urlencoded") -> parseEncodedParams $ mconcat $ BL.toChunks b
-                        _ -> []
-        queryparams = parseEncodedParams $ rawQueryString req
-
-    return $ Env req parameters b
-
-parseEncodedParams :: B.ByteString -> [Param]
-parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
