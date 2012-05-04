@@ -5,9 +5,16 @@ module Web.Scotty.Route
     ) where
 
 import Control.Arrow ((***))
+import Control.Applicative
 import Control.Monad.Error
 import qualified Control.Monad.State as MS
+import Control.Monad.Trans.Resource (ResourceT)
 
+import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Lazy.Char8 as BL
+import qualified Data.CaseInsensitive as CI
+import Data.Conduit.Lazy (lazyConsume)
+import Data.Maybe (fromMaybe)
 import Data.Monoid (mconcat)
 import qualified Data.Text.Lazy as T
 import qualified Data.Text as TS
@@ -60,8 +67,7 @@ notFound action = matchAny (Function (\req -> Just [("path", path req)])) (statu
 -- >>> curl http://localhost:3000/foo/something
 -- something
 addroute :: StdMethod -> RoutePattern -> ActionM () -> ScottyM ()
-addroute method pat action = MS.modify (addRoute r)
-    where r = route method pat action
+addroute method pat action = MS.modify $ addRoute $ route method pat action
 
 route :: StdMethod -> RoutePattern -> ActionM () -> Middleware
 route method pat action app req =
@@ -96,6 +102,21 @@ matchRoute (Capture pat) req = go (T.split (=='/') pat) (T.split (=='/') $ path 
 -- Pretend we are at the top level.
 path :: Request -> T.Text
 path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo
+
+mkEnv :: StdMethod -> Request -> [Param] -> ResourceT IO ActionEnv
+mkEnv method req captures = do
+    b <- BL.fromChunks <$> lazyConsume (requestBody req)
+
+    let parameters = captures ++ formparams ++ queryparams
+        formparams = case (method, lookup "Content-Type" [(CI.mk k, CI.mk v) | (k,v) <- requestHeaders req]) of
+                        (_, Just "application/x-www-form-urlencoded") -> parseEncodedParams $ mconcat $ BL.toChunks b
+                        _ -> []
+        queryparams = parseEncodedParams $ rawQueryString req
+
+    return $ Env req parameters b
+
+parseEncodedParams :: B.ByteString -> [Param]
+parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]
 
 -- | Match requests using a regular expression.
 --   Named captures are not yet supported.
