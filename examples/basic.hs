@@ -85,6 +85,9 @@ main = scotty 3000 $ do
         b <- body
         text $ decodeUtf8 b
 
+    get "/lambda/:foo/:bar" $ \ foo bar baz -> do
+        text $ mconcat [foo, bar, baz]
+
 {- If you don't want to use Warp as your webserver,
    you can use any WAI handler.
 

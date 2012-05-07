@@ -13,6 +13,7 @@ module Web.Scotty
       -- ** Route Patterns
     , capture, regex, function, literal
       -- * Defining Actions
+    , Action
       -- ** Accessing the Request, Captures, and Query Parameters
     , request, body, param, jsonData
       -- ** Modifying the Response and Redirecting
@@ -44,7 +45,9 @@ import Web.Scotty.Types
 
 -- | Run a scotty application using the warp server.
 scotty :: Port -> ScottyM () -> IO ()
-scotty p s = putStrLn ("Setting phasers to stun... (ctrl-c to quit) (port " ++ show p ++ ")") >> (run p =<< scottyApp s)
+scotty p s = do
+    putStrLn $ "Setting phasers to stun... (ctrl-c to quit) (port " ++ show p ++ ")"
+    run p =<< scottyApp s
 
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
@@ -61,4 +64,4 @@ notFoundApp _ = return $ ResponseBuilder status404 [("Content-Type","text/html")
 -- is the outermost middleware (it has first dibs on the request and last action
 -- on the response). Every middleware is run on each request.
 middleware :: Middleware -> ScottyM ()
-middleware m = modify (addMiddleware m)
+middleware = modify . addMiddleware
