@@ -1,7 +1,7 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, FlexibleInstances, ScopedTypeVariables #-}
 module Web.Scotty.Route
     ( get, post, put, delete, addroute, matchAny, notFound,
-      capture, regex, function, literal
+      capture, regex, function, literal, Action
     ) where
 
 import Control.Arrow ((***))
@@ -15,7 +15,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive as CI
 import Data.Conduit.Lazy (lazyConsume)
 import Data.Maybe (fromMaybe)
-import Data.Monoid (mconcat)
+import Data.Monoid (mconcat, (<>))
 import qualified Data.Text.Lazy as T
 import qualified Data.Text as TS
 
@@ -28,23 +28,23 @@ import Web.Scotty.Action
 import Web.Scotty.Types
 
 -- | get = 'addroute' 'GET'
-get :: RoutePattern -> ActionM () -> ScottyM ()
+get :: (Action action) => RoutePattern -> action -> ScottyM ()
 get = addroute GET
 
 -- | post = 'addroute' 'POST'
-post :: RoutePattern -> ActionM () -> ScottyM ()
+post :: (Action action) => RoutePattern -> action -> ScottyM ()
 post = addroute POST
 
 -- | put = 'addroute' 'PUT'
-put :: RoutePattern -> ActionM () -> ScottyM ()
+put :: (Action action) => RoutePattern -> action -> ScottyM ()
 put = addroute PUT
 
 -- | delete = 'addroute' 'DELETE'
-delete :: RoutePattern -> ActionM () -> ScottyM ()
+delete :: (Action action) => RoutePattern -> action -> ScottyM ()
 delete = addroute DELETE
 
 -- | Add a route that matches regardless of the HTTP verb.
-matchAny :: RoutePattern -> ActionM () -> ScottyM ()
+matchAny :: (Action action) => RoutePattern -> action -> ScottyM ()
 matchAny pattern action = mapM_ (\v -> addroute v pattern action) [minBound..maxBound]
 
 -- | Specify an action to take if nothing else is found. Note: this _always_ matches,
@@ -53,7 +53,7 @@ notFound :: ActionM () -> ScottyM ()
 notFound action = matchAny (Function (\req -> Just [("path", path req)])) (status status404 >> action)
 
 -- | Define a route with a 'StdMethod', 'T.Text' value representing the path spec,
--- and a body ('ActionM') which modifies the response.
+-- and a body ('Action') which modifies the response.
 --
 -- > addroute GET "/" $ text "beam me up!"
 --
@@ -66,8 +66,35 @@ notFound action = matchAny (Function (\req -> Just [("path", path req)])) (statu
 --
 -- >>> curl http://localhost:3000/foo/something
 -- something
-addroute :: StdMethod -> RoutePattern -> ActionM () -> ScottyM ()
-addroute method pat action = MS.modify $ addRoute $ route method pat action
+addroute :: (Action action) => StdMethod -> RoutePattern -> action -> ScottyM ()
+addroute method pat action = MS.modify $ addRoute $ route method pat $ build action pat
+
+-- | An action (executed when a route matches) can either be an 'ActionM' computation, or
+-- a function with an argument for each capture in the route. For example:
+--
+-- > get "/lambda/:foo/:bar" $ \ a b -> do
+-- >     text $ mconcat [a,b]
+--
+-- is elaborated by Scotty to:
+--
+-- > get "/lambda/:foo/:bar" $ do
+-- >     a <- param "foo"
+-- >     b <- param "bar"
+-- >     text $ mconcat [a,b]
+class Action a where
+    build :: a -> RoutePattern -> ActionM ()
+
+instance Action (ActionM a) where
+    build action _ = action >> return ()
+
+instance (Parsable a, Action b) => Action (a -> b) where
+    build f pat = findCapture pat >>= \ (v, pat') -> build (f v) pat'
+        where findCapture :: RoutePattern -> ActionM (a, RoutePattern)
+              findCapture (Literal l) = raise $ "Lambda trying to capture a literal route: " <> l
+              findCapture (Capture p) = case T.span (/='/') (T.dropWhile (/=':') p) of
+                                            (m,r) | T.null m -> raise "More function arguments than captures."
+                                                  | otherwise -> param (T.tail m) >>= \ v -> return (v, Capture r)
+              findCapture (Function _) = raise "Lambda trying to capture a function route."
 
 route :: StdMethod -> RoutePattern -> ActionM () -> Middleware
 route method pat action app req =
