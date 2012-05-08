@@ -15,7 +15,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive as CI
 import Data.Conduit.Lazy (lazyConsume)
 import Data.Maybe (fromMaybe)
-import Data.Monoid (mconcat, (<>))
+import Data.Monoid (mconcat)
 import qualified Data.Text.Lazy as T
 import qualified Data.Text as TS
 
@@ -90,7 +90,7 @@ instance Action (ActionM a) where
 instance (Parsable a, Action b) => Action (a -> b) where
     build f pat = findCapture pat >>= \ (v, pat') -> build (f v) pat'
         where findCapture :: RoutePattern -> ActionM (a, RoutePattern)
-              findCapture (Literal l) = raise $ "Lambda trying to capture a literal route: " <> l
+              findCapture (Literal l) = raise $ mconcat ["Lambda trying to capture a literal route: ", l]
               findCapture (Capture p) = case T.span (/='/') (T.dropWhile (/=':') p) of
                                             (m,r) | T.null m -> raise "More function arguments than captures."
                                                   | otherwise -> param (T.tail m) >>= \ v -> return (v, Capture r)
