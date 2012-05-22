@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 import Web.Scotty
 
-import Network.Wai.Middleware.RequestLogger
+import Network.Wai.Middleware.RequestLogger -- install wai-extra if you don't have this
 
 import Control.Monad.Trans
 import Data.Monoid
