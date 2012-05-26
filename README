@@ -20,7 +20,7 @@ Scotty is the cheap and cheerful way to write RESTful, declarative web applicati
   * Conforms to WAI Application interface.
   * Uses very fast Warp webserver by default.
 
-See examples/basic.hs to see Scotty in action.
+See examples/basic.hs to see Scotty in action. (basic.hs needs the wai-extra package)
 
     > runghc examples/basic.hs
     Setting phasers to stun... (ctrl-c to quit)
