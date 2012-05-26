@@ -2,12 +2,12 @@
 module Web.Scotty.Action
     ( request, body, param, jsonData
     , status, header, redirect
-    , text, html, file, json
+    , text, html, file, json, source
     , raise, rescue, next
     , ActionM, Parsable, Param, runAction
     ) where
 
-import Blaze.ByteString.Builder (fromLazyByteString)
+import Blaze.ByteString.Builder (Builder, fromLazyByteString)
 
 import Control.Applicative
 import Control.Monad.Error
@@ -18,6 +18,7 @@ import qualified Data.Aeson as A
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive as CI
+import Data.Conduit (Flush, ResourceT, Source)
 import Data.Default (Default, def)
 import Data.Monoid (mconcat)
 import qualified Data.Text.Lazy as T
@@ -164,23 +165,29 @@ header k v = MS.modify $ setHeader (CI.mk $ lazyTextToStrictByteString k, lazyTe
 text :: T.Text -> ActionM ()
 text t = do
     header "Content-Type" "text/plain"
-    MS.modify $ setContent $ Left $ fromLazyByteString $ encodeUtf8 t
+    MS.modify $ setContent $ ContentBuilder $ fromLazyByteString $ encodeUtf8 t
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
 -- header to \"text/html\".
 html :: T.Text -> ActionM ()
 html t = do
     header "Content-Type" "text/html"
-    MS.modify $ setContent $ Left $ fromLazyByteString $ encodeUtf8 t
+    MS.modify $ setContent $ ContentBuilder $ fromLazyByteString $ encodeUtf8 t
 
 -- | Send a file as the response. Doesn't set the \"Content-Type\" header, so you probably
 -- want to do that on your own with 'header'.
 file :: FilePath -> ActionM ()
-file = MS.modify . setContent . Right
+file = MS.modify . setContent . ContentFile
 
 -- | Set the body of the response to the JSON encoding of the given value. Also sets \"Content-Type\"
 -- header to \"application/json\".
 json :: (A.ToJSON a) => a -> ActionM ()
 json v = do
     header "Content-Type" "application/json"
-    MS.modify $ setContent $ Left $ fromLazyByteString $ A.encode v
+    MS.modify $ setContent $ ContentBuilder $ fromLazyByteString $ A.encode v
+
+-- | Set the body of the response to a Source. Doesn't set the
+-- \"Content-Type\" header, so you probably want to do that on your
+-- own with 'header'.
+source :: Source (ResourceT IO) (Flush Builder) -> ActionM ()
+source = MS.modify . setContent . ContentSource
