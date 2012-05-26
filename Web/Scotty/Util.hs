@@ -2,6 +2,7 @@ module Web.Scotty.Util
     ( lazyTextToStrictByteString
     , strictByteStringToLazyText
     , setContent, setHeader, setStatus
+    , Content(..)
     ) where
 
 import Network.Wai
@@ -10,6 +11,7 @@ import Network.HTTP.Types
 
 import Blaze.ByteString.Builder (Builder)
 import Data.CaseInsensitive (CI)
+import Data.Conduit (Flush, Source, ResourceT)
 import Data.Default
 import Data.Monoid
 
@@ -26,13 +28,20 @@ lazyTextToStrictByteString = ES.encodeUtf8 . T.toStrict
 strictByteStringToLazyText :: B.ByteString -> T.Text
 strictByteStringToLazyText = T.fromStrict . ES.decodeUtf8
 
-setContent :: Either Builder FilePath -> Response -> Response
-setContent (Left b) (ResponseBuilder s h _)  = ResponseBuilder s h b
-setContent (Left b) (ResponseFile s h _ _)   = ResponseBuilder s h b
-setContent (Left b) (ResponseSource s h _)   = ResponseBuilder s h b
-setContent (Right f) (ResponseBuilder s h _) = ResponseFile s h f Nothing
-setContent (Right f) (ResponseFile s h _ _)  = ResponseFile s h f Nothing
-setContent (Right f) (ResponseSource s h _)  = ResponseFile s h f Nothing
+data Content = ContentBuilder Builder
+             | ContentFile FilePath
+             | ContentSource (Source (ResourceT IO) (Flush Builder))
+
+setContent :: Content -> Response -> Response
+setContent (ContentBuilder b) (ResponseBuilder s h _)  = ResponseBuilder s h b
+setContent (ContentBuilder b) (ResponseFile s h _ _)   = ResponseBuilder s h b
+setContent (ContentBuilder b) (ResponseSource s h _)   = ResponseBuilder s h b
+setContent (ContentFile f) (ResponseBuilder s h _) = ResponseFile s h f Nothing
+setContent (ContentFile f) (ResponseFile s h _ _)  = ResponseFile s h f Nothing
+setContent (ContentFile f) (ResponseSource s h _)  = ResponseFile s h f Nothing
+setContent (ContentSource src) (ResponseBuilder s h _) = ResponseSource s h src
+setContent (ContentSource src) (ResponseFile s h _ _)  = ResponseSource s h src
+setContent (ContentSource src) (ResponseSource s h _)  = ResponseSource s h src
 
 setHeader :: (CI Ascii, Ascii) -> Response -> Response
 setHeader (k,v) (ResponseBuilder s h b) = ResponseBuilder s (update h k v) b
