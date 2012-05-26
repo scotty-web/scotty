@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 import Web.Scotty
 
-import Network.Wai.Middleware.RequestLogger
+import Network.Wai.Middleware.RequestLogger -- install wai-extra if you don't have this
 
 import Control.Monad.Trans
 import Data.Monoid
@@ -85,7 +85,7 @@ main = scotty 3000 $ do
         b <- body
         text $ decodeUtf8 b
 
-    get "/lambda/:foo/:bar" $ \ foo bar baz -> do
+    get "/lambda/:foo/:bar/:baz" $ \ foo bar baz -> do
         text $ mconcat [foo, bar, baz]
 
 {- If you don't want to use Warp as your webserver,
