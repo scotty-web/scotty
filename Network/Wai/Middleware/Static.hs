@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Network.Wai.Middleware.Static (static, staticRoot) where
+module Network.Wai.Middleware.Static (static, staticRoot, staticList) where
 
+import Control.Monad (mplus)
 import Control.Monad.Trans (liftIO)
 import Data.List (isInfixOf)
 import qualified Data.Map as M
@@ -34,6 +35,15 @@ staticRoot base app req =
                 else app req
   where fp = F.collapse $ F.fromText $ T.intercalate "/" $ pathInfo req
         fStr = F.encodeString $ F.fromText base F.</> fp
+
+-- | Serve only the files given in an association list.
+-- Key is the URI, Value is the filesystem path.
+staticList :: [(T.Text, T.Text)] -> Middleware
+staticList fs app req =
+    maybe (app req)
+          (\fp -> return $ ResponseFile status200 [("Content-Type", getMimeType (F.fromText fp))] (T.unpack fp) Nothing)
+          ((lookup p fs) `mplus` (lookup (T.cons '/' p) fs)) -- try without and with leading slash
+    where p = (T.intercalate "/" $ pathInfo req)
 
 getMimeType :: F.FilePath -> B.ByteString
 getMimeType = go . map E.encodeUtf8 . F.extensions
