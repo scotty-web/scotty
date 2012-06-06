@@ -32,7 +32,7 @@ staticRoot base app req =
               if exists
                 then return $ ResponseFile status200 [("Content-Type", getMimeType fp)] fStr Nothing
                 else app req
-  where fp = F.collapse $ F.fromText $ T.dropWhile (=='/') $ E.decodeUtf8 $ rawPathInfo req
+  where fp = F.collapse $ F.fromText $ T.intercalate "/" $ pathInfo req
         fStr = F.encodeString $ F.fromText base F.</> fp
 
 getMimeType :: F.FilePath -> B.ByteString
