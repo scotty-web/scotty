@@ -3,7 +3,7 @@
 -- OverloadedStrings language pragma.
 module Web.Scotty
     ( -- * scotty-to-WAI
-      scotty, scottySettings, scottyApp
+      scotty, scottyApp, scottyOpts, Options(..)
       -- * Defining Middleware and Routes
       --
       -- | 'Middleware' and routes are run in the order in which they
@@ -31,13 +31,14 @@ module Web.Scotty
 
 import Blaze.ByteString.Builder (fromByteString)
 
+import Control.Monad (when)
 import Control.Monad.State (execStateT, modify)
 
 import Data.Default (def)
 
 import Network.HTTP.Types (status404)
 import Network.Wai
-import Network.Wai.Handler.Warp (Port, Settings, run, runSettings)
+import Network.Wai.Handler.Warp (Port, runSettings, settingsPort)
 
 import Web.Scotty.Action
 import Web.Scotty.Route
@@ -45,13 +46,14 @@ import Web.Scotty.Types
 
 -- | Run a scotty application using the warp server.
 scotty :: Port -> ScottyM () -> IO ()
-scotty p s = do
-    putStrLn $ "Setting phasers to stun... (ctrl-c to quit) (port " ++ show p ++ ")"
-    run p =<< scottyApp s
+scotty p = scottyOpts $ def { settings = (settings def) { settingsPort = p } }
 
--- | Run a scotty application using different WAI settings.
-scottySettings :: Settings -> ScottyM() -> IO ()
-scottySettings settings s = putStrLn "Setting phasers to kill... (ctrl-c to quit)" >> (runSettings settings =<< scottyApp s)
+-- | Run a scotty application using the warp server, passing extra options.
+scottyOpts :: Options -> ScottyM() -> IO ()
+scottyOpts opts s = do
+    when (verbose opts > 0) $
+        putStrLn $ "Setting phasers to stun... (port " ++ show (settingsPort (settings opts)) ++ ") (ctrl-c to quit)"
+    runSettings (settings opts) =<< scottyApp s
 
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
