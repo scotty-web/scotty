@@ -6,12 +6,14 @@ import Control.Monad.Trans (liftIO)
 import Data.List (isInfixOf)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe)
+import Data.Monoid (mconcat)
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 
 import qualified Filesystem.Path.CurrentOS as F
-import Network.HTTP.Types (status200)
+import Network.HTTP.Types (status200, status404)
 import System.Directory (doesFileExist)
 
 import Network.Wai
@@ -41,7 +43,11 @@ staticRoot base app req =
 staticList :: [(T.Text, T.Text)] -> Middleware
 staticList fs app req =
     maybe (app req)
-          (\fp -> return $ ResponseFile status200 [("Content-Type", getMimeType (F.fromText fp))] (T.unpack fp) Nothing)
+          (\fp -> do let fStr = T.unpack fp
+                     exists <- liftIO $ doesFileExist fStr
+                     if exists
+                        then return $ ResponseFile status200 [("Content-Type", getMimeType (F.fromText fp))] fStr Nothing
+                        else return $ responseLBS status404 [("Content-Type", "text/plain")] $ mconcat ["404: ", BL.pack fStr, " not found."])
           ((lookup p fs) `mplus` (lookup (T.cons '/' p) fs)) -- try without and with leading slash
     where p = (T.intercalate "/" $ pathInfo req)
 
