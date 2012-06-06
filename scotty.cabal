@@ -1,5 +1,5 @@
 Name:                scotty
-Version:             0.4.2
+Version:             0.4.3
 Synopsis:            Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp
 Homepage:            https://github.com/xich/scotty
 Bug-reports:         https://github.com/xich/scotty/issues
@@ -55,8 +55,9 @@ Description:
 Extra-source-files:
     README
     examples/basic.hs
-    examples/urlshortener.hs
     examples/json.hs
+    examples/options.hs
+    examples/urlshortener.hs
     examples/static/jquery.js
     examples/static/jquery-json.js
     examples/static/json.js
