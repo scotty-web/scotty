@@ -11,16 +11,24 @@ import Data.String (IsString(..))
 import Data.Text.Lazy (Text, pack)
 
 import Network.Wai
+import Network.Wai.Handler.Warp (Settings, defaultSettings)
+
+data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
+                       , settings :: Settings -- ^ Warp 'Settings'
+                       }
+
+instance Default Options where
+    def = Options 1 defaultSettings
 
 data ScottyState = ScottyState { middlewares :: [Middleware]
                                , routes :: [Middleware]
                                }
 
 addMiddleware :: Middleware -> ScottyState -> ScottyState
-addMiddleware m (ScottyState ms rs) = ScottyState (m:ms) rs
+addMiddleware m s@(ScottyState {middlewares = ms}) = s { middlewares = m:ms }
 
 addRoute :: Middleware -> ScottyState -> ScottyState
-addRoute r (ScottyState ms rs) = ScottyState ms (r:rs)
+addRoute r s@(ScottyState {routes = rs}) = s { routes = r:rs }
 
 instance Default ScottyState where
     def = ScottyState [] []
