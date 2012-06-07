@@ -72,7 +72,7 @@ only = flip lookup
 -- | Serve static files out of the application root (current directory).
 -- If file is found, it is streamed to the client and no further middleware is run.
 static :: Middleware
-static = staticPolicy mempty
+static = staticPolicy Just
 
 -- | Serve static files subject to a 'Policy'
 staticPolicy :: Policy -> Middleware
