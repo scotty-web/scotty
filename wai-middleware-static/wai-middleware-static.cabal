@@ -1,5 +1,5 @@
 Name:                wai-middleware-static
-Version:             0.1.2
+Version:             0.2.0
 Synopsis:            WAI middleware that intercepts requests to static files.
 Homepage:            https://github.com/xich/scotty
 Bug-reports:         https://github.com/xich/scotty/issues
@@ -18,18 +18,15 @@ Description:
   .
   [WAI] <http://hackage.haskell.org/package/wai>
 
--- Extra-source-files:
-
 Library
   Exposed-modules:     Network.Wai.Middleware.Static
   default-language:    Haskell2010
   Build-depends:       base             >= 4.3.1 && < 5,
-                       bytestring       >= 0.9.1,
                        containers       >= 0.4,
                        directory        >= 1.1,
                        http-types       >= 0.6.8 && < 0.7,
                        mtl              >= 2.0.1,
-                       system-filepath  >= 0.4.4,
+                       filepath         >= 1.3.0.0,
                        text             >= 0.11.1,
                        wai              >= 1.0.0
 
