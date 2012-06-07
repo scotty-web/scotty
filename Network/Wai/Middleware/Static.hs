@@ -1,66 +1,109 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Network.Wai.Middleware.Static (static, staticRoot, staticList) where
+-- | Serve static files, subject to a policy that can filter or
+--   modify incoming URIs. The flow is:
+--
+--   incoming request URI ==> policies ==> exists? ==> respond
+--
+--   If any of the polices fail (return Nothing), or the file doesn't
+--   exist, then the middleware gives up and calls the inner application.
+--   If the file is found, the middleware chooses a content type based
+--   on the file extension and returns the file contents as the response.
+module Network.Wai.Middleware.Static
+    ( -- * Middlewares
+      static, staticPolicy
+    , -- * Policies
+      Policy, (>->)
+    , addBase, addSlash, noDots, only
+    ) where
 
-import Control.Monad (mplus)
 import Control.Monad.Trans (liftIO)
 import Data.List (isInfixOf)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe)
-import Data.Monoid (mconcat)
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy.Char8 as BL
+import Data.Monoid
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
 
-import qualified Filesystem.Path.CurrentOS as F
-import Network.HTTP.Types (status200, status404)
+import Network.HTTP.Types (status200, Ascii)
 import System.Directory (doesFileExist)
+import System.FilePath
 
 import Network.Wai
+
+-- | Take an incoming URI and optionally modify or filter it.
+--   The result will be treated as a filepath.
+type Policy = String -> Maybe String
+
+-- | Combine two policies. They are run from left to right.
+(>->) :: Policy -> Policy -> Policy
+p1 >-> p2 = maybe Nothing p2 . p1
+
+-- | Filter URIs containing \"..\"
+noDots :: Policy
+noDots s = if ".." `isInfixOf` s then Nothing else Just s
+
+-- | Add a base path to the URI
+--
+-- > staticPolicy (addBase "/home/user/files")
+--
+-- GET \"foo\/bar\" looks for \"\/home\/user\/files\/foo\/bar\"
+--
+addBase :: String -> Policy
+addBase b = Just . (b </>)
+
+-- | Add an initial slash to to the URI, if not already present.
+--
+-- > staticPolicy addSlash
+--
+-- GET \"foo\/bar\" looks for \"\/foo\/bar\"
+addSlash :: Policy
+addSlash s@('/':_) = Just s
+addSlash s         = Just ('/':s)
+
+-- | Filter any URIs not in a specific list, mapping to a filepath.
+--
+-- > staticPolicy (only [("foo/bar", "/home/user/files/bar")])
+--
+-- GET \"foo\/bar\" looks for \"\/home\/user\/files\/bar\"
+-- GET \"baz\/bar\" doesn't match anything
+--
+only :: [(String,String)] -> Policy
+only = flip lookup
 
 -- | Serve static files out of the application root (current directory).
 -- If file is found, it is streamed to the client and no further middleware is run.
 static :: Middleware
-static = staticRoot ""
+static = staticPolicy mempty
 
--- | Like 'static', but only looks for static files in the given directory.
--- Supplied path may be relative or absolute and is prepended to the requested path.
---
--- > static = staticRoot ""
-staticRoot :: T.Text -> Middleware
-staticRoot base app req =
-    if ".." `isInfixOf` (F.encodeString fp) -- for security reasons
-      then app req
-      else do exists <- liftIO $ doesFileExist fStr
-              if exists
-                then return $ ResponseFile status200 [("Content-Type", getMimeType fp)] fStr Nothing
-                else app req
-  where fp = F.collapse $ F.fromText $ T.intercalate "/" $ pathInfo req
-        fStr = F.encodeString $ F.fromText base F.</> fp
-
--- | Serve only the files given in an association list.
--- Key is the URI, Value is the filesystem path.
-staticList :: [(T.Text, T.Text)] -> Middleware
-staticList fs app req =
+-- | Serve static files subject to a 'Policy'
+staticPolicy :: Policy -> Middleware
+staticPolicy p app req =
     maybe (app req)
-          (\fp -> do let fStr = T.unpack fp
-                     exists <- liftIO $ doesFileExist fStr
+          (\fp -> do exists <- liftIO $ doesFileExist fp
                      if exists
-                        then return $ ResponseFile status200 [("Content-Type", getMimeType (F.fromText fp))] fStr Nothing
-                        else return $ responseLBS status404 [("Content-Type", "text/plain")] $ mconcat ["404: ", BL.pack fStr, " not found."])
-          ((lookup p fs) `mplus` (lookup (T.cons '/' p) fs)) -- try without and with leading slash
-    where p = (T.intercalate "/" $ pathInfo req)
+                        then return $ ResponseFile status200
+                                                   [("Content-Type", getMimeType fp)]
+                                                   fp
+                                                   Nothing
+                        else app req)
+          (p $ T.unpack $ T.intercalate "/" $ pathInfo req)
 
-getMimeType :: F.FilePath -> B.ByteString
-getMimeType = go . map E.encodeUtf8 . F.extensions
+getMimeType :: FilePath -> Ascii
+getMimeType = go . extensions
     where go [] = defaultMimeType
-          go exts = fromMaybe (go $ tail exts) $ M.lookup (B.intercalate "." exts) defaultMimeTypes
+          go (ext:exts) = fromMaybe (go exts) $ M.lookup ext defaultMimeTypes
 
-defaultMimeType :: B.ByteString
+extensions :: FilePath -> [String]
+extensions [] = []
+extensions fp = case dropWhile (/= '.') fp of
+                    [] -> []
+                    s -> let ext = tail s
+                         in ext : extensions ext
+
+defaultMimeType :: Ascii
 defaultMimeType = "application/octet-stream"
 
 -- This list taken from snap-core's Snap.Util.FileServe
-defaultMimeTypes :: M.Map B.ByteString B.ByteString
+defaultMimeTypes :: M.Map String Ascii
 defaultMimeTypes = M.fromList [
   ( "asc"     , "text/plain"                        ),
   ( "asf"     , "video/x-ms-asf"                    ),
