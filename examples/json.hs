@@ -24,7 +24,7 @@ $(deriveJSON Prelude.id ''Foo)
 main :: IO ()
 main = scotty 3000 $ do
     middleware logStdoutDev
-    middleware $ staticRoot "static"
+    middleware $ staticPolicy (addBase "static")
 
     get "/" $ do
         html $ wrapper $ do
