@@ -4,7 +4,7 @@
 --
 --   incoming request URI ==> policies ==> exists? ==> respond
 --
---   If any of the polices fail (return Nothing), or the file doesn't
+--   If any of the polices fail, or the file doesn't
 --   exist, then the middleware gives up and calls the inner application.
 --   If the file is found, the middleware chooses a content type based
 --   on the file extension and returns the file contents as the response.
@@ -12,14 +12,17 @@ module Network.Wai.Middleware.Static
     ( -- * Middlewares
       static, staticPolicy
     , -- * Policies
-      Policy, (>->), (<|>)
-    , addBase, addSlash, hasExtension, noDots, only
+      Policy, (<|>), (>->), policy, predicate
+    , addBase, addSlash, contains, hasPrefix, hasSuffix, noDots, only
+    , -- * Utilities
+      tryPolicy
     ) where
 
 import Control.Monad.Trans (liftIO)
-import Data.List (isInfixOf, isSuffixOf)
+import Data.List
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe)
+import Data.Monoid
 import qualified Data.Text as T
 
 import Network.HTTP.Types (status200, Ascii)
@@ -30,17 +33,33 @@ import Network.Wai
 
 -- | Take an incoming URI and optionally modify or filter it.
 --   The result will be treated as a filepath.
-type Policy = String -> Maybe String
+newtype Policy = Policy { tryPolicy :: String -> Maybe String -- ^ Run a policy
+                        }
 
--- | Sequence two policies. They are run from left to right.
+-- | Note:
+--   'mempty' == @policy Just@ (the always accepting policy)
+--   'mappend' == @>->@ (policy sequencing)
+instance Monoid Policy where
+    mempty = policy Just
+    mappend p1 p2 = policy (maybe Nothing (tryPolicy p2) . tryPolicy p1)
+
+-- | Lift a function into a 'Policy'
+policy :: (String -> Maybe String) -> Policy
+policy = Policy
+
+-- | Lift a predicate into a 'Policy'
+predicate :: (String -> Bool) -> Policy
+predicate p = policy (\s -> if p s then Just s else Nothing)
+
+-- | Sequence two policies. They are run from left to right. (Note: this is `mappend`)
 infixr 5 >->
 (>->) :: Policy -> Policy -> Policy
-p1 >-> p2 = maybe Nothing p2 . p1
+(>->) = mappend
 
--- | Choose between two policies. If the first returns Nothing, run the second.
+-- | Choose between two policies. If the first fails, run the second.
 infixr 4 <|>
 (<|>) :: Policy -> Policy -> Policy
-p1 <|> p2 = \s -> maybe (p2 s) Just (p1 s)
+p1 <|> p2 = policy (\s -> maybe (tryPolicy p2 s) Just (tryPolicy p1 s))
 
 -- | Add a base path to the URI
 --
@@ -49,7 +68,7 @@ p1 <|> p2 = \s -> maybe (p2 s) Just (p1 s)
 -- GET \"foo\/bar\" looks for \"\/home\/user\/files\/foo\/bar\"
 --
 addBase :: String -> Policy
-addBase b = Just . (b FP.</>)
+addBase b = policy (Just . (b FP.</>))
 
 -- | Add an initial slash to to the URI, if not already present.
 --
@@ -57,18 +76,28 @@ addBase b = Just . (b FP.</>)
 --
 -- GET \"foo\/bar\" looks for \"\/foo\/bar\"
 addSlash :: Policy
-addSlash s@('/':_) = Just s
-addSlash s         = Just ('/':s)
+addSlash = policy slashOpt
+    where slashOpt s@('/':_) = Just s
+          slashOpt s         = Just ('/':s)
 
--- | Filter URIs based on extension
-hasExtension :: String -> Policy
-hasExtension suf s = if suf `isSuffixOf` s then Just s else Nothing
+-- | Accept only URIs with given suffix
+hasSuffix :: String -> Policy
+hasSuffix suf = predicate (isSuffixOf suf)
 
--- | Filter URIs containing \"..\"
+-- | Accept only URIs with given prefix
+hasPrefix :: String -> Policy
+hasPrefix pre = predicate (isPrefixOf pre)
+
+-- | Accept only URIs containing given string
+contains :: String -> Policy
+contains s = predicate (isInfixOf s)
+
+-- | Reject URIs containing \"..\"
 noDots :: Policy
-noDots s = if ".." `isInfixOf` s then Nothing else Just s
+noDots = predicate (not . isInfixOf "..")
 
--- | Filter any URIs not in a specific list, mapping to a filepath.
+-- | Use URI as the key to an association list, rejecting those not found.
+-- The policy result is the matching value.
 --
 -- > staticPolicy (only [("foo/bar", "/home/user/files/bar")])
 --
@@ -76,12 +105,12 @@ noDots s = if ".." `isInfixOf` s then Nothing else Just s
 -- GET \"baz\/bar\" doesn't match anything
 --
 only :: [(String,String)] -> Policy
-only = flip lookup
+only al = policy (flip lookup al)
 
 -- | Serve static files out of the application root (current directory).
 -- If file is found, it is streamed to the client and no further middleware is run.
 static :: Middleware
-static = staticPolicy Just
+static = staticPolicy mempty
 
 -- | Serve static files subject to a 'Policy'
 staticPolicy :: Policy -> Middleware
@@ -94,7 +123,7 @@ staticPolicy p app req =
                                                    fp
                                                    Nothing
                         else app req)
-          (p $ T.unpack $ T.intercalate "/" $ pathInfo req)
+          (tryPolicy p $ T.unpack $ T.intercalate "/" $ pathInfo req)
 
 getMimeType :: FilePath -> Ascii
 getMimeType = go . extensions
