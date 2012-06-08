@@ -12,20 +12,19 @@ module Network.Wai.Middleware.Static
     ( -- * Middlewares
       static, staticPolicy
     , -- * Policies
-      Policy, (>->)
-    , addBase, addSlash, noDots, only
+      Policy, (>->), (<|>)
+    , addBase, addSlash, hasExtension, noDots, only
     ) where
 
 import Control.Monad.Trans (liftIO)
-import Data.List (isInfixOf)
+import Data.List (isInfixOf, isSuffixOf)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe)
-import Data.Monoid
 import qualified Data.Text as T
 
 import Network.HTTP.Types (status200, Ascii)
 import System.Directory (doesFileExist)
-import System.FilePath
+import qualified System.FilePath as FP
 
 import Network.Wai
 
@@ -33,13 +32,15 @@ import Network.Wai
 --   The result will be treated as a filepath.
 type Policy = String -> Maybe String
 
--- | Combine two policies. They are run from left to right.
+-- | Sequence two policies. They are run from left to right.
+infixr 5 >->
 (>->) :: Policy -> Policy -> Policy
 p1 >-> p2 = maybe Nothing p2 . p1
 
--- | Filter URIs containing \"..\"
-noDots :: Policy
-noDots s = if ".." `isInfixOf` s then Nothing else Just s
+-- | Choose between two policies. If the first returns Nothing, run the second.
+infixr 4 <|>
+(<|>) :: Policy -> Policy -> Policy
+p1 <|> p2 = \s -> maybe (p2 s) Just (p1 s)
 
 -- | Add a base path to the URI
 --
@@ -48,7 +49,7 @@ noDots s = if ".." `isInfixOf` s then Nothing else Just s
 -- GET \"foo\/bar\" looks for \"\/home\/user\/files\/foo\/bar\"
 --
 addBase :: String -> Policy
-addBase b = Just . (b </>)
+addBase b = Just . (b FP.</>)
 
 -- | Add an initial slash to to the URI, if not already present.
 --
@@ -58,6 +59,14 @@ addBase b = Just . (b </>)
 addSlash :: Policy
 addSlash s@('/':_) = Just s
 addSlash s         = Just ('/':s)
+
+-- | Filter URIs based on extension
+hasExtension :: String -> Policy
+hasExtension suf s = if suf `isSuffixOf` s then Just s else Nothing
+
+-- | Filter URIs containing \"..\"
+noDots :: Policy
+noDots s = if ".." `isInfixOf` s then Nothing else Just s
 
 -- | Filter any URIs not in a specific list, mapping to a filepath.
 --
