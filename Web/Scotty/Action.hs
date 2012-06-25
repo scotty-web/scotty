@@ -4,7 +4,7 @@ module Web.Scotty.Action
     , status, header, redirect
     , text, html, file, json, source
     , raise, rescue, next
-    , ActionM, Parsable, Param, runAction
+    , ActionM, Parsable(..), readEither, Param, runAction
     ) where
 
 import Blaze.ByteString.Builder (Builder, fromLazyByteString)
@@ -119,21 +119,28 @@ param k = do
         Nothing -> raise $ mconcat ["Param: ", k, " not found!"]
         Just v  -> either (const next) return $ parseParam v
 
+-- | Minimum implemention: 'parseParam'
 class Parsable a where
+    -- | Take a 'T.Text' value and parse it as 'a', or fail with a message.
     parseParam :: T.Text -> Either T.Text a
 
-    -- if any individual element fails to parse, the whole list fails to parse.
+    -- | Default implementation parses comma-delimited lists.
+    --
+    -- > parseParamList t = mapM parseParam (T.split (== ',') t)
     parseParamList :: T.Text -> Either T.Text [a]
     parseParamList t = mapM parseParam (T.split (== ',') t)
 
 -- No point using 'read' for Text, ByteString, Char, and String.
 instance Parsable T.Text where parseParam = Right
 instance Parsable B.ByteString where parseParam = Right . lazyTextToStrictByteString
+-- | Overrides default 'parseParamList' to parse String.
 instance Parsable Char where
     parseParam t = case T.unpack t of
                     [c] -> Right c
                     _   -> Left "parseParam Char: no parse"
     parseParamList = Right . T.unpack -- String
+-- | Checks if parameter is present and is null-valued, not a literal '()'.
+-- If the URI requested is: '/foo?bar=()&baz' then 'baz' will parse as (), where 'bar' will not.
 instance Parsable () where
     parseParam t = if T.null t then Right () else Left "parseParam Unit: no parse"
 
@@ -145,6 +152,9 @@ instance Parsable Float where parseParam = readEither
 instance Parsable Int where parseParam = readEither
 instance Parsable Integer where parseParam = readEither
 
+-- | Useful for creating 'Parsable' instances for things that already implement 'Read'. Ex:
+--
+-- > instance Parsable Int where parseParam = readEither
 readEither :: (Read a) => T.Text -> Either T.Text a
 readEither t = case [ x | (x,"") <- reads (T.unpack t) ] of
                 [x] -> Right x
