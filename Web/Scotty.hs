@@ -26,7 +26,7 @@ module Web.Scotty
       -- ** Exceptions
     , raise, rescue, next
       -- * Types
-    , ScottyM, ActionM, Param, Parsable, RoutePattern
+    , ScottyM, ActionM, Param, Parsable(..), readEither, RoutePattern
     ) where
 
 import Blaze.ByteString.Builder (fromByteString)
