@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Web.Scotty.Action
-    ( request, body, param, jsonData
+    ( request, body, param, params, jsonData
     , status, header, redirect
     , text, html, file, json, source
     , raise, rescue, next
@@ -118,6 +118,10 @@ param k = do
     case val of
         Nothing -> raise $ mconcat ["Param: ", k, " not found!"]
         Just v  -> either (const next) return $ parseParam v
+
+-- | Get all parameters from capture, form and query (in that order).
+params :: ActionM [Param]
+params = getParams <$> ask >>= return
 
 -- | Minimum implemention: 'parseParam'
 class Parsable a where
