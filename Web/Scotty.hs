@@ -15,7 +15,7 @@ module Web.Scotty
       -- * Defining Actions
     , Action
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, body, param, params, jsonData
+    , request, reqHeader, body, param, params, jsonData
       -- ** Modifying the Response and Redirecting
     , status, header, redirect
       -- ** Setting Response Body

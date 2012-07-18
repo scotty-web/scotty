@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Web.Scotty.Action
-    ( request, body, param, params, jsonData
+    ( request, reqHeader, body, param, params, jsonData
     , status, header, redirect
     , text, html, file, json, source
     , raise, rescue, next
@@ -94,6 +94,14 @@ redirect = throwError . Redirect
 -- | Get the 'Request' object.
 request :: ActionM Request
 request = getReq <$> ask
+
+-- | Get a request header. Header name is case-insensitive.
+reqHeader :: T.Text -> ActionM T.Text
+reqHeader k = do
+    hs <- requestHeaders <$> request
+    maybe (raise (mconcat ["reqHeader: ", k, " not found"]))
+          (return . strictByteStringToLazyText)
+          (lookup (CI.mk (lazyTextToStrictByteString k)) hs)
 
 -- | Get the request body.
 body :: ActionM BL.ByteString
