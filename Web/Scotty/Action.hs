@@ -121,7 +121,7 @@ param k = do
 
 -- | Get all parameters from capture, form and query (in that order).
 params :: ActionM [Param]
-params = getParams <$> ask >>= return
+params = getParams <$> ask
 
 -- | Minimum implemention: 'parseParam'
 class Parsable a where
