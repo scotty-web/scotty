@@ -43,7 +43,7 @@ setContent (ContentSource src) (ResponseBuilder s h _) = ResponseSource s h src
 setContent (ContentSource src) (ResponseFile s h _ _)  = ResponseSource s h src
 setContent (ContentSource src) (ResponseSource s h _)  = ResponseSource s h src
 
-setHeader :: (CI Ascii, Ascii) -> Response -> Response
+setHeader :: (CI B.ByteString, B.ByteString) -> Response -> Response
 setHeader (k,v) (ResponseBuilder s h b) = ResponseBuilder s (update h k v) b
 setHeader (k,v) (ResponseFile s h f fp) = ResponseFile s (update h k v) f fp
 setHeader (k,v) (ResponseSource s h cs) = ResponseSource s (update h k v) cs
