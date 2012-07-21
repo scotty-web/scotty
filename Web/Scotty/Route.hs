@@ -13,6 +13,7 @@ import Control.Monad.Trans.Resource (ResourceT)
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive as CI
+import Data.Char (toLower)
 import Data.Conduit.Lazy (lazyConsume)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (mconcat)
@@ -135,8 +136,9 @@ mkEnv method req captures = do
     b <- BL.fromChunks <$> lazyConsume (requestBody req)
 
     let parameters = captures ++ formparams ++ queryparams
-        formparams = case (method, lookup "Content-Type" [(CI.mk k, CI.mk v) | (k,v) <- requestHeaders req]) of
-                        (_, Just "application/x-www-form-urlencoded") -> parseEncodedParams $ mconcat $ BL.toChunks b
+        formparams = case (method, lookup "Content-Type" [(CI.mk k, v) | (k,v) <- requestHeaders req]) of
+                        (_, Just enc) | "application/x-www-form-urlencoded" `B.isPrefixOf` (B.map toLower enc)
+                            -> parseEncodedParams $ mconcat $ BL.toChunks b
                         _ -> []
         queryparams = parseEncodedParams $ rawQueryString req
 
