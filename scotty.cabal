@@ -82,7 +82,8 @@ Library
                        text             >= 0.11.1,
                        wai              >= 1.0.0,
                        warp             >= 1.0.0,
-                       regex-compat     >= 0.95.1
+                       regex-compat     >= 0.95.1,
+                       wai-extra        >= 1.2
 
   GHC-options: -Wall -fno-warn-orphans
 
