@@ -12,8 +12,6 @@ import Control.Monad.Trans.Resource (ResourceT)
 
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
-import qualified Data.CaseInsensitive as CI
-import Data.Char (toLower)
 import Data.Conduit.Lazy (lazyConsume)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (mconcat)
@@ -28,6 +26,7 @@ import qualified Text.Regex as Regex
 
 import Web.Scotty.Action
 import Web.Scotty.Types
+import Web.Scotty.Util
 
 -- | get = 'addroute' 'GET'
 get :: (Action action) => RoutePattern -> action -> ScottyM ()
@@ -103,7 +102,7 @@ route method pat action app req =
     if Right method == parseMethod (requestMethod req)
     then case matchRoute pat req of
             Just captures -> do
-                env <- mkEnv method req captures
+                env <- mkEnv req captures
                 res <- lift $ runAction env action
                 maybe tryNext return res
             Nothing -> tryNext
@@ -132,17 +131,17 @@ matchRoute (Capture pat) req = go (T.split (=='/') pat) (T.split (=='/') $ path 
 path :: Request -> T.Text
 path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo
 
-mkEnv :: StdMethod -> Request -> [Param] -> ResourceT IO ActionEnv
-mkEnv method req captures = do
+mkEnv :: Request -> [Param] -> ResourceT IO ActionEnv
+mkEnv req captures = do
     b <- BL.fromChunks <$> lazyConsume (requestBody req)
 
-    (formparams, files) <- parseRequestBody lbsBackEnd req
-    let convert (bs0, bs1) = (T.pack . B.unpack $ bs0, T.pack . B.unpack $ bs1)
+    (formparams, fs) <- parseRequestBody lbsBackEnd req
 
-    let parameters = captures ++ map convert formparams ++ queryparams
+    let convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
+        parameters = captures ++ map convert formparams ++ queryparams
         queryparams = parseEncodedParams $ rawQueryString req
 
-    return $ Env req parameters b files
+    return $ Env req parameters b fs
 
 parseEncodedParams :: B.ByteString -> [Param]
 parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]
