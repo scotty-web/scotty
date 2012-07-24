@@ -22,6 +22,7 @@ import qualified Data.Text as TS
 
 import Network.HTTP.Types
 import Network.Wai
+import Network.Wai.Parse (parseRequestBody, lbsBackEnd)
 
 import qualified Text.Regex as Regex
 
@@ -135,14 +136,13 @@ mkEnv :: StdMethod -> Request -> [Param] -> ResourceT IO ActionEnv
 mkEnv method req captures = do
     b <- BL.fromChunks <$> lazyConsume (requestBody req)
 
-    let parameters = captures ++ formparams ++ queryparams
-        formparams = case (method, lookup "Content-Type" [(CI.mk k, v) | (k,v) <- requestHeaders req]) of
-                        (_, Just enc) | "application/x-www-form-urlencoded" `B.isPrefixOf` (B.map toLower enc)
-                            -> parseEncodedParams $ mconcat $ BL.toChunks b
-                        _ -> []
+    (formparams, files) <- parseRequestBody lbsBackEnd req
+    let convert (bs0, bs1) = (T.pack . B.unpack $ bs0, T.pack . B.unpack $ bs1)
+
+    let parameters = captures ++ map convert formparams ++ queryparams
         queryparams = parseEncodedParams $ rawQueryString req
 
-    return $ Env req parameters b
+    return $ Env req parameters b files
 
 parseEncodedParams :: B.ByteString -> [Param]
 parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]
