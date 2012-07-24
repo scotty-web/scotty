@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Web.Scotty.Action
-    ( request, reqHeader, body, param, params, jsonData
+    ( request, files, reqHeader, body, param, params, jsonData
     , status, header, redirect
     , text, html, file, json, source
     , raise, rescue, next
@@ -26,6 +26,7 @@ import Data.Text.Lazy.Encoding (encodeUtf8)
 
 import Network.HTTP.Types
 import Network.Wai
+import Network.Wai.Parse (File)
 
 import Web.Scotty.Types
 import Web.Scotty.Util
@@ -94,6 +95,9 @@ redirect = throwError . Redirect
 -- | Get the 'Request' object.
 request :: ActionM Request
 request = getReq <$> ask
+
+files :: ActionM [File BL.ByteString]
+files = getFiles <$> ask
 
 -- | Get a request header. Header name is case-insensitive.
 reqHeader :: T.Text -> ActionM T.Text
