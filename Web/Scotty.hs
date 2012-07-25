@@ -15,7 +15,7 @@ module Web.Scotty
       -- * Defining Actions
     , Action
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, reqHeader, body, param, params, jsonData
+    , request, reqHeader, body, param, params, jsonData, files
       -- ** Modifying the Response and Redirecting
     , status, header, redirect
       -- ** Setting Response Body
@@ -28,7 +28,7 @@ module Web.Scotty
       -- * Parsing Parameters
     , Param, Parsable(..), readEither
       -- * Types
-    , ScottyM, ActionM, RoutePattern
+    , ScottyM, ActionM, RoutePattern, File
     ) where
 
 import Blaze.ByteString.Builder (fromByteString)

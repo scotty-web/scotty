@@ -141,7 +141,7 @@ mkEnv req captures = do
         parameters = captures ++ map convert formparams ++ queryparams
         queryparams = parseEncodedParams $ rawQueryString req
 
-    return $ Env req parameters b fs
+    return $ Env req parameters b [ (strictByteStringToLazyText k, fi) | (k,fi) <- fs ]
 
 parseEncodedParams :: B.ByteString -> [Param]
 parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]

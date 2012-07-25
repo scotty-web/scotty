@@ -12,7 +12,7 @@ import Data.Text.Lazy (Text, pack)
 
 import Network.Wai
 import Network.Wai.Handler.Warp (Settings, defaultSettings)
-import Network.Wai.Parse(File)
+import Network.Wai.Parse (FileInfo)
 
 data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
                        , settings :: Settings -- ^ Warp 'Settings'
@@ -47,7 +47,9 @@ data ActionError = Redirect Text
 instance Error ActionError where
     strMsg = ActionError . pack
 
-data ActionEnv = Env { getReq :: Request, getParams :: [Param], getBody :: ByteString, getFiles :: [File ByteString] }
+type File = (Text, FileInfo ByteString)
+
+data ActionEnv = Env { getReq :: Request, getParams :: [Param], getBody :: ByteString, getFiles :: [File] }
 
 newtype ActionM a = AM { runAM :: ErrorT ActionError (ReaderT ActionEnv (StateT Response IO)) a }
     deriving ( Monad, MonadIO, Functor
