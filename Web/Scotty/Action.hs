@@ -26,7 +26,6 @@ import Data.Text.Lazy.Encoding (encodeUtf8)
 
 import Network.HTTP.Types
 import Network.Wai
-import Network.Wai.Parse (File)
 
 import Web.Scotty.Types
 import Web.Scotty.Util
@@ -96,7 +95,8 @@ redirect = throwError . Redirect
 request :: ActionM Request
 request = getReq <$> ask
 
-files :: ActionM [File BL.ByteString]
+-- | Get list of uploaded files.
+files :: ActionM [File]
 files = getFiles <$> ask
 
 -- | Get a request header. Header name is case-insensitive.
