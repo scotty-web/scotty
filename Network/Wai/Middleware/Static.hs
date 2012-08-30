@@ -19,13 +19,14 @@ module Network.Wai.Middleware.Static
     ) where
 
 import Control.Monad.Trans (liftIO)
+import qualified Data.ByteString as B
 import Data.List
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe)
 import Data.Monoid
 import qualified Data.Text as T
 
-import Network.HTTP.Types (status200, Ascii)
+import Network.HTTP.Types (status200)
 import System.Directory (doesFileExist)
 import qualified System.FilePath as FP
 
@@ -124,6 +125,8 @@ staticPolicy p app req =
                                                    Nothing
                         else app req)
           (tryPolicy p $ T.unpack $ T.intercalate "/" $ pathInfo req)
+
+type Ascii = B.ByteString
 
 getMimeType :: FilePath -> Ascii
 getMimeType = go . extensions
