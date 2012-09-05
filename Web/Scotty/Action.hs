@@ -57,7 +57,7 @@ instance ScottyString T.Text where
   fromScotty = id
 
 instance ScottyString String where
-  toContent = toContent . B.pack
+  toContent = toContent . T.pack
   toText = T.pack
   fromScotty = T.unpack
 
