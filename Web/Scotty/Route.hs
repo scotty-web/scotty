@@ -5,14 +5,11 @@ module Web.Scotty.Route
     ) where
 
 import Control.Arrow ((***))
-import Control.Applicative
 import Control.Monad.Error
 import qualified Control.Monad.State as MS
-import Control.Monad.Trans.Resource (ResourceT)
 
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
-import Data.Conduit.Lazy (lazyConsume)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (mconcat)
 import qualified Data.Text.Lazy as T
@@ -27,6 +24,9 @@ import qualified Text.Regex as Regex
 import Web.Scotty.Action
 import Web.Scotty.Types
 import Web.Scotty.Util
+
+import Data.Conduit
+import Data.Conduit.List (consume)
 
 -- | get = 'addroute' 'GET'
 get :: (Action action) => RoutePattern -> action -> ScottyM ()
@@ -133,7 +133,12 @@ path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo
 
 mkEnv :: Request -> [Param] -> ResourceT IO ActionEnv
 mkEnv req captures = do
-    b <- BL.fromChunks <$> lazyConsume (requestBody req)
+    -- This fails for some reason; reads the empty string
+    -- b <- BL.fromChunks <$> lazyConsume (requestBody req)
+    -- We replace it with
+    bss <- requestBody req $$ Data.Conduit.List.consume
+    let b :: BL.ByteString
+        b = BL.fromChunks bss
 
     (formparams, fs) <- parseRequestBody lbsBackEnd req
 
