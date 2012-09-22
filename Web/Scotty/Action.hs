@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 module Web.Scotty.Action
     ( request, files, reqHeader, body, param, params, jsonData
-    , status, header, redirect
+    , status, header, putHeader, redirect
     , text, html, file, json, source
     , raise, rescue, next
     , ActionM, Parsable(..), readEither, Param, runAction
@@ -218,6 +218,12 @@ header :: ScottyString a => T.Text -> a -> ActionM ()
 header k v = MS.modify $ setHeader (CI.mk k', v')
   where k' = lazyTextToStrictByteString k
         v' = lazyTextToStrictByteString $ toText v
+
+putHeader :: ScottyString a => T.Text -> a -> ActionM ()
+putHeader k v = MS.modify $ addHeader (CI.mk k', v')
+  where k' = lazyTextToStrictByteString k
+        v' = lazyTextToStrictByteString $ toText v
+
 
 -- | Set the body of the response to the given 'a' value. Also sets \"Content-Type\"
 -- header to \"text/plain\".
