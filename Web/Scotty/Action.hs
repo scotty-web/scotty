@@ -2,12 +2,12 @@
 module Web.Scotty.Action
     ( request, files, reqHeader, body, param, params, jsonData
     , status, header, redirect
-    , text, html, file, json, source
+    , text, html, file, bytes, json, source
     , raise, rescue, next
     , ActionM, Parsable(..), readEither, Param, runAction
     ) where
 
-import Blaze.ByteString.Builder (Builder, fromLazyByteString)
+import Blaze.ByteString.Builder (Builder, fromLazyByteString, fromByteString)
 
 import Control.Applicative
 import Control.Monad.Error
@@ -204,6 +204,11 @@ html t = do
 -- want to do that on your own with 'header'.
 file :: FilePath -> ActionM ()
 file = MS.modify . setContent . ContentFile
+
+-- | Send bytes as the response. Doesn't set the \"Content-Type\" header, so you probably
+-- want to do that on your own with 'header'.
+bytes :: B.ByteString -> ActionM ()
+bytes = MS.modify . setContent . ContentBuilder . fromByteString
 
 -- | Set the body of the response to the JSON encoding of the given value. Also sets \"Content-Type\"
 -- header to \"application/json\".
