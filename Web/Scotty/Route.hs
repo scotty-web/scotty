@@ -28,6 +28,12 @@ import Web.Scotty.Util
 import Data.Conduit
 import Data.Conduit.List (consume)
 
+
+import Control.Applicative
+import Control.Monad.Trans.Resource (ResourceT)
+import Data.Conduit.Lazy (lazyConsume)
+
+
 -- | get = 'addroute' 'GET'
 get :: (Action action) => RoutePattern -> action -> ScottyM ()
 get = addroute GET
@@ -133,20 +139,16 @@ path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo
 
 mkEnv :: Request -> [Param] -> ResourceT IO ActionEnv
 mkEnv req captures = do
-    -- This fails for some reason; reads the empty string
-    -- b <- BL.fromChunks <$> lazyConsume (requestBody req)
-    -- We replace it with
-    bss <- requestBody req $$ Data.Conduit.List.consume
-    let b :: BL.ByteString
-        b = BL.fromChunks bss
+    b <- BL.fromChunks <$> lazyConsume (requestBody req)
 
-    (formparams, fs) <- parseRequestBody lbsBackEnd req
+--    (formparams, fs) <- parseRequestBody lbsBackEnd req
 
     let convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
-        parameters = captures ++ map convert formparams ++ queryparams
+        parameters = captures ++ {- map convert formparams ++ -} queryparams
         queryparams = parseEncodedParams $ rawQueryString req
 
-    return $ Env req parameters b [ (strictByteStringToLazyText k, fi) | (k,fi) <- fs ]
+--    return $ Env req parameters b [ (strictByteStringToLazyText k, fi) | (k,fi) <- fs ]
+    return $ Env req parameters b []
 
 parseEncodedParams :: B.ByteString -> [Param]
 parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]
