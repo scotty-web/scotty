@@ -12,7 +12,7 @@ import Network.Wai.Middleware.Static
 
 import qualified Text.Blaze.Html5 as H
 import Text.Blaze.Html5.Attributes
-import Text.Blaze.Renderer.Text (renderHtml)
+import Text.Blaze.Html.Renderer.Text (renderHtml)
 
 -- TODO:
 -- Implement some kind of session and/or cookies
