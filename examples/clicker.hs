@@ -62,7 +62,7 @@ main = do
             html $ wrapper $ do
                 H.preEscapedLazyText fv
                 H.form ! A.id "login" ! method "post" ! action "/login" $ do
-                    H.text "Enter class key: "
+                    H.h6 "Enter class key: "
                     H.input ! type_ "text" ! name "code"
                     H.br
                     H.input ! type_ "submit"
@@ -85,7 +85,7 @@ main = do
             sId <- maybe (do flash "not logged in!"; redirect "/") return =<< readCookie
             html $ wrapper $ do
                 H.lazyText sId
-                H.a ! href "/logout" $ H.text "Log out"
+                H.a ! href "/logout" $ H.h6 "Log out"
 
         get "/professor" $ do
             text "professor"
