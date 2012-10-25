@@ -5,14 +5,11 @@ module Web.Scotty.Route
     ) where
 
 import Control.Arrow ((***))
-import Control.Applicative
 import Control.Monad.Error
 import qualified Control.Monad.State as MS
-import Control.Monad.Trans.Resource (ResourceT)
 
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
-import Data.Conduit.Lazy (lazyConsume)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (mconcat)
 import qualified Data.Text.Lazy as T
@@ -27,6 +24,15 @@ import qualified Text.Regex as Regex
 import Web.Scotty.Action
 import Web.Scotty.Types
 import Web.Scotty.Util
+
+import Data.Conduit
+import Data.Conduit.List (consume)
+
+
+import Control.Applicative
+import Control.Monad.Trans.Resource (ResourceT)
+import Data.Conduit.Lazy (lazyConsume)
+
 
 -- | get = 'addroute' 'GET'
 get :: (Action action) => RoutePattern -> action -> ScottyM ()
@@ -135,13 +141,14 @@ mkEnv :: Request -> [Param] -> ResourceT IO ActionEnv
 mkEnv req captures = do
     b <- BL.fromChunks <$> lazyConsume (requestBody req)
 
-    (formparams, fs) <- parseRequestBody lbsBackEnd req
+--    (formparams, fs) <- parseRequestBody lbsBackEnd req
 
     let convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
-        parameters = captures ++ map convert formparams ++ queryparams
+        parameters = captures ++ {- map convert formparams ++ -} queryparams
         queryparams = parseEncodedParams $ rawQueryString req
 
-    return $ Env req parameters b [ (strictByteStringToLazyText k, fi) | (k,fi) <- fs ]
+--    return $ Env req parameters b [ (strictByteStringToLazyText k, fi) | (k,fi) <- fs ]
+    return $ Env req parameters b []
 
 parseEncodedParams :: B.ByteString -> [Param]
 parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]
