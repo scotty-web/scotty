@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Web.Scotty.Action
     ( request, files, reqHeader, body, param, params, jsonData
     , status, header, redirect
@@ -7,7 +9,7 @@ module Web.Scotty.Action
     , ActionM, Parsable(..), readEither, Param, runAction
     ) where
 
-import Blaze.ByteString.Builder (Builder, fromLazyByteString)
+import Blaze.ByteString.Builder (Builder, fromLazyByteString,fromByteString)
 
 import Control.Applicative
 import Control.Monad.Error
@@ -17,18 +19,47 @@ import qualified Control.Monad.State as MS
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
+import qualified Data.ByteString.Lazy()
 import qualified Data.CaseInsensitive as CI
 import Data.Conduit (Flush, ResourceT, Source)
 import Data.Default (Default, def)
 import Data.Monoid (mconcat)
 import qualified Data.Text.Lazy as T
-import Data.Text.Lazy.Encoding (encodeUtf8)
+import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
 
 import Network.HTTP.Types
 import Network.Wai
 
 import Web.Scotty.Types
 import Web.Scotty.Util
+
+
+
+
+class ScottyString a where
+  toContent :: a -> Content
+  toText :: a -> T.Text
+  fromScotty :: T.Text -> a
+
+instance ScottyString B.ByteString where
+  toContent bs = ContentBuilder (fromByteString bs)
+  toText bs = toText $ BL.fromChunks [bs]
+  fromScotty =  B.concat . BL.toChunks . fromScotty
+
+instance ScottyString BL.ByteString where
+  toContent bs   = ContentBuilder (fromLazyByteString bs)
+  toText  = decodeUtf8
+  fromScotty = encodeUtf8
+
+instance ScottyString T.Text where
+  toContent = toContent . encodeUtf8
+  toText = id
+  fromScotty = id
+
+instance ScottyString String where
+  toContent = toContent . T.pack
+  toText = T.pack
+  fromScotty = T.unpack
 
 -- Nothing indicates route failed (due to Next) and pattern matching should continue.
 -- Just indicates a successful response.
@@ -52,8 +83,8 @@ defaultHandler Next = next
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
-raise :: T.Text -> ActionM a
-raise = throwError . ActionError
+raise :: T.Text -> ActionM b
+raise = throwError . ActionError . toText
 
 -- | Abort execution of this action and continue pattern matching routes.
 -- Like an exception, any code after 'next' is not executed.
@@ -88,8 +119,8 @@ rescue action handler = catchError action $ \e -> case e of
 -- OR
 --
 -- > redirect "/foo/bar"
-redirect :: T.Text -> ActionM a
-redirect = throwError . Redirect
+redirect :: ScottyString a => a -> ActionM a
+redirect = throwError . Redirect . toText
 
 -- | Get the 'Request' object.
 request :: ActionM Request
@@ -100,12 +131,12 @@ files :: ActionM [File]
 files = getFiles <$> ask
 
 -- | Get a request header. Header name is case-insensitive.
-reqHeader :: T.Text -> ActionM T.Text
+reqHeader :: (ScottyString a) => T.Text -> ActionM a
 reqHeader k = do
     hs <- requestHeaders <$> request
     maybe (raise (mconcat ["reqHeader: ", k, " not found"]))
-          (return . strictByteStringToLazyText)
-          (lookup (CI.mk (lazyTextToStrictByteString k)) hs)
+          (return . fromScotty . strictByteStringToLazyText)
+          (lookup (CI.mk (lazyTextToStrictByteString $ toText k)) hs)
 
 -- | Get the request body.
 body :: ActionM BL.ByteString
@@ -183,22 +214,25 @@ status = MS.modify . setStatus
 
 -- | Set one of the response headers. Will override any previously set value for that header.
 -- Header names are case-insensitive.
-header :: T.Text -> T.Text -> ActionM ()
-header k v = MS.modify $ setHeader (CI.mk $ lazyTextToStrictByteString k, lazyTextToStrictByteString v)
+header :: ScottyString a => T.Text -> a -> ActionM ()
+header k v = MS.modify $ setHeader (CI.mk k', v')
+  where k' = lazyTextToStrictByteString k
+        v' = lazyTextToStrictByteString $ toText v
 
--- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
+-- | Set the body of the response to the given 'a' value. Also sets \"Content-Type\"
 -- header to \"text/plain\".
-text :: T.Text -> ActionM ()
+text :: (ScottyString a) => a -> ActionM ()
 text t = do
-    header "Content-Type" "text/plain"
-    MS.modify $ setContent $ ContentBuilder $ fromLazyByteString $ encodeUtf8 t
+    header "Content-Type" ("text/plain" ::T.Text)
+    MS.modify $ setContent $ toContent t
 
--- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
+
+-- | Set the body of the response to the given 'a' value. Also sets \"Content-Type\"
 -- header to \"text/html\".
-html :: T.Text -> ActionM ()
+html :: (ScottyString a) => a -> ActionM ()
 html t = do
-    header "Content-Type" "text/html"
-    MS.modify $ setContent $ ContentBuilder $ fromLazyByteString $ encodeUtf8 t
+    header "Content-Type" ("text/html" ::T.Text)
+    MS.modify $ setContent $ toContent t
 
 -- | Send a file as the response. Doesn't set the \"Content-Type\" header, so you probably
 -- want to do that on your own with 'header'.
@@ -209,7 +243,7 @@ file = MS.modify . setContent . ContentFile
 -- header to \"application/json\".
 json :: (A.ToJSON a) => a -> ActionM ()
 json v = do
-    header "Content-Type" "application/json"
+    header "Content-Type" ("application/json" ::T.Text)
     MS.modify $ setContent $ ContentBuilder $ fromLazyByteString $ A.encode v
 
 -- | Set the body of the response to a Source. Doesn't set the
