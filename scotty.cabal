@@ -1,8 +1,8 @@
 Name:                scotty
-Version:             0.4.5
+Version:             0.4.6
 Synopsis:            Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp
-Homepage:            https://github.com/xich/scotty
-Bug-reports:         https://github.com/xich/scotty/issues
+Homepage:            https://github.com/ku-fpg/scotty
+Bug-reports:         https://github.com/ku-fpg/scotty/issues
 License:             BSD3
 License-file:        LICENSE
 Author:              Andrew Farmer <anfarmer@ku.edu>
@@ -39,13 +39,6 @@ Description:
   .
     * Uses very fast Warp webserver by default.
   .
-  This design has been done in Haskell at least once before (to my knowledge) by
-  the miku framework. My issue with miku is that it uses the Hack2 interface
-  instead of WAI (they are analogous, but the latter seems to have more traction),
-  and that it is written using a custom prelude called Air (which appears to be an
-  attempt to turn Haskell into Ruby syntactically). I wanted something that
-  depends on relatively few other packages, with an API that fits on one page.
-  .
   As for the name: Sinatra + Warp = Scotty.
   .
   [WAI] <http://hackage.haskell.org/package/wai>
@@ -69,24 +62,24 @@ Library
                        Web.Scotty.Types
                        Web.Scotty.Util
   default-language:    Haskell2010
-  build-depends:       aeson            >= 0.5,
+  build-depends:       aeson            >= 0.6.0.2,
                        base             >= 4.3.1 && < 5,
-                       blaze-builder    >= 0.3,
+                       blaze-builder    >= 0.3.1.0,
                        bytestring       >= 0.9.1,
-                       case-insensitive >= 0.4,
-                       conduit          >= 0.4.0.1 && < 0.6,
-                       data-default     >= 0.3,
-                       http-types       >= 0.6.8 && < 0.8,
-                       mtl              >= 2.0.1,
-                       resourcet        >= 0.3.2 && < 0.4,
-                       text             >= 0.11.1,
-                       wai              >= 1.0.0,
-                       warp             >= 1.0.0,
+                       case-insensitive >= 0.4.0.3,
+                       conduit          >= 0.5.2.7,
+                       data-default     >= 0.5.0,
+                       http-types       >= 0.7.3.0.1,
+                       mtl              >= 2.1.2,
                        regex-compat     >= 0.95.1,
-                       wai-extra        >= 1.2
+                       resourcet        >= 0.4.0.2,
+                       text             >= 0.11.2.3,
+                       wai              >= 1.3.0.1,
+                       wai-extra        >= 1.3.0.3,
+                       warp             >= 1.3.4.1
 
   GHC-options: -Wall -fno-warn-orphans
 
 source-repository head
   type:     git
-  location: git://github.com/xich/scotty.git
+  location: git://github.com/ku-fpg/scotty.git
