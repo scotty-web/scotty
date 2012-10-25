@@ -10,7 +10,7 @@ import Network.Wai.Parse
 
 import qualified Text.Blaze.Html5 as H
 import Text.Blaze.Html5.Attributes
-import Text.Blaze.Renderer.Text (renderHtml)
+import Text.Blaze.Html.Renderer.Text (renderHtml)
 
 import qualified Data.ByteString.Lazy as B
 import qualified Data.ByteString.Char8 as BS
