@@ -12,6 +12,10 @@ import Network.Wai.Middleware.Static
 
 import qualified Text.Blaze.Html5 as H
 import Text.Blaze.Html5.Attributes
+-- Note:
+--   Scotty does not require blaze-html or
+--   wai-middleware-static, but this example does
+--       cabal install blaze-html wai-middleware-static
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 
 -- TODO:
