@@ -9,7 +9,7 @@ import Network.Wai.Middleware.Static
 import qualified Text.Blaze.Html5 as H
 import Text.Blaze.Html5 ((!))
 import Text.Blaze.Html5.Attributes as A
-import Text.Blaze.Renderer.Text (renderHtml)
+import Text.Blaze.Html.Renderer.Text (renderHtml)
 
 import Web.Scotty
 
@@ -29,7 +29,7 @@ main = scotty 3000 $ do
     get "/" $ do
         html $ wrapper $ do
             H.form ! A.id "fooform" ! method "post" ! action "#" $ do
-                H.text "Select a constructor: "
+                H.h5 "Select a constructor: "
                 H.input ! type_ "radio" ! A.id "fooquux" ! name "con" ! value "Quux"
                 H.label ! for "fooquux" $ "Quux"
                 H.input ! type_ "radio" ! A.id "foobar" ! name "con" ! value "Bar"
@@ -37,12 +37,12 @@ main = scotty 3000 $ do
                 H.input ! type_ "radio" ! A.id "foobaz" ! name "con" ! value "Baz"
                 H.label ! for "foobaz" $ "Baz"
                 H.br
-                H.text "Enter an int: "
+                H.h5 "Enter an int: "
                 H.input ! type_ "text" ! class_ "barfields" ! name "Barint"
                 H.br
-                H.text "Enter a float: "
+                H.h5 "Enter a float: "
                 H.input ! type_ "text" ! class_ "bazfields" ! name "Bazfloat"
-                H.text "Enter a string: "
+                H.h5 "Enter a string: "
                 H.input ! type_ "text" ! class_ "bazfields" ! name "Bazstring"
                 H.br
                 H.input ! type_ "submit"

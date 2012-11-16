@@ -12,7 +12,11 @@ import Control.Monad.Trans.Resource (ResourceT)
 
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
+import Data.Conduit (($$), (=$))
+import Data.Conduit.Binary (sourceLbs)
 import Data.Conduit.Lazy (lazyConsume)
+import Data.Conduit.List (consume)
+import Data.Either (partitionEithers)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (mconcat)
 import qualified Data.Text.Lazy as T
@@ -20,7 +24,7 @@ import qualified Data.Text as TS
 
 import Network.HTTP.Types
 import Network.Wai
-import Network.Wai.Parse (parseRequestBody, lbsBackEnd)
+import qualified Network.Wai.Parse as Parse hiding (parseRequestBody)
 
 import qualified Text.Regex as Regex
 
@@ -131,11 +135,21 @@ matchRoute (Capture pat) req = go (T.split (=='/') pat) (T.split (=='/') $ path 
 path :: Request -> T.Text
 path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo
 
+-- Stolen from wai-extra, modified to accept body as lazy ByteString
+parseRequestBody :: BL.ByteString
+                 -> Parse.BackEnd y
+                 -> Request
+                 -> ResourceT IO ([Parse.Param], [Parse.File y])
+parseRequestBody b s r =
+    case Parse.getRequestBodyType r of
+        Nothing -> return ([], [])
+        Just rbt -> fmap partitionEithers $ sourceLbs b $$ Parse.conduitRequestBody s rbt =$ consume
+
 mkEnv :: Request -> [Param] -> ResourceT IO ActionEnv
 mkEnv req captures = do
     b <- BL.fromChunks <$> lazyConsume (requestBody req)
 
-    (formparams, fs) <- parseRequestBody lbsBackEnd req
+    (formparams, fs) <- parseRequestBody b Parse.lbsBackEnd req
 
     let convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
         parameters = captures ++ map convert formparams ++ queryparams
