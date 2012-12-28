@@ -2,7 +2,7 @@
 module Web.Scotty.Action
     ( request, files, reqHeader, body, param, params, jsonData
     , status, header, redirect
-    , text, html, file, json, source
+    , text, html, file, json, source, raw
     , raise, rescue, next
     , ActionM, Parsable(..), readEither, Param, runAction
     ) where
@@ -191,14 +191,14 @@ header k v = MS.modify $ setHeader (CI.mk $ lazyTextToStrictByteString k, lazyTe
 text :: T.Text -> ActionM ()
 text t = do
     header "Content-Type" "text/plain"
-    MS.modify $ setContent $ ContentBuilder $ fromLazyByteString $ encodeUtf8 t
+    raw $ encodeUtf8 t
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
 -- header to \"text/html\".
 html :: T.Text -> ActionM ()
 html t = do
     header "Content-Type" "text/html"
-    MS.modify $ setContent $ ContentBuilder $ fromLazyByteString $ encodeUtf8 t
+    raw $ encodeUtf8 t
 
 -- | Send a file as the response. Doesn't set the \"Content-Type\" header, so you probably
 -- want to do that on your own with 'header'.
@@ -210,10 +210,16 @@ file = MS.modify . setContent . ContentFile
 json :: (A.ToJSON a) => a -> ActionM ()
 json v = do
     header "Content-Type" "application/json"
-    MS.modify $ setContent $ ContentBuilder $ fromLazyByteString $ A.encode v
+    raw $ A.encode v
 
 -- | Set the body of the response to a Source. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your
 -- own with 'header'.
 source :: Source (ResourceT IO) (Flush Builder) -> ActionM ()
 source = MS.modify . setContent . ContentSource
+
+-- | Set the body of the response to the given 'BL.ByteString' value. Doesn't set the
+-- \"Content-Type\" header, so you probably want to do that on your
+-- own with 'header'.
+raw :: BL.ByteString -> ActionM ()
+raw = MS.modify . setContent . ContentBuilder . fromLazyByteString
