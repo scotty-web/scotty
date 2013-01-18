@@ -25,16 +25,15 @@ import Data.Conduit (Flush, ResourceT, Source)
 import Data.Default (Default, def)
 import Data.Monoid (mconcat)
 import qualified Data.Text.Lazy as T
-import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
+import qualified Data.Text.Lazy.Encoding as T (encodeUtf8, decodeUtf8)
+import qualified Data.Text as ST
+import qualified Data.Text.Encoding as ST (encodeUtf8)
 
 import Network.HTTP.Types
 import Network.Wai
 
 import Web.Scotty.Types
 import Web.Scotty.Util
-
-
-
 
 class ScottyString a where
   toContent :: a -> Content
@@ -48,13 +47,18 @@ instance ScottyString B.ByteString where
 
 instance ScottyString BL.ByteString where
   toContent bs   = ContentBuilder (fromLazyByteString bs)
-  toText  = decodeUtf8
-  fromScotty = encodeUtf8
+  toText  = T.decodeUtf8
+  fromScotty = T.encodeUtf8
 
 instance ScottyString T.Text where
-  toContent = toContent . encodeUtf8
+  toContent = toContent . T.encodeUtf8
   toText = id
   fromScotty = id
+
+instance ScottyString ST.Text where
+  toContent = toContent . ST.encodeUtf8
+  toText = T.fromStrict
+  fromScotty = T.toStrict
 
 instance ScottyString String where
   toContent = toContent . T.pack
@@ -131,12 +135,10 @@ files :: ActionM [File]
 files = getFiles <$> ask
 
 -- | Get a request header. Header name is case-insensitive.
-reqHeader :: (ScottyString a) => T.Text -> ActionM a
+reqHeader :: (ScottyString a) => T.Text -> ActionM (Maybe a)
 reqHeader k = do
     hs <- requestHeaders <$> request
-    maybe (raise (mconcat ["reqHeader: ", k, " not found"]))
-          (return . fromScotty . strictByteStringToLazyText)
-          (lookup (CI.mk (lazyTextToStrictByteString $ toText k)) hs)
+    (return . fmap (fromScotty . strictByteStringToLazyText) . (lookup (CI.mk (lazyTextToStrictByteString $ toText k)))) hs
 
 -- | Get the request body.
 body :: ActionM BL.ByteString
