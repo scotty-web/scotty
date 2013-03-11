@@ -1,7 +1,7 @@
 module Web.Scotty.Util
     ( lazyTextToStrictByteString
     , strictByteStringToLazyText
-    , setContent, setHeader, setStatus
+    , setContent, setHeader, addHeader, setStatus
     , Content(..)
     ) where
 
@@ -43,10 +43,13 @@ setContent (ContentSource src) (ResponseBuilder s h _) = ResponseSource s h src
 setContent (ContentSource src) (ResponseFile s h _ _)  = ResponseSource s h src
 setContent (ContentSource src) (ResponseSource s h _)  = ResponseSource s h src
 
-setHeader :: (CI B.ByteString, B.ByteString) -> Response -> Response
+setHeader,addHeader :: (CI B.ByteString, B.ByteString) -> Response -> Response
 setHeader (k,v) (ResponseBuilder s h b) = ResponseBuilder s (update h k v) b
 setHeader (k,v) (ResponseFile s h f fp) = ResponseFile s (update h k v) f fp
 setHeader (k,v) (ResponseSource s h cs) = ResponseSource s (update h k v) cs
+addHeader (k,v) (ResponseBuilder s h b) = ResponseBuilder s ((k,v) : h) b
+addHeader (k,v) (ResponseFile s h f fp) = ResponseFile s ((k,v) : h) f fp
+addHeader (k,v) (ResponseSource s h cs) = ResponseSource s ((k,v) : h) cs
 
 setStatus :: Status -> Response -> Response
 setStatus s (ResponseBuilder _ h b) = ResponseBuilder s h b

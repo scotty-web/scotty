@@ -17,7 +17,7 @@ module Web.Scotty
       -- ** Accessing the Request, Captures, and Query Parameters
     , request, reqHeader, body, param, params, jsonData, files
       -- ** Modifying the Response and Redirecting
-    , status, header, redirect
+    , status, header, redirect, putHeader
       -- ** Setting Response Body
       --
       -- | Note: only one of these should be present in any given route
