@@ -1,5 +1,5 @@
 Name:                scotty
-Version:             0.4.6
+Version:             0.4.6.1
 Synopsis:            Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp
 Homepage:            https://github.com/ku-fpg/scotty
 Bug-reports:         https://github.com/ku-fpg/scotty/issues
@@ -48,6 +48,7 @@ Description:
 Extra-source-files:
     README
     examples/basic.hs
+    examples/gzip.hs
     examples/json.hs
     examples/options.hs
     examples/urlshortener.hs
@@ -57,7 +58,7 @@ Extra-source-files:
 
 Library
   Exposed-modules:     Web.Scotty
-  other-modules:       Web.Scotty.Action
+                       Web.Scotty.Action
                        Web.Scotty.Route
                        Web.Scotty.Types
                        Web.Scotty.Util
@@ -70,6 +71,7 @@ Library
                        conduit          >= 0.5.2.7,
                        data-default     >= 0.5.0,
                        http-types       >= 0.7.3.0.1,
+                       mmorph           >= 1.0.0,
                        mtl              >= 2.1.2,
                        regex-compat     >= 0.95.1,
                        resourcet        >= 0.4.0.2,

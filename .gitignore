@@ -2,3 +2,4 @@ dist/
 *.hi
 *.o
 *.swp
+cabal-dev/

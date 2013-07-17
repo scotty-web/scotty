@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, RankNTypes #-}
 -- | It should be noted that most of the code snippets below depend on the
 -- OverloadedStrings language pragma.
 module Web.Scotty
@@ -22,7 +22,7 @@ module Web.Scotty
       --
       -- | Note: only one of these should be present in any given route
       -- definition, as they completely replace the current 'Response' body.
-    , text, html, file, json, source
+    , text, html, file, json, source, raw
       -- ** Exceptions
     , raise, rescue, next
       -- * Parsing Parameters
@@ -51,7 +51,7 @@ scotty :: Port -> ScottyM () -> IO ()
 scotty p = scottyOpts $ def { settings = (settings def) { settingsPort = p } }
 
 -- | Run a scotty application using the warp server, passing extra options.
-scottyOpts :: Options -> ScottyM() -> IO ()
+scottyOpts :: Options -> ScottyM () -> IO ()
 scottyOpts opts s = do
     when (verbose opts > 0) $
         putStrLn $ "Setting phasers to stun... (port " ++ show (settingsPort (settings opts)) ++ ") (ctrl-c to quit)"
@@ -64,6 +64,7 @@ scottyApp defs = do
     s <- execStateT (runS defs) def
     return $ foldl (flip ($)) notFoundApp $ routes s ++ middlewares s
 
+    
 notFoundApp :: Application
 notFoundApp _ = return $ ResponseBuilder status404 [("Content-Type","text/html")]
                        $ fromByteString "<h1>404: File Not Found!</h1>"
@@ -71,5 +72,5 @@ notFoundApp _ = return $ ResponseBuilder status404 [("Content-Type","text/html")
 -- | Use given middleware. Middleware is nested such that the first declared
 -- is the outermost middleware (it has first dibs on the request and last action
 -- on the response). Every middleware is run on each request.
-middleware :: Middleware -> ScottyM ()
+middleware :: (Monad m) => Middleware -> ScottyT m ()
 middleware = modify . addMiddleware
