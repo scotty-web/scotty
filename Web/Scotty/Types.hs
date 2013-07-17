@@ -48,7 +48,7 @@ newtype ScottyT m a = ScottyT {
 instance MonadTrans ScottyT where
   lift = ScottyT . lift
              
-type ScottyM a = ScottyT IO a
+type ScottyM = ScottyT IO
 
 runS :: ScottyM a -> StateT ScottyState IO a
 runS = runScottyT
@@ -76,7 +76,7 @@ newtype ActionT m a = AT {
 instance MonadTrans ActionT where
   lift = AT . lift . lift . lift
 
-type ActionM a = ActionT IO a
+type ActionM = ActionT IO
 
 runAM :: ActionM a
       -> ErrorT ActionError (ReaderT ActionEnv (StateT Response IO)) a
