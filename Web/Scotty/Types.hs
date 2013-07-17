@@ -4,6 +4,9 @@ module Web.Scotty.Types where
 import Control.Monad.Error
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad.Identity
+import Control.Monad.Morph
+import Control.Monad.Trans.Resource (ResourceT)
 
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Default (Default, def)
@@ -21,21 +24,35 @@ data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
 instance Default Options where
     def = Options 1 defaultSettings
 
-data ScottyState = ScottyState { middlewares :: [Middleware]
-                               , routes :: [Middleware]
-                               }
+data ScottyStateT m = ScottyState { middlewares :: [Middleware]
+                                  , routes :: [MiddlewareT m]
+                                  }
+                      
+type ScottyState = ScottyStateT IO                      
 
-addMiddleware :: Middleware -> ScottyState -> ScottyState
+addMiddleware :: Middleware -> ScottyStateT m -> ScottyStateT m
 addMiddleware m s@(ScottyState {middlewares = ms}) = s { middlewares = m:ms }
 
-addRoute :: Middleware -> ScottyState -> ScottyState
+liftApp :: (Monad m, MonadIO m) => Application -> ApplicationT m
+liftApp app = hoist liftIO . app
+        
+addRoute :: MiddlewareT m -> ScottyStateT m -> ScottyStateT m
 addRoute r s@(ScottyState {routes = rs}) = s { routes = r:rs }
 
-instance Default ScottyState where
+instance Default (ScottyStateT m) where
     def = ScottyState [] []
 
-newtype ScottyM a = S { runS :: StateT ScottyState IO a }
-    deriving (Monad, MonadIO, Functor, MonadState ScottyState)
+newtype ScottyT m a = ScottyT {
+   runScottyT :: StateT (ScottyStateT m) m a
+  } deriving (Monad, MonadIO, Functor, MonadState (ScottyStateT m))
+
+instance MonadTrans ScottyT where
+  lift = ScottyT . lift
+             
+type ScottyM a = ScottyT IO a
+
+runS :: ScottyM a -> StateT ScottyState IO a
+runS = runScottyT
 
 type Param = (Text, Text)
 
@@ -51,12 +68,26 @@ type File = (Text, FileInfo ByteString)
 
 data ActionEnv = Env { getReq :: Request, getParams :: [Param], getBody :: ByteString, getFiles :: [File] }
 
-newtype ActionM a = AM { runAM :: ErrorT ActionError (ReaderT ActionEnv (StateT Response IO)) a }
-    deriving ( Monad, MonadIO, Functor
-             , MonadReader ActionEnv, MonadState Response, MonadError ActionError)
+newtype ActionT m a = AT {
+  runAT :: ErrorT ActionError (ReaderT ActionEnv (StateT Response m)) a
+  } deriving ( Monad, MonadIO, Functor
+             , MonadReader ActionEnv, MonadState Response
+             , MonadError ActionError)
 
+instance MonadTrans ActionT where
+  lift = AT . lift . lift . lift
+
+type ActionM a = ActionT IO a
+
+runAM :: ActionM a
+      -> ErrorT ActionError (ReaderT ActionEnv (StateT Response IO)) a
+runAM = runAT
+    
 data RoutePattern = Capture   Text
                   | Literal   Text
                   | Function  (Request -> Maybe [Param])
 
 instance IsString RoutePattern where fromString = Capture . pack
+
+type MiddlewareT m = Application -> ApplicationT m
+type ApplicationT m = Request -> ResourceT m Response

@@ -32,16 +32,17 @@ import Web.Scotty.Util
 
 -- Nothing indicates route failed (due to Next) and pattern matching should continue.
 -- Just indicates a successful response.
-runAction :: ActionEnv -> ActionM () -> IO (Maybe Response)
+runAction :: (Monad m)
+          => ActionEnv -> ActionT m () -> m (Maybe Response)
 runAction env action = do
     (e,r) <- flip MS.runStateT def
            $ flip runReaderT env
            $ runErrorT
-           $ runAM
+           $ runAT
            $ action `catchError` defaultHandler
     return $ either (const Nothing) (const $ Just r) e
 
-defaultHandler :: ActionError -> ActionM ()
+defaultHandler :: (Monad m) => ActionError -> ActionT m ()
 defaultHandler (Redirect url) = do
     status status302
     header "Location" url
@@ -52,7 +53,7 @@ defaultHandler Next = next
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
-raise :: T.Text -> ActionM a
+raise :: (Monad m) => T.Text -> ActionT m a
 raise = throwError . ActionError
 
 -- | Abort execution of this action and continue pattern matching routes.
@@ -69,7 +70,7 @@ raise = throwError . ActionError
 -- > get "/foo/:bar" $ do
 -- >   bar <- param "bar"
 -- >   text "not a number"
-next :: ActionM a
+next :: (Monad m) => ActionT m a
 next = throwError Next
 
 -- | Catch an exception thrown by 'raise'.
@@ -124,7 +125,7 @@ jsonData = do
 -- * If parameter is found, but 'read' fails to parse to the correct type, 'next' is called.
 --   This means captures are somewhat typed, in that a route won't match if a correctly typed
 --   capture cannot be parsed.
-param :: (Parsable a) => T.Text -> ActionM a
+param :: (Parsable a, Functor m, Monad m) => T.Text -> ActionT m a
 param k = do
     val <- lookup k <$> getParams <$> ask
     case val of
@@ -178,12 +179,12 @@ readEither t = case [ x | (x,"") <- reads (T.unpack t) ] of
                 _   -> Left "readEither: ambiguous parse"
 
 -- | Set the HTTP response status. Default is 200.
-status :: Status -> ActionM ()
+status :: (Monad m) => Status -> ActionT m ()
 status = MS.modify . setStatus
 
 -- | Set one of the response headers. Will override any previously set value for that header.
 -- Header names are case-insensitive.
-header :: T.Text -> T.Text -> ActionM ()
+header :: (Monad m) => T.Text -> T.Text -> ActionT m ()
 header k v = MS.modify $ setHeader (CI.mk $ lazyTextToStrictByteString k, lazyTextToStrictByteString v)
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
@@ -195,19 +196,19 @@ text t = do
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
 -- header to \"text/html\".
-html :: T.Text -> ActionM ()
+html :: (Monad m) => T.Text -> ActionT m ()
 html t = do
     header "Content-Type" "text/html"
     raw $ encodeUtf8 t
 
 -- | Send a file as the response. Doesn't set the \"Content-Type\" header, so you probably
 -- want to do that on your own with 'header'.
-file :: FilePath -> ActionM ()
+file :: (Monad m) => FilePath -> ActionT m ()
 file = MS.modify . setContent . ContentFile
 
 -- | Set the body of the response to the JSON encoding of the given value. Also sets \"Content-Type\"
 -- header to \"application/json\".
-json :: (A.ToJSON a) => a -> ActionM ()
+json :: (A.ToJSON a, Monad m) => a -> ActionT m ()
 json v = do
     header "Content-Type" "application/json"
     raw $ A.encode v
@@ -221,5 +222,5 @@ source = MS.modify . setContent . ContentSource
 -- | Set the body of the response to the given 'BL.ByteString' value. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your
 -- own with 'header'.
-raw :: BL.ByteString -> ActionM ()
+raw :: (Monad m) => BL.ByteString -> ActionT m ()
 raw = MS.modify . setContent . ContentBuilder . fromLazyByteString
