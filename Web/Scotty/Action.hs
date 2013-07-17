@@ -19,7 +19,7 @@ import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive as CI
 import Data.Conduit (Flush, ResourceT, Source)
-import Data.Default (Default, def)
+import Data.Default (def)
 import Data.Monoid (mconcat)
 import qualified Data.Text.Lazy as T
 import Data.Text.Lazy.Encoding (encodeUtf8)

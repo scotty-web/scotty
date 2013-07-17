@@ -4,7 +4,6 @@ module Web.Scotty.Types where
 import Control.Monad.Error
 import Control.Monad.Reader
 import Control.Monad.State
-import Control.Monad.Identity
 import Control.Monad.Morph
 import Control.Monad.Trans.Resource (ResourceT)
 
