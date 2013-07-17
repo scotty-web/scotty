@@ -76,7 +76,7 @@ next = throwError Next
 -- | Catch an exception thrown by 'raise'.
 --
 -- > raise "just kidding" `rescue` (\msg -> text msg)
-rescue :: ActionM a -> (T.Text -> ActionM a) -> ActionM a
+rescue :: (Monad m) => ActionT m a -> (T.Text -> ActionT m a) -> ActionT m a
 rescue action handler = catchError action $ \e -> case e of
     ActionError msg -> handler msg      -- handle errors
     other           -> throwError other -- rethrow redirects and nexts
@@ -89,19 +89,19 @@ rescue action handler = catchError action $ \e -> case e of
 -- OR
 --
 -- > redirect "/foo/bar"
-redirect :: T.Text -> ActionM a
+redirect :: Monad m => T.Text -> ActionT m a
 redirect = throwError . Redirect
 
 -- | Get the 'Request' object.
-request :: ActionM Request
+request :: (Functor m, Monad m) => ActionT m Request
 request = getReq <$> ask
 
 -- | Get list of uploaded files.
-files :: ActionM [File]
+files :: (Functor m, Monad m) => ActionT m [File]
 files = getFiles <$> ask
 
 -- | Get a request header. Header name is case-insensitive.
-reqHeader :: T.Text -> ActionM T.Text
+reqHeader :: (Functor m, Monad m) => T.Text -> ActionT m T.Text
 reqHeader k = do
     hs <- requestHeaders <$> request
     maybe (raise (mconcat ["reqHeader: ", k, " not found"]))
@@ -109,11 +109,11 @@ reqHeader k = do
           (lookup (CI.mk (lazyTextToStrictByteString k)) hs)
 
 -- | Get the request body.
-body :: ActionM BL.ByteString
+body :: (Functor m, Monad m) => ActionT m BL.ByteString
 body = getBody <$> ask
 
 -- | Parse the request body as a JSON object and return it. Raises an exception if parse is unsuccessful.
-jsonData :: (A.FromJSON a) => ActionM a
+jsonData :: (A.FromJSON a, Functor m, Monad m) => ActionT m a
 jsonData = do
     b <- body
     maybe (raise "jsonData: no parse") return $ A.decode b
@@ -133,7 +133,7 @@ param k = do
         Just v  -> either (const next) return $ parseParam v
 
 -- | Get all parameters from capture, form and query (in that order).
-params :: ActionM [Param]
+params :: (Functor m, Monad m) => ActionT m [Param]
 params = getParams <$> ask
 
 -- | Minimum implemention: 'parseParam'
@@ -189,7 +189,7 @@ header k v = MS.modify $ setHeader (CI.mk $ lazyTextToStrictByteString k, lazyTe
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
 -- header to \"text/plain\".
-text :: T.Text -> ActionM ()
+text :: (Monad m) => T.Text -> ActionT m ()
 text t = do
     header "Content-Type" "text/plain"
     raw $ encodeUtf8 t
