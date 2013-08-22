@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, RankNTypes #-}
 -- | It should be noted that most of the code snippets below depend on the
 -- OverloadedStrings language pragma.
 module Web.Scotty
@@ -12,8 +12,6 @@ module Web.Scotty
     , middleware, get, post, put, delete, addroute, matchAny, notFound
       -- ** Route Patterns
     , capture, regex, function, literal
-      -- * Defining Actions
-    , Action
       -- ** Accessing the Request, Captures, and Query Parameters
     , request, reqHeader, body, param, params, jsonData, files
       -- ** Modifying the Response and Redirecting
@@ -29,12 +27,15 @@ module Web.Scotty
     , Param, Parsable(..), readEither
       -- * Types
     , ScottyM, ActionM, RoutePattern, File
+      -- * Monad Transformers
+    , ScottyT, ActionT
     ) where
 
 import Blaze.ByteString.Builder (fromByteString)
 
 import Control.Monad (when)
 import Control.Monad.State (execStateT, modify)
+import Control.Monad.Morph (hoist)
 
 import Data.Default (def)
 
@@ -44,32 +45,37 @@ import Network.Wai.Handler.Warp (Port, runSettings, settingsPort)
 
 import Web.Scotty.Action
 import Web.Scotty.Route
-import Web.Scotty.Types
+import Web.Scotty.Types hiding (Application, Middleware)
+import qualified Web.Scotty.Types as Scotty
 
 -- | Run a scotty application using the warp server.
 scotty :: Port -> ScottyM () -> IO ()
 scotty p = scottyOpts $ def { settings = (settings def) { settingsPort = p } }
 
 -- | Run a scotty application using the warp server, passing extra options.
-scottyOpts :: Options -> ScottyM() -> IO ()
+scottyOpts :: Options -> ScottyM () -> IO ()
 scottyOpts opts s = do
     when (verbose opts > 0) $
         putStrLn $ "Setting phasers to stun... (port " ++ show (settingsPort (settings opts)) ++ ") (ctrl-c to quit)"
-    runSettings (settings opts) =<< scottyApp s
+    runSettings (settings opts) =<< scottyApp id id s
 
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
-scottyApp :: ScottyM () -> IO Application
-scottyApp defs = do
-    s <- execStateT (runS defs) def
-    return $ foldl (flip ($)) notFoundApp $ routes s ++ middlewares s
+scottyApp :: (Monad m, Monad n)
+          => (forall a. m a -> n a) -- run monad m into monad n, called once at ScottyT level
+          -> (forall a. m a -> IO a) -- run monad m into IO, called at each action
+          -> ScottyT m ()
+          -> n Application
+scottyApp runM runToIO defs = do
+    s <- runM $ execStateT (runS defs) def
+    return $ hoist runToIO . foldl (flip ($)) notFoundApp (routes s ++ middlewares s)
 
-notFoundApp :: Application
+notFoundApp :: Monad m => Scotty.Application m
 notFoundApp _ = return $ ResponseBuilder status404 [("Content-Type","text/html")]
                        $ fromByteString "<h1>404: File Not Found!</h1>"
 
 -- | Use given middleware. Middleware is nested such that the first declared
 -- is the outermost middleware (it has first dibs on the request and last action
 -- on the response). Every middleware is run on each request.
-middleware :: Middleware -> ScottyM ()
+middleware :: Monad m => Scotty.Middleware m -> ScottyT m ()
 middleware = modify . addMiddleware

@@ -9,7 +9,6 @@ module Web.Scotty.Action
 
 import Blaze.ByteString.Builder (Builder, fromLazyByteString)
 
-import Control.Applicative
 import Control.Monad.Error
 import Control.Monad.Reader
 import qualified Control.Monad.State as MS
@@ -19,7 +18,7 @@ import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive as CI
 import Data.Conduit (Flush, ResourceT, Source)
-import Data.Default (Default, def)
+import Data.Default (def)
 import Data.Monoid (mconcat)
 import qualified Data.Text.Lazy as T
 import Data.Text.Lazy.Encoding (encodeUtf8)
@@ -32,7 +31,7 @@ import Web.Scotty.Util
 
 -- Nothing indicates route failed (due to Next) and pattern matching should continue.
 -- Just indicates a successful response.
-runAction :: ActionEnv -> ActionM () -> IO (Maybe Response)
+runAction :: Monad m => ActionEnv -> ActionT m () -> m (Maybe Response)
 runAction env action = do
     (e,r) <- flip MS.runStateT def
            $ flip runReaderT env
@@ -41,7 +40,7 @@ runAction env action = do
            $ action `catchError` defaultHandler
     return $ either (const Nothing) (const $ Just r) e
 
-defaultHandler :: ActionError -> ActionM ()
+defaultHandler :: Monad m => ActionError -> ActionT m ()
 defaultHandler (Redirect url) = do
     status status302
     header "Location" url
@@ -52,7 +51,7 @@ defaultHandler Next = next
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
-raise :: T.Text -> ActionM a
+raise :: Monad m => T.Text -> ActionT m a
 raise = throwError . ActionError
 
 -- | Abort execution of this action and continue pattern matching routes.
@@ -69,13 +68,13 @@ raise = throwError . ActionError
 -- > get "/foo/:bar" $ do
 -- >   bar <- param "bar"
 -- >   text "not a number"
-next :: ActionM a
+next :: Monad m => ActionT m a
 next = throwError Next
 
 -- | Catch an exception thrown by 'raise'.
 --
 -- > raise "just kidding" `rescue` (\msg -> text msg)
-rescue :: ActionM a -> (T.Text -> ActionM a) -> ActionM a
+rescue :: Monad m => ActionT m a -> (T.Text -> ActionT m a) -> ActionT m a
 rescue action handler = catchError action $ \e -> case e of
     ActionError msg -> handler msg      -- handle errors
     other           -> throwError other -- rethrow redirects and nexts
@@ -88,31 +87,31 @@ rescue action handler = catchError action $ \e -> case e of
 -- OR
 --
 -- > redirect "/foo/bar"
-redirect :: T.Text -> ActionM a
+redirect :: Monad m => T.Text -> ActionT m a
 redirect = throwError . Redirect
 
 -- | Get the 'Request' object.
-request :: ActionM Request
-request = getReq <$> ask
+request :: Monad m => ActionT m Request
+request = liftM getReq ask
 
 -- | Get list of uploaded files.
-files :: ActionM [File]
-files = getFiles <$> ask
+files :: Monad m => ActionT m [File]
+files = liftM getFiles ask
 
 -- | Get a request header. Header name is case-insensitive.
-reqHeader :: T.Text -> ActionM T.Text
+reqHeader :: Monad m => T.Text -> ActionT m T.Text
 reqHeader k = do
-    hs <- requestHeaders <$> request
+    hs <- liftM requestHeaders request
     maybe (raise (mconcat ["reqHeader: ", k, " not found"]))
           (return . strictByteStringToLazyText)
           (lookup (CI.mk (lazyTextToStrictByteString k)) hs)
 
 -- | Get the request body.
-body :: ActionM BL.ByteString
-body = getBody <$> ask
+body :: Monad m => ActionT m BL.ByteString
+body = liftM getBody ask
 
 -- | Parse the request body as a JSON object and return it. Raises an exception if parse is unsuccessful.
-jsonData :: (A.FromJSON a) => ActionM a
+jsonData :: (A.FromJSON a, Monad m) => ActionT m a
 jsonData = do
     b <- body
     maybe (raise "jsonData: no parse") return $ A.decode b
@@ -124,16 +123,16 @@ jsonData = do
 -- * If parameter is found, but 'read' fails to parse to the correct type, 'next' is called.
 --   This means captures are somewhat typed, in that a route won't match if a correctly typed
 --   capture cannot be parsed.
-param :: (Parsable a) => T.Text -> ActionM a
+param :: (Parsable a, Monad m) => T.Text -> ActionT m a
 param k = do
-    val <- lookup k <$> getParams <$> ask
+    val <- liftM (lookup k . getParams) ask
     case val of
         Nothing -> raise $ mconcat ["Param: ", k, " not found!"]
         Just v  -> either (const next) return $ parseParam v
 
 -- | Get all parameters from capture, form and query (in that order).
-params :: ActionM [Param]
-params = getParams <$> ask
+params :: Monad m => ActionT m [Param]
+params = liftM getParams ask
 
 -- | Minimum implemention: 'parseParam'
 class Parsable a where
@@ -178,36 +177,36 @@ readEither t = case [ x | (x,"") <- reads (T.unpack t) ] of
                 _   -> Left "readEither: ambiguous parse"
 
 -- | Set the HTTP response status. Default is 200.
-status :: Status -> ActionM ()
+status :: Monad m => Status -> ActionT m ()
 status = MS.modify . setStatus
 
 -- | Set one of the response headers. Will override any previously set value for that header.
 -- Header names are case-insensitive.
-header :: T.Text -> T.Text -> ActionM ()
+header :: Monad m => T.Text -> T.Text -> ActionT m ()
 header k v = MS.modify $ setHeader (CI.mk $ lazyTextToStrictByteString k, lazyTextToStrictByteString v)
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
 -- header to \"text/plain\".
-text :: T.Text -> ActionM ()
+text :: Monad m => T.Text -> ActionT m ()
 text t = do
     header "Content-Type" "text/plain"
     MS.modify $ setContent $ ContentBuilder $ fromLazyByteString $ encodeUtf8 t
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
 -- header to \"text/html\".
-html :: T.Text -> ActionM ()
+html :: Monad m => T.Text -> ActionT m ()
 html t = do
     header "Content-Type" "text/html"
     MS.modify $ setContent $ ContentBuilder $ fromLazyByteString $ encodeUtf8 t
 
 -- | Send a file as the response. Doesn't set the \"Content-Type\" header, so you probably
 -- want to do that on your own with 'header'.
-file :: FilePath -> ActionM ()
+file :: Monad m => FilePath -> ActionT m ()
 file = MS.modify . setContent . ContentFile
 
 -- | Set the body of the response to the JSON encoding of the given value. Also sets \"Content-Type\"
 -- header to \"application/json\".
-json :: (A.ToJSON a) => a -> ActionM ()
+json :: (A.ToJSON a, Monad m) => a -> ActionT m ()
 json v = do
     header "Content-Type" "application/json"
     MS.modify $ setContent $ ContentBuilder $ fromLazyByteString $ A.encode v
@@ -215,5 +214,5 @@ json v = do
 -- | Set the body of the response to a Source. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your
 -- own with 'header'.
-source :: Source (ResourceT IO) (Flush Builder) -> ActionM ()
+source :: Monad m => Source (ResourceT IO) (Flush Builder) -> ActionT m ()
 source = MS.modify . setContent . ContentSource
