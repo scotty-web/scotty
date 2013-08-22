@@ -1,14 +1,14 @@
 {-# LANGUAGE OverloadedStrings, FlexibleInstances, ScopedTypeVariables #-}
 module Web.Scotty.Route
     ( get, post, put, delete, addroute, matchAny, notFound,
-      capture, regex, function, literal, Action
+      capture, regex, function, literal
     ) where
 
 import Control.Arrow ((***))
-import Control.Applicative
 import Control.Monad.Error
 import qualified Control.Monad.State as MS
 import Control.Monad.Trans.Resource (ResourceT)
+import Control.Monad.Morph (hoist)
 
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
@@ -23,7 +23,7 @@ import qualified Data.Text.Lazy as T
 import qualified Data.Text as TS
 
 import Network.HTTP.Types
-import Network.Wai
+import Network.Wai (Request(..))
 import qualified Network.Wai.Parse as Parse hiding (parseRequestBody)
 
 import qualified Text.Regex as Regex
@@ -33,28 +33,28 @@ import Web.Scotty.Types
 import Web.Scotty.Util
 
 -- | get = 'addroute' 'GET'
-get :: (Action action) => RoutePattern -> action -> ScottyM ()
+get :: MonadIO m => RoutePattern -> ActionT m () -> ScottyT m ()
 get = addroute GET
 
 -- | post = 'addroute' 'POST'
-post :: (Action action) => RoutePattern -> action -> ScottyM ()
+post :: MonadIO m => RoutePattern -> ActionT m () -> ScottyT m ()
 post = addroute POST
 
 -- | put = 'addroute' 'PUT'
-put :: (Action action) => RoutePattern -> action -> ScottyM ()
+put :: MonadIO m => RoutePattern -> ActionT m () -> ScottyT m ()
 put = addroute PUT
 
 -- | delete = 'addroute' 'DELETE'
-delete :: (Action action) => RoutePattern -> action -> ScottyM ()
+delete :: MonadIO m => RoutePattern -> ActionT m () -> ScottyT m ()
 delete = addroute DELETE
 
 -- | Add a route that matches regardless of the HTTP verb.
-matchAny :: (Action action) => RoutePattern -> action -> ScottyM ()
+matchAny :: MonadIO m => RoutePattern -> ActionT m () -> ScottyT m ()
 matchAny pattern action = mapM_ (\v -> addroute v pattern action) [minBound..maxBound]
 
 -- | Specify an action to take if nothing else is found. Note: this _always_ matches,
 -- so should generally be the last route specified.
-notFound :: ActionM () -> ScottyM ()
+notFound :: MonadIO m => ActionT m () -> ScottyT m ()
 notFound action = matchAny (Function (\req -> Just [("path", path req)])) (status status404 >> action)
 
 -- | Define a route with a 'StdMethod', 'T.Text' value representing the path spec,
@@ -71,47 +71,20 @@ notFound action = matchAny (Function (\req -> Just [("path", path req)])) (statu
 --
 -- >>> curl http://localhost:3000/foo/something
 -- something
-addroute :: (Action action) => StdMethod -> RoutePattern -> action -> ScottyM ()
-addroute method pat action = MS.modify $ addRoute $ route method pat $ build action pat
+addroute :: MonadIO m => StdMethod -> RoutePattern -> ActionT m () -> ScottyT m ()
+addroute method pat action = MS.modify $ addRoute $ route method pat action
 
--- | An action (executed when a route matches) can either be an 'ActionM' computation, or
--- a function with an argument for each capture in the route. For example:
---
--- > get "/lambda/:foo/:bar" $ \ a b -> do
--- >     text $ mconcat [a,b]
---
--- is elaborated by Scotty to:
---
--- > get "/lambda/:foo/:bar" $ do
--- >     a <- param "foo"
--- >     b <- param "bar"
--- >     text $ mconcat [a,b]
-class Action a where
-    build :: a -> RoutePattern -> ActionM ()
-
-instance Action (ActionM a) where
-    build action _ = action >> return ()
-
-instance (Parsable a, Action b) => Action (a -> b) where
-    build f pat = findCapture pat >>= \ (v, pat') -> build (f v) pat'
-        where findCapture :: RoutePattern -> ActionM (a, RoutePattern)
-              findCapture (Literal l) = raise $ mconcat ["Lambda trying to capture a literal route: ", l]
-              findCapture (Capture p) = case T.span (/='/') (T.dropWhile (/=':') p) of
-                                            (m,r) | T.null m -> raise "More function arguments than captures."
-                                                  | otherwise -> param (T.tail m) >>= \ v -> return (v, Capture r)
-              findCapture (Function _) = raise "Lambda trying to capture a function route."
-
-route :: StdMethod -> RoutePattern -> ActionM () -> Middleware
+route :: MonadIO m => StdMethod -> RoutePattern -> ActionT m () -> Middleware m
 route method pat action app req =
-    if Right method == parseMethod (requestMethod req)
-    then case matchRoute pat req of
+    let tryNext = app req
+    in if Right method == parseMethod (requestMethod req)
+       then case matchRoute pat req of
             Just captures -> do
                 env <- mkEnv req captures
                 res <- lift $ runAction env action
                 maybe tryNext return res
             Nothing -> tryNext
-    else tryNext
-  where tryNext = app req
+       else tryNext
 
 matchRoute :: RoutePattern -> Request -> Maybe [Param]
 
@@ -136,20 +109,21 @@ path :: Request -> T.Text
 path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo
 
 -- Stolen from wai-extra, modified to accept body as lazy ByteString
-parseRequestBody :: BL.ByteString
+parseRequestBody :: MonadIO m
+                 => BL.ByteString
                  -> Parse.BackEnd y
                  -> Request
-                 -> ResourceT IO ([Parse.Param], [Parse.File y])
+                 -> ResourceT m ([Parse.Param], [Parse.File y])
 parseRequestBody b s r =
     case Parse.getRequestBodyType r of
         Nothing -> return ([], [])
-        Just rbt -> fmap partitionEithers $ sourceLbs b $$ Parse.conduitRequestBody s rbt =$ consume
+        Just rbt -> hoist liftIO $ liftM partitionEithers $ sourceLbs b $$ Parse.conduitRequestBody s rbt =$ consume
 
-mkEnv :: Request -> [Param] -> ResourceT IO ActionEnv
+mkEnv :: MonadIO m => Request -> [Param] -> ResourceT m ActionEnv
 mkEnv req captures = do
-    b <- BL.fromChunks <$> lazyConsume (requestBody req)
+    b <- hoist liftIO $ liftM BL.fromChunks $ lazyConsume (requestBody req)
 
-    (formparams, fs) <- parseRequestBody b Parse.lbsBackEnd req
+    (formparams, fs) <- hoist liftIO $ parseRequestBody b Parse.lbsBackEnd req
 
     let convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
         parameters = captures ++ map convert formparams ++ queryparams
