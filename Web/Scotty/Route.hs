@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings, FlexibleInstances, ScopedTypeVariables #-}
 module Web.Scotty.Route
-    ( get, post, put, delete, addroute, matchAny, notFound,
+    ( get, post, getpost, put, delete, addroute, matchAny, notFound,
       capture, regex, function, literal
     ) where
 
@@ -47,6 +47,10 @@ put = addroute PUT
 -- | delete = 'addroute' 'DELETE'
 delete :: MonadIO m => RoutePattern -> ActionT m () -> ScottyT m ()
 delete = addroute DELETE
+
+-- | Add a route that matches both GET and POST
+getpost :: MonadIO m => RoutePattern -> ActionT m () -> ScottyT m ()
+getpost pattern action = mapM_ (\v -> v pattern action) [get,post]
 
 -- | Add a route that matches regardless of the HTTP verb.
 matchAny :: MonadIO m => RoutePattern -> ActionT m () -> ScottyT m ()
