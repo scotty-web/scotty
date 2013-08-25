@@ -7,8 +7,7 @@ module Web.Scotty.Route
 import Control.Arrow ((***))
 import Control.Monad.Error
 import qualified Control.Monad.State as MS
-import Control.Monad.Trans.Resource (ResourceT)
-import Control.Monad.Morph (hoist)
+import Control.Monad.Trans.Resource (ResourceT, transResourceT)
 
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
@@ -117,13 +116,13 @@ parseRequestBody :: MonadIO m
 parseRequestBody b s r =
     case Parse.getRequestBodyType r of
         Nothing -> return ([], [])
-        Just rbt -> hoist liftIO $ liftM partitionEithers $ sourceLbs b $$ Parse.conduitRequestBody s rbt =$ consume
+        Just rbt -> transResourceT liftIO $ liftM partitionEithers $ sourceLbs b $$ Parse.conduitRequestBody s rbt =$ consume
 
 mkEnv :: MonadIO m => Request -> [Param] -> ResourceT m ActionEnv
 mkEnv req captures = do
-    b <- hoist liftIO $ liftM BL.fromChunks $ lazyConsume (requestBody req)
+    b <- transResourceT liftIO $ liftM BL.fromChunks $ lazyConsume (requestBody req)
 
-    (formparams, fs) <- hoist liftIO $ parseRequestBody b Parse.lbsBackEnd req
+    (formparams, fs) <- transResourceT liftIO $ parseRequestBody b Parse.lbsBackEnd req
 
     let convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
         parameters = captures ++ map convert formparams ++ queryparams

@@ -35,7 +35,7 @@ import Blaze.ByteString.Builder (fromByteString)
 
 import Control.Monad (when)
 import Control.Monad.State (execStateT, modify)
-import Control.Monad.Morph (hoist)
+import Control.Monad.Trans.Resource (transResourceT)
 
 import Data.Default (def)
 
@@ -63,12 +63,12 @@ scottyOpts opts s = do
 -- run with any WAI handler.
 scottyApp :: (Monad m, Monad n)
           => (forall a. m a -> n a) -- run monad m into monad n, called once at ScottyT level
-          -> (forall a. m a -> IO a) -- run monad m into IO, called at each action
+          -> (m Response -> IO Response) -- run monad m into IO, called at each action
           -> ScottyT m ()
           -> n Application
 scottyApp runM runToIO defs = do
     s <- runM $ execStateT (runS defs) def
-    return $ hoist runToIO . foldl (flip ($)) notFoundApp (routes s ++ middlewares s)
+    return $ transResourceT runToIO . foldl (flip ($)) notFoundApp (routes s ++ middlewares s)
 
 notFoundApp :: Monad m => Scotty.Application m
 notFoundApp _ = return $ ResponseBuilder status404 [("Content-Type","text/html")]
