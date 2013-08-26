@@ -9,7 +9,7 @@ module Web.Scotty
       -- | 'Middleware' and routes are run in the order in which they
       -- are defined. All middleware is run first, followed by the first
       -- route that matches. If no route matches, a 404 response is given.
-    , middleware, get, post, put, delete, addroute, matchAny, notFound
+    , middleware, get, post, put, delete, patch, addroute, matchAny, notFound
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
