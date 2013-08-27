@@ -172,6 +172,11 @@ json = Trans.json
 source :: Source (ResourceT IO) (Flush Builder) -> ActionM ()
 source = Trans.source
 
+-- | Set the body of the response to the given 'BL.ByteString' value. Doesn't set the
+-- \"Content-Type\" header, so you probably want to do that on your own with 'header'.
+raw :: ByteString -> ActionM ()
+raw = Trans.raw
+
 -- | get = 'addroute' 'GET'
 get :: RoutePattern -> ActionM () -> ScottyM ()
 get = Trans.get

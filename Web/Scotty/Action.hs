@@ -4,7 +4,7 @@ module Web.Scotty.Action
     , status, header, redirect
     , text, html, file, json, source, raw
     , raise, rescue, next
-    , ActionM, Parsable(..), readEither, Param, runAction
+    , Parsable(..), readEither, Param, runAction
     ) where
 
 import Blaze.ByteString.Builder (Builder, fromLazyByteString)
@@ -218,5 +218,5 @@ source = MS.modify . setContent . ContentSource
 -- | Set the body of the response to the given 'BL.ByteString' value. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your
 -- own with 'header'.
-raw :: BL.ByteString -> ActionM ()
+raw :: Monad m => BL.ByteString -> ActionT m ()
 raw = MS.modify . setContent . ContentBuilder . fromLazyByteString
