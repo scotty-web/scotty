@@ -85,9 +85,6 @@ main = scotty 3000 $ do
         b <- body
         text $ decodeUtf8 b
 
-    get "/lambda/:foo/:bar/:baz" $ \ foo bar baz -> do
-        text $ mconcat [foo, bar, baz]
-
     get "/reqHeader" $ do
         agent <- reqHeader "User-Agent"
         text agent
