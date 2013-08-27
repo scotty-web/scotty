@@ -57,6 +57,7 @@ Extra-source-files:
 
 Library
   Exposed-modules:     Web.Scotty
+                       Web.Scotty.Trans
   other-modules:       Web.Scotty.Action
                        Web.Scotty.Route
                        Web.Scotty.Types
@@ -74,6 +75,7 @@ Library
                        regex-compat     >= 0.95.1,
                        resourcet        >= 0.4.0.2,
                        text             >= 0.11.2.3,
+                       transformers     >= 0.3.0.0,
                        wai              >= 1.3.0.1,
                        wai-extra        >= 1.3.0.3,
                        warp             >= 1.3.4.1
