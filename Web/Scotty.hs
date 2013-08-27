@@ -112,7 +112,7 @@ files :: ActionM [File]
 files = Trans.files
 
 -- | Get a request header. Header name is case-insensitive.
-reqHeader :: Text -> ActionM Text
+reqHeader :: Text -> ActionM (Maybe Text)
 reqHeader = Trans.reqHeader
 
 -- | Get the request body.
