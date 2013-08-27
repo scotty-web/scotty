@@ -99,12 +99,10 @@ files :: Monad m => ActionT m [File]
 files = liftM getFiles ask
 
 -- | Get a request header. Header name is case-insensitive.
-reqHeader :: Monad m => T.Text -> ActionT m T.Text
+reqHeader :: Monad m => T.Text -> ActionT m (Maybe T.Text)
 reqHeader k = do
     hs <- liftM requestHeaders request
-    maybe (raise (mconcat ["reqHeader: ", k, " not found"]))
-          (return . strictByteStringToLazyText)
-          (lookup (CI.mk (lazyTextToStrictByteString k)) hs)
+    return $ fmap strictByteStringToLazyText $ lookup (CI.mk (lazyTextToStrictByteString k)) hs
 
 -- | Get the request body.
 body :: Monad m => ActionT m BL.ByteString
