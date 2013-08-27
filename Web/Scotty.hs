@@ -20,7 +20,7 @@ module Web.Scotty
       --
       -- | Note: only one of these should be present in any given route
       -- definition, as they completely replace the current 'Response' body.
-    , text, html, file, json, source
+    , text, html, file, json, source, raw
       -- ** Exceptions
     , raise, rescue, next
       -- * Parsing Parameters

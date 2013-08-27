@@ -48,6 +48,7 @@ Description:
 Extra-source-files:
     README
     examples/basic.hs
+    examples/gzip.hs
     examples/json.hs
     examples/options.hs
     examples/urlshortener.hs
