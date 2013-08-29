@@ -12,6 +12,7 @@ import Data.Text.Lazy (Text, pack)
 
 import qualified Data.Conduit as C
 import Network.Wai hiding (Middleware, Application)
+import qualified Network.Wai as Wai
 import Network.Wai.Handler.Warp (Settings, defaultSettings)
 import Network.Wai.Parse (FileInfo)
 
@@ -22,14 +23,14 @@ data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
 instance Default Options where
     def = Options 1 defaultSettings
 
-data ScottyState m = ScottyState { middlewares :: [Middleware m]
+data ScottyState m = ScottyState { middlewares :: [Wai.Middleware]
                                  , routes :: [Middleware m]
                                  }
 
 type Middleware m = Application m -> Application m
 type Application m = Request -> C.ResourceT m Response
 
-addMiddleware :: Monad m => Middleware m -> ScottyState m -> ScottyState m
+addMiddleware :: Wai.Middleware -> ScottyState m -> ScottyState m
 addMiddleware m s@(ScottyState {middlewares = ms}) = s { middlewares = m:ms }
 
 addRoute :: Monad m => Middleware m -> ScottyState m -> ScottyState m

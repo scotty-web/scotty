@@ -9,11 +9,13 @@
 -- embedded into any MonadIO monad.
 module Main where
 
-import Control.Concurrent.MVar  
+import Control.Concurrent.MVar
 import Control.Monad.State hiding (get)
 
 import Data.Default
 import Data.Text.Lazy (pack)
+
+import Network.Wai.Middleware.RequestLogger
 
 import Web.Scotty.Trans
 
@@ -26,7 +28,7 @@ newtype WebM a = WebM { runWebM :: StateT AppState IO a }
     deriving (Monad, MonadIO, MonadState AppState)
 
 webM :: MonadTrans t => WebM a -> t WebM a
-webM = lift            
+webM = lift
 
 main = do
     db <- newEmptyMVar
@@ -38,9 +40,10 @@ main = do
         runActionToIO m = do s <- takeMVar db
                              (r,s') <- runStateT (runWebM m) s
                              putMVar db s'
-                             return r 
-            
-    scottyT 3000 runM runActionToIO $ do 
+                             return r
+
+    scottyT 3000 runM runActionToIO $ do
+        middleware logStdoutDev
         get "/" $ do
             c <- webM $ gets tickCount
             text $ pack $ show c
