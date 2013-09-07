@@ -1,9 +1,10 @@
-{-# LANGUAGE OverloadedStrings, RankNTypes #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes        #-}
 -- | It should be noted that most of the code snippets below depend on the
 -- OverloadedStrings language pragma.
 module Web.Scotty
     ( -- * scotty-to-WAI
-      scotty, scottyApp, scottyOpts, Options(..)
+      scotty, scottyApp, scottyOpts, scottySSL, Options(..)
       -- * Defining Middleware and Routes
       --
       -- | 'Middleware' and routes are run in the order in which they
@@ -30,24 +31,29 @@ module Web.Scotty
     ) where
 
 -- With the exception of this, everything else better just import types.
-import qualified Web.Scotty.Trans as Trans
+import qualified Web.Scotty.Trans           as Trans
 
-import Blaze.ByteString.Builder (Builder)
+import           Blaze.ByteString.Builder   (Builder)
 
-import Data.Aeson (FromJSON, ToJSON)
-import Data.ByteString.Lazy.Char8 (ByteString)
-import Data.Conduit (Flush, ResourceT, Source)
-import Data.Text.Lazy (Text)
+import           Data.Aeson                 (FromJSON, ToJSON)
+import           Data.ByteString.Lazy.Char8 (ByteString)
+import           Data.Conduit               (Flush, ResourceT, Source)
+import           Data.Text.Lazy             (Text)
 
-import Network.HTTP.Types (Status, StdMethod)
-import Network.Wai (Application, Middleware, Request)
-import Network.Wai.Handler.Warp (Port)
+import           Network.HTTP.Types         (Status, StdMethod)
+import           Network.Wai                (Application, Middleware, Request)
+import           Network.Wai.Handler.Warp   (Port)
 
-import Web.Scotty.Types (Param, ActionM, ScottyM, RoutePattern, Options, File)
+import           Web.Scotty.Types           (ActionM, File, Options, Param,
+                                             RoutePattern, ScottyM)
 
 -- | Run a scotty application using the warp server.
 scotty :: Port -> ScottyM () -> IO ()
 scotty p = Trans.scottyT p id id
+
+-- | Run a scotty application using the warp server over ssl.
+scottySSL :: Port -> FilePath -> FilePath -> ScottyM () -> IO ()
+scottySSL p cert key = Trans.scottySslT cert key p id id
 
 -- | Run a scotty application using the warp server, passing extra options.
 scottyOpts :: Options -> ScottyM () -> IO ()

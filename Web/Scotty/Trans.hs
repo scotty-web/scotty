@@ -1,4 +1,5 @@
-{-# LANGUAGE OverloadedStrings, RankNTypes #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes        #-}
 -- | It should be noted that most of the code snippets below depend on the
 -- OverloadedStrings language pragma.
 --
@@ -7,7 +8,7 @@
 -- with other DSLs.
 module Web.Scotty.Trans
     ( -- * scotty-to-WAI
-      scottyT, scottyAppT, scottyOptsT, Options(..)
+      scottyT, scottyOptsT, scottyOptsSslT, scottySslT, scottyAppT, Options(..)
       -- * Defining Middleware and Routes
       --
       -- | 'Middleware' and routes are run in the order in which they
@@ -35,23 +36,23 @@ module Web.Scotty.Trans
     , ScottyT, ActionT
     ) where
 
-import Blaze.ByteString.Builder (fromByteString)
+import           Blaze.ByteString.Builder     (fromByteString)
 
-import Control.Monad (when)
-import Control.Monad.State (execStateT, modify)
-import Control.Monad.Trans.Resource (transResourceT)
-import Control.Monad.IO.Class
+import           Control.Monad                (when)
+import           Control.Monad.IO.Class
+import           Control.Monad.State          (execStateT, modify)
+import           Control.Monad.Trans.Resource (transResourceT)
 
-import Data.Default (def)
+import           Data.Default                 (def)
 
-import Network.HTTP.Types (status404)
-import Network.Wai
-import Network.Wai.Handler.Warp (Port, runSettings, settingsPort)
-
-import Web.Scotty.Action
-import Web.Scotty.Route
-import Web.Scotty.Types hiding (Application, Middleware)
-import qualified Web.Scotty.Types as Scotty
+import           Network.HTTP.Types           (status404)
+import           Network.Wai
+import           Network.Wai.Handler.Warp     (Port, runSettings, settingsPort)
+import           Network.Wai.Handler.WarpTLS  (runTLS, tlsSettings)
+import           Web.Scotty.Action
+import           Web.Scotty.Route
+import           Web.Scotty.Types             hiding (Application, Middleware)
+import qualified Web.Scotty.Types             as Scotty
 
 -- | Run a scotty application using the warp server.
 -- NB: 'scotty p' === 'scottyT p id id'
@@ -75,6 +76,31 @@ scottyOptsT opts runM runActionToIO s = do
     when (verbose opts > 0) $
         liftIO $ putStrLn $ "Setting phasers to stun... (port " ++ show (settingsPort (settings opts)) ++ ") (ctrl-c to quit)"
     liftIO . runSettings (settings opts) =<< scottyAppT runM runActionToIO s
+
+-- | Run a scotty application using the warp server over ssl, passing extra options.
+scottySslT :: (Monad m, MonadIO n)
+            => FilePath                    -- ^ FilePath containing the certificate.
+            -> FilePath                    -- ^ FilePath containing the key.
+            -> Port
+            -> (forall a. m a -> n a)      -- ^ Run monad 'm' into monad 'n', called once at 'ScottyT' level.
+            -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
+            -> ScottyT m ()
+            -> n ()
+scottySslT cert key p = scottyOptsSslT cert key $ def { settings = (settings def) { settingsPort = p} }
+
+-- | Run a scotty application using the warp server over ssl, passing extra options.
+scottyOptsSslT :: (Monad m, MonadIO n)
+            => FilePath                    -- ^ FilePath containing the certificate.
+            -> FilePath                    -- ^ FilePath containing the key.
+            -> Options
+            -> (forall a. m a -> n a)      -- ^ Run monad 'm' into monad 'n', called once at 'ScottyT' level.
+            -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
+            -> ScottyT m ()
+            -> n ()
+scottyOptsSslT cert key opts runM runActionToIO s = do
+    when (verbose opts > 0) $
+        liftIO $ putStrLn $ "Setting phasers to stun... (port " ++ show (settingsPort (settings opts)) ++ ") (ctrl-c to quit)"
+    liftIO . runTLS (tlsSettings cert key) (settings opts) =<< scottyAppT runM runActionToIO s
 
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
