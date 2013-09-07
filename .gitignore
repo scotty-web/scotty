@@ -3,3 +3,4 @@ dist/
 *.o
 *.swp
 cabal-dev/
+.hsenv
