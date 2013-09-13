@@ -15,7 +15,7 @@ module Web.Scotty
       -- ** Accessing the Request, Captures, and Query Parameters
     , request, reqHeader, body, param, params, jsonData, files
       -- ** Modifying the Response and Redirecting
-    , status, header, redirect
+    , status, addHeader, setHeader, redirect
       -- ** Setting Response Body
       --
       -- | Note: only one of these should be present in any given route
@@ -141,10 +141,14 @@ params = Trans.params
 status :: Status -> ActionM ()
 status = Trans.status
 
+-- | Add to the response headers. Header names are case-insensitive.
+addHeader :: Text -> Text -> ActionM ()
+addHeader = Trans.addHeader
+
 -- | Set one of the response headers. Will override any previously set value for that header.
 -- Header names are case-insensitive.
-header :: Text -> Text -> ActionM ()
-header = Trans.header
+setHeader :: Text -> Text -> ActionM ()
+setHeader = Trans.setHeader
 
 -- | Set the body of the response to the given 'Text' value. Also sets \"Content-Type\"
 -- header to \"text/plain\".

@@ -1,8 +1,12 @@
 module Web.Scotty.Util
     ( lazyTextToStrictByteString
     , strictByteStringToLazyText
-    , setContent, setHeader, setStatus
+    , setContent
+    , setHeaderWith
+    , setStatus
     , Content(..)
+    , replace
+    , add
     ) where
 
 import Network.Wai
@@ -10,7 +14,6 @@ import Network.Wai
 import Network.HTTP.Types
 
 import Blaze.ByteString.Builder (Builder)
-import Data.CaseInsensitive (CI)
 import Data.Conduit (Flush, Source, ResourceT)
 import Data.Default
 import Data.Monoid
@@ -33,20 +36,20 @@ data Content = ContentBuilder Builder
              | ContentSource (Source (ResourceT IO) (Flush Builder))
 
 setContent :: Content -> Response -> Response
-setContent (ContentBuilder b) (ResponseBuilder s h _)  = ResponseBuilder s h b
-setContent (ContentBuilder b) (ResponseFile s h _ _)   = ResponseBuilder s h b
-setContent (ContentBuilder b) (ResponseSource s h _)   = ResponseBuilder s h b
-setContent (ContentFile f) (ResponseBuilder s h _) = ResponseFile s h f Nothing
-setContent (ContentFile f) (ResponseFile s h _ _)  = ResponseFile s h f Nothing
-setContent (ContentFile f) (ResponseSource s h _)  = ResponseFile s h f Nothing
+setContent (ContentBuilder b)  (ResponseBuilder s h _) = ResponseBuilder s h b
+setContent (ContentBuilder b)  (ResponseFile s h _ _)  = ResponseBuilder s h b
+setContent (ContentBuilder b)  (ResponseSource s h _)  = ResponseBuilder s h b
+setContent (ContentFile f)     (ResponseBuilder s h _) = ResponseFile s h f Nothing
+setContent (ContentFile f)     (ResponseFile s h _ _)  = ResponseFile s h f Nothing
+setContent (ContentFile f)     (ResponseSource s h _)  = ResponseFile s h f Nothing
 setContent (ContentSource src) (ResponseBuilder s h _) = ResponseSource s h src
 setContent (ContentSource src) (ResponseFile s h _ _)  = ResponseSource s h src
 setContent (ContentSource src) (ResponseSource s h _)  = ResponseSource s h src
 
-setHeader :: (CI B.ByteString, B.ByteString) -> Response -> Response
-setHeader (k,v) (ResponseBuilder s h b) = ResponseBuilder s (update h k v) b
-setHeader (k,v) (ResponseFile s h f fp) = ResponseFile s (update h k v) f fp
-setHeader (k,v) (ResponseSource s h cs) = ResponseSource s (update h k v) cs
+setHeaderWith :: ([(HeaderName, B.ByteString)] -> [(HeaderName, B.ByteString)]) -> Response -> Response
+setHeaderWith g (ResponseBuilder s h b) = ResponseBuilder s (g h) b
+setHeaderWith g (ResponseFile s h f fp) = ResponseFile s (g h) f fp
+setHeaderWith g (ResponseSource s h cs) = ResponseSource s (g h) cs
 
 setStatus :: Status -> Response -> Response
 setStatus s (ResponseBuilder _ h b) = ResponseBuilder s h b
@@ -54,5 +57,8 @@ setStatus s (ResponseFile _ h f fp) = ResponseFile s h f fp
 setStatus s (ResponseSource _ h cs) = ResponseSource s h cs
 
 -- Note: we assume headers are not sensitive to order here (RFC 2616 specifies they are not)
-update :: (Eq a) => [(a,b)] -> a -> b -> [(a,b)]
-update m k v = (k,v) : filter ((/= k) . fst) m
+replace :: (Eq a) => a -> b -> [(a,b)] -> [(a,b)]
+replace k v m = add k v $ filter ((/= k) . fst) m
+
+add :: (Eq a) => a -> b -> [(a,b)] -> [(a,b)]
+add k v m = (k,v):m
