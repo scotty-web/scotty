@@ -1,13 +1,19 @@
 {-# LANGUAGE OverloadedStrings #-}
-import Web.Scotty
 import Network.Wai.Middleware.RequestLogger
-import Network.Wai
-import Network.Wai.Middleware.Gzip (gzip,def)
-import qualified Data.Text.Lazy as T
-import Data.Text.Lazy.Encoding (decodeUtf8)
+import Network.Wai.Middleware.Gzip
+
+import Web.Scotty
 
 main :: IO ()
-main = scotty 6666 $ do
-  middleware $ gzip def
-  middleware logStdoutDev
-  get "/" $ text "It works"
+main = scotty 3000 $ do
+    -- Note that files are not gzip'd by the default settings.
+    middleware $ gzip $ def { gzipFiles = GzipCompress }
+    middleware logStdoutDev
+
+    -- gzip a normal response
+    get "/" $ text "It works"
+
+    -- gzip a file response (note non-default gzip settings above)
+    get "/afile" $ do
+        setHeader "content-type" "text/plain"
+        file "gzip.hs"
