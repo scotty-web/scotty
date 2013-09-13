@@ -19,9 +19,9 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive as CI
 import Data.Conduit (Flush, ResourceT, Source)
 import Data.Default (def)
-import Data.Monoid (mconcat)
+import Data.Monoid (mconcat, (<>))
 import qualified Data.Text.Lazy as T
-import Data.Text.Lazy.Encoding (encodeUtf8)
+import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
 
 import Network.HTTP.Types
 import Network.Wai
@@ -112,7 +112,7 @@ body = liftM getBody ask
 jsonData :: (A.FromJSON a, Monad m) => ActionT m a
 jsonData = do
     b <- body
-    maybe (raise "jsonData: no parse") return $ A.decode b
+    maybe (raise $ "jsonData - no parse: " <> decodeUtf8 b) return $ A.decode b
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
