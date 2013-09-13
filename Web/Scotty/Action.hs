@@ -1,10 +1,30 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Web.Scotty.Action
-    ( request, files, reqHeader, body, param, params, jsonData
-    , status, header, redirect
-    , text, html, file, json, source, raw
-    , raise, rescue, next
-    , Parsable(..), readEither, Param, runAction
+    ( addHeader
+    , body
+    , file
+    , files
+    , html
+    , json
+    , jsonData
+    , next
+    , param
+    , params
+    , raise
+    , raw
+    , readEither
+    , redirect
+    , reqHeader
+    , request
+    , rescue
+    , setHeader
+    , source
+    , status
+    , text
+    , Param
+    , Parsable(..)
+      -- private to Scotty
+    , runAction
     ) where
 
 import Blaze.ByteString.Builder (Builder, fromLazyByteString)
@@ -43,7 +63,7 @@ runAction env action = do
 defaultHandler :: Monad m => ActionError -> ActionT m ()
 defaultHandler (Redirect url) = do
     status status302
-    header "Location" url
+    setHeader "Location" url
 defaultHandler (ActionError msg) = do
     status status500
     html $ mconcat ["<h1>500 Internal Server Error</h1>", msg]
@@ -178,23 +198,27 @@ readEither t = case [ x | (x,"") <- reads (T.unpack t) ] of
 status :: Monad m => Status -> ActionT m ()
 status = MS.modify . setStatus
 
+-- | Add to the response headers. Header names are case-insensitive.
+addHeader :: Monad m => T.Text -> T.Text -> ActionT m ()
+addHeader k v = MS.modify $ setHeaderWith $ add (CI.mk $ lazyTextToStrictByteString k) (lazyTextToStrictByteString v)
+
 -- | Set one of the response headers. Will override any previously set value for that header.
 -- Header names are case-insensitive.
-header :: Monad m => T.Text -> T.Text -> ActionT m ()
-header k v = MS.modify $ setHeader (CI.mk $ lazyTextToStrictByteString k, lazyTextToStrictByteString v)
+setHeader :: Monad m => T.Text -> T.Text -> ActionT m ()
+setHeader k v = MS.modify $ setHeaderWith $ replace (CI.mk $ lazyTextToStrictByteString k) (lazyTextToStrictByteString v)
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
 -- header to \"text/plain\".
 text :: Monad m => T.Text -> ActionT m ()
 text t = do
-    header "Content-Type" "text/plain"
+    setHeader "Content-Type" "text/plain"
     raw $ encodeUtf8 t
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
 -- header to \"text/html\".
 html :: Monad m => T.Text -> ActionT m ()
 html t = do
-    header "Content-Type" "text/html"
+    setHeader "Content-Type" "text/html"
     raw $ encodeUtf8 t
 
 -- | Send a file as the response. Doesn't set the \"Content-Type\" header, so you probably
@@ -206,7 +230,7 @@ file = MS.modify . setContent . ContentFile
 -- header to \"application/json\".
 json :: (A.ToJSON a, Monad m) => a -> ActionT m ()
 json v = do
-    header "Content-Type" "application/json"
+    setHeader "Content-Type" "application/json"
     raw $ A.encode v
 
 -- | Set the body of the response to a Source. Doesn't set the
