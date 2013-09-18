@@ -4,8 +4,8 @@
   allowing Scotty applications to be embedded in arbitrary `MonadIO`s.
   The old API continues to be exported from `Web.Scotty` where:
 
-    type ScottyM = ScottyT IO
-    type ActionM = ActionT IO
+        type ScottyM = ScottyT IO
+        type ActionM = ActionT IO
 
   The new transformers are found in `Web.Scotty.Trans`. See the
   `globalstate` example for use. Special thanks to Dan Frumin (co-dan)
