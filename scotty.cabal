@@ -46,11 +46,15 @@ Description:
   [Warp] <http://hackage.haskell.org/package/warp>
 
 Extra-source-files:
-    README
+    README.md
+    ReleaseNotes.md
+    examples/404.html
     examples/basic.hs
+    examples/globalstate.hs
     examples/gzip.hs
     examples/json.hs
     examples/options.hs
+    examples/upload.hs
     examples/urlshortener.hs
     examples/static/jquery.js
     examples/static/jquery-json.js
