@@ -25,4 +25,4 @@
 
 * `header` split into `setHeader` and `addHeader`. The former replaces
   a response header (original behavior). The latter adds a header (useful
-  for multiple `Set-Cookie`s, for instance.
+  for multiple `Set-Cookie`s, for instance).
