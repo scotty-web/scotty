@@ -43,6 +43,7 @@ import Control.Monad.Trans.Resource (transResourceT)
 import Control.Monad.IO.Class
 
 import Data.Default (def)
+import Data.Monoid (mconcat)
 
 import Network.HTTP.Types (status404)
 import Network.Wai
@@ -73,7 +74,7 @@ scottyOptsT :: (Monad m, MonadIO n)
             -> n ()
 scottyOptsT opts runM runActionToIO s = do
     when (verbose opts > 0) $
-        liftIO $ putStrLn $ "Setting phasers to stun... (port " ++ show (settingsPort (settings opts)) ++ ") (ctrl-c to quit)"
+        liftIO . putStrLn $ mconcat ["Setting phasers to stun... (port ", show (settingsPort (settings opts)), ") (ctrl-c to quit)"]
     liftIO . runSettings (settings opts) =<< scottyAppT runM runActionToIO s
 
 -- | Turn a scotty application into a WAI 'Application', which can be
