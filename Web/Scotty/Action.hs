@@ -40,6 +40,7 @@ import qualified Data.CaseInsensitive as CI
 import Data.Conduit (Flush, ResourceT, Source)
 import Data.Default (def)
 import Data.Monoid (mconcat, (<>))
+import qualified Data.Text as ST
 import qualified Data.Text.Lazy as T
 import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
 
@@ -165,6 +166,7 @@ class Parsable a where
 
 -- No point using 'read' for Text, ByteString, Char, and String.
 instance Parsable T.Text where parseParam = Right
+instance Parsable ST.Text where parseParam = Right . T.toStrict
 instance Parsable B.ByteString where parseParam = Right . lazyTextToStrictByteString
 -- | Overrides default 'parseParamList' to parse String.
 instance Parsable Char where
