@@ -1,6 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Web.Scotty.Types where
 
+import Control.Applicative
 import Control.Monad.Error
 import Control.Monad.Reader
 import Control.Monad.State
@@ -40,7 +41,8 @@ instance Default (ScottyState m) where
     def = ScottyState [] []
 
 newtype ScottyT m a = ScottyT { runS :: StateT (ScottyState m) m a }
-    deriving (Monad, MonadIO, Functor, MonadState (ScottyState m))
+    deriving (Monad, MonadIO, Functor, Applicative
+             , MonadState (ScottyState m))
 
 instance MonadTrans ScottyT where
     lift = ScottyT . lift
@@ -62,7 +64,7 @@ type File = (Text, FileInfo ByteString)
 data ActionEnv = Env { getReq :: Request, getParams :: [Param], getBody :: ByteString, getFiles :: [File] }
 
 newtype ActionT m a = ActionT { runAM :: ErrorT ActionError (ReaderT ActionEnv (StateT Response m)) a }
-    deriving ( Monad, MonadIO, Functor
+    deriving ( Monad, MonadIO, Functor, Applicative
              , MonadReader ActionEnv, MonadState Response, MonadError ActionError)
 
 instance MonadTrans ActionT where
