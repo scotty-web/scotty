@@ -45,6 +45,9 @@ import Network.Wai.Handler.Warp (Port)
 
 import Web.Scotty.Types (Param, ActionM, ScottyM, RoutePattern, Options, File)
 
+type ScottyM = ScottyT IO
+type ActionM = ActionT IO
+
 -- | Run a scotty application using the warp server.
 scotty :: Port -> ScottyM () -> IO ()
 scotty p = Trans.scottyT p id id
