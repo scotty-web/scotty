@@ -30,7 +30,7 @@ module Web.Scotty.Trans
       -- * Parsing Parameters
     , Param, Parsable(..), readEither
       -- * Types
-    , ScottyM, ActionM, RoutePattern, File
+    , RoutePattern, File
       -- * Monad Transformers
     , ScottyT, ActionT
     ) where

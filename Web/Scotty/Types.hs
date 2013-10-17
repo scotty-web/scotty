@@ -47,8 +47,6 @@ newtype ScottyT m a = ScottyT { runS :: StateT (ScottyState m) m a }
 instance MonadTrans ScottyT where
     lift = ScottyT . lift
 
-type ScottyM a = ScottyT IO a
-
 type Param = (Text, Text)
 
 data ActionError = Redirect Text
@@ -69,8 +67,6 @@ newtype ActionT m a = ActionT { runAM :: ErrorT ActionError (ReaderT ActionEnv (
 
 instance MonadTrans ActionT where
     lift = ActionT . lift . lift . lift
-
-type ActionM a = ActionT IO a
 
 data RoutePattern = Capture   Text
                   | Literal   Text
