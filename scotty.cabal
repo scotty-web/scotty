@@ -62,6 +62,7 @@ Extra-source-files:
 
 Library
   Exposed-modules:     Web.Scotty
+                       Web.Scotty.Helpers
                        Web.Scotty.Trans
   other-modules:       Web.Scotty.Action
                        Web.Scotty.Route
