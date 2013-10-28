@@ -50,6 +50,7 @@ Extra-source-files:
     ReleaseNotes.md
     examples/404.html
     examples/basic.hs
+    examples/exceptions.hs
     examples/globalstate.hs
     examples/gzip.hs
     examples/json.hs
