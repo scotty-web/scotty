@@ -13,7 +13,7 @@ import Control.Concurrent.STM
 import Control.Monad.Reader 
 
 import Data.Default
-import Data.Text.Lazy (pack)
+import Data.String
 
 import Network.Wai.Middleware.RequestLogger
 
@@ -62,7 +62,7 @@ main = do
         middleware logStdoutDev
         get "/" $ do
             c <- webM $ gets tickCount
-            text $ pack $ show c
+            text $ fromString $ show c
 
         get "/plusone" $ do
             webM $ modify $ \ st -> st { tickCount = tickCount st + 1 }

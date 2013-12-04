@@ -38,7 +38,7 @@ main = scotty 3000 $ do
     -- You can set status and headers directly.
     get "/redirect-custom" $ do
         status status302
-        header "Location" "http://www.google.com"
+        setHeader "Location" "http://www.google.com"
         -- note first arg to header is NOT case-sensitive
 
     -- redirects preempt execution
