@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, InstanceSigs, MultiParamTypeClasses #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, FlexibleInstances, MultiParamTypeClasses #-}
 module Web.Scotty.Types where
 
 import           Blaze.ByteString.Builder (Builder)
@@ -35,35 +35,56 @@ type Middleware m = Application m -> Application m
 type Application m = Request -> m Response
 
 --------------- Scotty Applications -----------------
-data ScottyState m = ScottyState { middlewares :: [Wai.Middleware]
-                                 , routes :: [Middleware m]
-                                 }
+data ScottyState e m = 
+    ScottyState { middlewares :: [Wai.Middleware]
+                , routes :: [Middleware m]
+                , handler :: ErrorHandler e m
+                }
 
-instance Default (ScottyState m) where
-    def = ScottyState [] []
+instance Monad m => Default (ScottyState e m) where
+    def = ScottyState [] [] Nothing
 
-addMiddleware :: Wai.Middleware -> ScottyState m -> ScottyState m
+addMiddleware :: Wai.Middleware -> ScottyState e m -> ScottyState e m
 addMiddleware m s@(ScottyState {middlewares = ms}) = s { middlewares = m:ms }
 
-addRoute :: Monad m => Middleware m -> ScottyState m -> ScottyState m
+addRoute :: Monad m => Middleware m -> ScottyState e m -> ScottyState e m
 addRoute r s@(ScottyState {routes = rs}) = s { routes = r:rs }
 
-newtype ScottyT m a = ScottyT { runS :: StateT (ScottyState m) m a }
+addHandler :: ErrorHandler e m -> ScottyState e m -> ScottyState e m
+addHandler h s = s { handler = h }
+
+newtype ScottyT e m a = ScottyT { runS :: StateT (ScottyState e m) m a }
     deriving ( Functor, Applicative, Monad, MonadIO )
 
-instance MonadTrans ScottyT where
+instance MonadTrans (ScottyT e) where
     lift = ScottyT . lift
 
------------------- Scotty Actions -------------------
-type Param = (Text, Text)
-
+------------------ Scotty Errors --------------------
 data ActionError e = Redirect Text
-                   | StringError Text
                    | Next
                    | ActionError e
 
-instance Error (ActionError e) where
-    strMsg = StringError . pack
+class ScottyError e where
+    stringError :: String -> e
+    showError :: e -> Text
+
+instance ScottyError Text where
+    stringError = pack
+    showError = id
+
+instance ScottyError e => ScottyError (ActionError e) where
+    stringError = ActionError . stringError
+    showError (Redirect url)  = url
+    showError Next            = pack "Next"
+    showError (ActionError e) = showError e
+
+instance ScottyError e => Error (ActionError e) where 
+    strMsg = stringError
+
+type ErrorHandler e m = Maybe (e -> ActionT e m ())
+
+------------------ Scotty Actions -------------------
+type Param = (Text, Text)
 
 type File = (Text, FileInfo ByteString)
 
@@ -88,14 +109,12 @@ instance Default ScottyResponse where
 newtype ActionT e m a = ActionT { runAM :: ErrorT (ActionError e) (ReaderT ActionEnv (StateT ScottyResponse m)) a }
     deriving ( Functor, Applicative, Monad, MonadIO )
 
-instance MonadTrans (ActionT e) where
+instance ScottyError e => MonadTrans (ActionT e) where
     lift = ActionT . lift . lift . lift
 
-instance Monad m => MonadError (ActionError e) (ActionT e m) where
-    throwError :: ActionError e -> ActionT e m a
+instance (ScottyError e, Monad m) => MonadError (ActionError e) (ActionT e m) where
     throwError = ActionT . throwError
 
-    catchError :: ActionT e m a -> (ActionError e -> ActionT e m a) -> ActionT e m a
     catchError (ActionT m) f = ActionT (catchError m (runAM . f))
 
 ------------------ Scotty Routes --------------------

@@ -14,6 +14,7 @@ import Control.Monad.Reader
 
 import Data.Default
 import Data.String
+import Data.Text.Lazy (Text)
 
 import Network.Wai.Middleware.RequestLogger
 
@@ -58,16 +59,23 @@ main = do
         -- 'runActionToIO' is called once per action.
         runActionToIO = runM
 
-    scottyT 3000 runM runActionToIO $ do
-        middleware logStdoutDev
-        get "/" $ do
-            c <- webM $ gets tickCount
-            text $ fromString $ show c
+    scottyT 3000 runM runActionToIO app
 
-        get "/plusone" $ do
-            webM $ modify $ \ st -> st { tickCount = tickCount st + 1 }
-            redirect "/"
+-- This app doesn't use raise/rescue, so the exception
+-- type is ambiguous. We can fix it by putting a type
+-- annotation just about anywhere. In this case, we'll
+-- just do it on the entire app.
+app :: ScottyT Text WebM ()
+app = do
+    middleware logStdoutDev
+    get "/" $ do
+        c <- webM $ gets tickCount
+        text $ fromString $ show c
 
-        get "/plustwo" $ do
-            webM $ modify $ \ st -> st { tickCount = tickCount st + 2 }
-            redirect "/"
+    get "/plusone" $ do
+        webM $ modify $ \ st -> st { tickCount = tickCount st + 1 }
+        redirect "/"
+
+    get "/plustwo" $ do
+        webM $ modify $ \ st -> st { tickCount = tickCount st + 2 }
+        redirect "/"

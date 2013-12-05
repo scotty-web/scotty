@@ -13,6 +13,7 @@ import qualified Network.Wai as Wai
 
 -- Note that we only import the monad transformer version, to force
 -- us to be generic in the underyling monad. MonadIO constraints are fine.
+import           Web.Scotty.Types
 import           Web.Scotty.Trans
 import           Web.Scotty.Util
 
@@ -21,5 +22,5 @@ import           Web.Scotty.Util
 --
 -- > redirect =<< addQueryString "/foo"
 --
-addQueryString :: Monad m => T.Text -> ActionT e m T.Text
+addQueryString :: (ScottyError e, Monad m) => T.Text -> ActionT e m T.Text
 addQueryString r = liftM ((r <>) . strictByteStringToLazyText . Wai.rawQueryString) request

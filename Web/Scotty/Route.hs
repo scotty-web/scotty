@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, FlexibleContexts, FlexibleInstances, ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings, FlexibleContexts, FlexibleInstances, RankNTypes #-}
 module Web.Scotty.Route
     ( get, post, put, delete, patch, addroute, matchAny, notFound,
       capture, regex, function, literal
@@ -32,32 +32,32 @@ import Web.Scotty.Types
 import Web.Scotty.Util
 
 -- | get = 'addroute' 'GET'
-get :: MonadIO m => RoutePattern -> ActionT e m () -> ScottyT m ()
+get :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
 get = addroute GET
 
 -- | post = 'addroute' 'POST'
-post :: MonadIO m => RoutePattern -> ActionT e m () -> ScottyT m ()
+post :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
 post = addroute POST
 
 -- | put = 'addroute' 'PUT'
-put :: MonadIO m => RoutePattern -> ActionT e m () -> ScottyT m ()
+put :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
 put = addroute PUT
 
 -- | delete = 'addroute' 'DELETE'
-delete :: MonadIO m => RoutePattern -> ActionT e m () -> ScottyT m ()
+delete :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
 delete = addroute DELETE
 
 -- | patch = 'addroute' 'PATCH'
-patch :: MonadIO m => RoutePattern -> ActionT e m () -> ScottyT m ()
+patch :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
 patch = addroute PATCH
 
 -- | Add a route that matches regardless of the HTTP verb.
-matchAny :: MonadIO m => RoutePattern -> ActionT e m () -> ScottyT m ()
+matchAny :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
 matchAny pattern action = mapM_ (\v -> addroute v pattern action) [minBound..maxBound]
 
 -- | Specify an action to take if nothing else is found. Note: this _always_ matches,
 -- so should generally be the last route specified.
-notFound :: MonadIO m => ActionT e m () -> ScottyT m ()
+notFound :: (ScottyError e, MonadIO m) => ActionT e m () -> ScottyT e m ()
 notFound action = matchAny (Function (\req -> Just [("path", path req)])) (status status404 >> action)
 
 -- | Define a route with a 'StdMethod', 'T.Text' value representing the path spec,
@@ -74,17 +74,17 @@ notFound action = matchAny (Function (\req -> Just [("path", path req)])) (statu
 --
 -- >>> curl http://localhost:3000/foo/something
 -- something
-addroute :: MonadIO m => StdMethod -> RoutePattern -> ActionT e m () -> ScottyT m ()
-addroute method pat action = ScottyT $ MS.modify $ addRoute $ route method pat action
+addroute :: (ScottyError e, MonadIO m) => StdMethod -> RoutePattern -> ActionT e m () -> ScottyT e m ()
+addroute method pat action = ScottyT $ MS.modify $ \s -> addRoute (route (handler s) method pat action) s
 
-route :: MonadIO m => StdMethod -> RoutePattern -> ActionT e m () -> Middleware m
-route method pat action app req =
+route :: (ScottyError e, MonadIO m) => ErrorHandler e m -> StdMethod -> RoutePattern -> ActionT e m () -> Middleware m
+route h method pat action app req =
     let tryNext = app req
     in if Right method == parseMethod (requestMethod req)
        then case matchRoute pat req of
             Just captures -> do
                 env <- mkEnv req captures
-                res <- runAction env action
+                res <- runAction h env action
                 maybe tryNext return res
             Nothing -> tryNext
        else tryNext
