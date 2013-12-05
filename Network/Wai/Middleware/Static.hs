@@ -119,7 +119,7 @@ staticPolicy p app req =
     maybe (app req)
           (\fp -> do exists <- liftIO $ doesFileExist fp
                      if exists
-                        then return $ ResponseFile status200
+                        then return $ responseFile status200
                                                    [("Content-Type", getMimeType fp)]
                                                    fp
                                                    Nothing
