@@ -22,7 +22,7 @@ module Web.Scotty
       -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json, source, raw
       -- ** Exceptions
-    , raise, rescue, next
+    , raise, rescue, next, defaultHandler
       -- * Parsing Parameters
     , Param, Trans.Parsable(..), Trans.readEither
       -- * Types
@@ -45,8 +45,8 @@ import Network.Wai.Handler.Warp (Port)
 
 import Web.Scotty.Types (ScottyT, ActionT, Param, RoutePattern, Options, File)
 
-type ScottyM = ScottyT IO
-type ActionM = ActionT () IO -- TODO: something besides () for default error type?
+type ScottyM = ScottyT Text IO
+type ActionM = ActionT Text IO 
 
 -- | Run a scotty application using the warp server.
 scotty :: Port -> ScottyM () -> IO ()
@@ -60,6 +60,10 @@ scottyOpts opts = Trans.scottyOptsT opts id id
 -- run with any WAI handler.
 scottyApp :: ScottyM () -> IO Application
 scottyApp = Trans.scottyAppT id id
+
+-- | Global handler for uncaught exceptions. 
+defaultHandler :: (Text -> ActionM ()) -> ScottyM ()
+defaultHandler = Trans.defaultHandler
 
 -- | Use given middleware. Middleware is nested such that the first declared
 -- is the outermost middleware (it has first dibs on the request and last action

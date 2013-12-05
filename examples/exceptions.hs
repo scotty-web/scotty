@@ -1,61 +1,62 @@
 {-# LANGUAGE OverloadedStrings, GeneralizedNewtypeDeriving, ScopedTypeVariables #-}
--- An example of embedding a custom monad into
--- Scotty's transformer stack, using ErrorT to provide
--- custom exceptions and a centralized exception handler.
 module Main where
 
 import Control.Applicative
 import Control.Monad.Error
 
-import Data.ByteString.Lazy hiding (pack)
-import Data.ByteString.Lazy.Char8 (pack)
 import Data.Monoid
+import Data.String (fromString)
 
 import Network.HTTP.Types
 import Network.Wai.Middleware.RequestLogger
 import Network.Wai
 
+import System.Random
+
 import Web.Scotty.Trans
 
-newtype ExM a = ExM { runExM :: ErrorT Except IO a }
-    deriving (Functor, Applicative, Monad, MonadIO, MonadError Except)
-
-data Except = Forbidden | NotFound Int | Other ByteString
+-- Define a custom exception type.
+data Except = Forbidden | NotFound Int | StringEx String
     deriving (Show, Eq)
 
-instance Error Except where
-    strMsg = Other . pack
+-- The type must be an instance of 'ScottyError'.
+-- 'ScottyError' is essentially a combination of 'Error' and 'Show'.
+instance ScottyError Except where
+    stringError = StringEx
+    showError = fromString . show
 
-handleEx :: Except -> IO Response
-handleEx Forbidden    = return $ plainResponse status403 "Scotty says no."
-handleEx (NotFound i) = return $ plainResponse status404 (pack $ "Can't find " ++ show i ++ ".")
-handleEx (Other bs)   = return $ plainResponse status500 bs
-
-plainResponse :: Status -> ByteString -> Response
-plainResponse st bs = responseLBS st [("Content-type","text/plain")] bs
-
--- Scotty's monads are layered on top of our custom monad.
--- We define this helper to put our exceptions in the right layer.
-throwEx :: MonadTrans t => Except -> t ExM ()
-throwEx = lift . throwError
+-- Handler for uncaught exceptions.
+handleEx :: Monad m => Except -> ActionT Except m ()
+handleEx Forbidden    = do
+    status status403
+    html "<h1>Scotty Says No</h1>"
+handleEx (NotFound i) = do
+    status status404
+    html $ fromString $ "<h1>Can't find " ++ show i ++ ".</h1>"
 
 main :: IO ()
-main = do
-    let runM m = do
-            r <- runErrorT (runExM m) 
-            either (\ ex -> fail $ "exception at startup: " ++ show ex) return r
-        -- 'runActionToIO' is called once per action.
-        runActionToIO m = runErrorT (runExM m) >>= either handleEx return
+main = scottyT 3000 id id $ do -- note, we aren't using any additional transformer layers
+                               -- so we can just use 'id' for the runners.
+    middleware logStdoutDev
 
-    scottyT 3000 runM runActionToIO $ do
-        middleware logStdoutDev
-        get "/" $ do
-            html $ mconcat ["<a href=\"/switch/1\">Option 1 (Not Found)</a>"
-                           ,"<br/>"
-                           ,"<a href=\"/switch/2\">Option 2 (Forbidden)</a>"
-                           ]
+    defaultHandler handleEx    -- define what to do with uncaught exceptions
 
-        get "/switch/:val" $ do
-            v :: Int <- param "val"
-            if even v then throwEx Forbidden else throwEx (NotFound v)
-            text "this will never be reached"
+    get "/" $ do
+        html $ mconcat ["<a href=\"/switch/1\">Option 1 (Not Found)</a>"
+                       ,"<br/>"
+                       ,"<a href=\"/switch/2\">Option 2 (Forbidden)</a>"
+                       ,"<br/>"
+                       ,"<a href=\"/random\">Option 3 (Random)</a>"
+                       ]
+
+    get "/switch/:val" $ do
+        v <- param "val"
+        if even v then raise Forbidden else raise (NotFound v)
+        text "this will never be reached"
+
+    get "/random" $ do
+        rBool <- liftIO randomIO
+        i <- liftIO randomIO
+        let catchOne Forbidden = html "<h1>Forbidden was randomly thrown, but we caught it."
+            catchOne other     = raise other
+        raise (if rBool then Forbidden else NotFound i) `rescue` catchOne

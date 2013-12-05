@@ -26,7 +26,7 @@ module Web.Scotty.Trans
       -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json, source, raw
       -- ** Exceptions
-    , raise, rescue, next
+    , raise, rescue, next, defaultHandler, ScottyError(..)
       -- * Parsing Parameters
     , Param, Parsable(..), readEither
       -- * Types
@@ -58,7 +58,7 @@ scottyT :: (Monad m, MonadIO n)
         => Port
         -> (forall a. m a -> n a)      -- ^ Run monad 'm' into monad 'n', called once at 'ScottyT' level.
         -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
-        -> ScottyT m ()
+        -> ScottyT e m ()
         -> n ()
 scottyT p = scottyOptsT $ def { settings = (settings def) { settingsPort = p } }
 
@@ -68,7 +68,7 @@ scottyOptsT :: (Monad m, MonadIO n)
             => Options
             -> (forall a. m a -> n a)      -- ^ Run monad 'm' into monad 'n', called once at 'ScottyT' level.
             -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
-            -> ScottyT m ()
+            -> ScottyT e m ()
             -> n ()
 scottyOptsT opts runM runActionToIO s = do
     when (verbose opts > 0) $
@@ -81,7 +81,7 @@ scottyOptsT opts runM runActionToIO s = do
 scottyAppT :: (Monad m, Monad n)
            => (forall a. m a -> n a)      -- ^ Run monad 'm' into monad 'n', called once at 'ScottyT' level.
            -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
-           -> ScottyT m ()
+           -> ScottyT e m ()
            -> n Application
 scottyAppT runM runActionToIO defs = do
     s <- runM $ execStateT (runS defs) def
@@ -92,8 +92,12 @@ notFoundApp :: Monad m => Scotty.Application m
 notFoundApp _ = return $ responseBuilder status404 [("Content-Type","text/html")]
                        $ fromByteString "<h1>404: File Not Found!</h1>"
 
+-- | Global handler for uncaught custom exceptions. 
+defaultHandler :: Monad m => (e -> ActionT e m ()) -> ScottyT e m ()
+defaultHandler f = ScottyT $ modify $ addHandler $ Just f
+
 -- | Use given middleware. Middleware is nested such that the first declared
 -- is the outermost middleware (it has first dibs on the request and last action
 -- on the response). Every middleware is run on each request.
-middleware :: Monad m => Middleware -> ScottyT m ()
+middleware :: Monad m => Middleware -> ScottyT e m ()
 middleware = ScottyT . modify . addMiddleware
