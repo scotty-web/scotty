@@ -36,7 +36,7 @@ import Blaze.ByteString.Builder (Builder)
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.ByteString.Lazy.Char8 (ByteString)
-import Data.Conduit (Flush, ResourceT, Source)
+import Data.Conduit (Flush, Source)
 import Data.Text.Lazy (Text)
 
 import Network.HTTP.Types (Status, StdMethod)
@@ -46,7 +46,7 @@ import Network.Wai.Handler.Warp (Port)
 import Web.Scotty.Types (ScottyT, ActionT, Param, RoutePattern, Options, File)
 
 type ScottyM = ScottyT IO
-type ActionM = ActionT IO
+type ActionM = ActionT () IO -- TODO: something besides () for default error type?
 
 -- | Run a scotty application using the warp server.
 scotty :: Port -> ScottyM () -> IO ()
@@ -176,7 +176,7 @@ json = Trans.json
 -- | Set the body of the response to a Source. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your
 -- own with 'header'.
-source :: Source (ResourceT IO) (Flush Builder) -> ActionM ()
+source :: Source IO (Flush Builder) -> ActionM ()
 source = Trans.source
 
 -- | Set the body of the response to the given 'BL.ByteString' value. Doesn't set the

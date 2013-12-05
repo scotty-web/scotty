@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, FlexibleInstances, ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings, FlexibleContexts, FlexibleInstances, ScopedTypeVariables #-}
 module Web.Scotty.Route
     ( get, post, put, delete, patch, addroute, matchAny, notFound,
       capture, regex, function, literal
@@ -7,7 +7,7 @@ module Web.Scotty.Route
 import Control.Arrow ((***))
 import Control.Monad.Error
 import qualified Control.Monad.State as MS
-import Control.Monad.Trans.Resource (ResourceT, transResourceT)
+import Control.Monad.Trans.Resource (runResourceT, withInternalState, MonadBaseControl)
 
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
@@ -32,32 +32,32 @@ import Web.Scotty.Types
 import Web.Scotty.Util
 
 -- | get = 'addroute' 'GET'
-get :: MonadIO m => RoutePattern -> ActionT m () -> ScottyT m ()
+get :: MonadIO m => RoutePattern -> ActionT e m () -> ScottyT m ()
 get = addroute GET
 
 -- | post = 'addroute' 'POST'
-post :: MonadIO m => RoutePattern -> ActionT m () -> ScottyT m ()
+post :: MonadIO m => RoutePattern -> ActionT e m () -> ScottyT m ()
 post = addroute POST
 
 -- | put = 'addroute' 'PUT'
-put :: MonadIO m => RoutePattern -> ActionT m () -> ScottyT m ()
+put :: MonadIO m => RoutePattern -> ActionT e m () -> ScottyT m ()
 put = addroute PUT
 
 -- | delete = 'addroute' 'DELETE'
-delete :: MonadIO m => RoutePattern -> ActionT m () -> ScottyT m ()
+delete :: MonadIO m => RoutePattern -> ActionT e m () -> ScottyT m ()
 delete = addroute DELETE
 
 -- | patch = 'addroute' 'PATCH'
-patch :: MonadIO m => RoutePattern -> ActionT m () -> ScottyT m ()
+patch :: MonadIO m => RoutePattern -> ActionT e m () -> ScottyT m ()
 patch = addroute PATCH
 
 -- | Add a route that matches regardless of the HTTP verb.
-matchAny :: MonadIO m => RoutePattern -> ActionT m () -> ScottyT m ()
+matchAny :: MonadIO m => RoutePattern -> ActionT e m () -> ScottyT m ()
 matchAny pattern action = mapM_ (\v -> addroute v pattern action) [minBound..maxBound]
 
 -- | Specify an action to take if nothing else is found. Note: this _always_ matches,
 -- so should generally be the last route specified.
-notFound :: MonadIO m => ActionT m () -> ScottyT m ()
+notFound :: MonadIO m => ActionT e m () -> ScottyT m ()
 notFound action = matchAny (Function (\req -> Just [("path", path req)])) (status status404 >> action)
 
 -- | Define a route with a 'StdMethod', 'T.Text' value representing the path spec,
@@ -74,29 +74,26 @@ notFound action = matchAny (Function (\req -> Just [("path", path req)])) (statu
 --
 -- >>> curl http://localhost:3000/foo/something
 -- something
-addroute :: MonadIO m => StdMethod -> RoutePattern -> ActionT m () -> ScottyT m ()
-addroute method pat action = MS.modify $ addRoute $ route method pat action
+addroute :: MonadIO m => StdMethod -> RoutePattern -> ActionT e m () -> ScottyT m ()
+addroute method pat action = ScottyT $ MS.modify $ addRoute $ route method pat action
 
-route :: MonadIO m => StdMethod -> RoutePattern -> ActionT m () -> Middleware m
+route :: MonadIO m => StdMethod -> RoutePattern -> ActionT e m () -> Middleware m
 route method pat action app req =
     let tryNext = app req
     in if Right method == parseMethod (requestMethod req)
        then case matchRoute pat req of
             Just captures -> do
                 env <- mkEnv req captures
-                res <- lift $ runAction env action
+                res <- runAction env action
                 maybe tryNext return res
             Nothing -> tryNext
        else tryNext
 
 matchRoute :: RoutePattern -> Request -> Maybe [Param]
-
-matchRoute (Literal pat) req | pat == path req = Just []
-                             | otherwise       = Nothing
-
+matchRoute (Literal pat)  req | pat == path req = Just []
+                              | otherwise       = Nothing
 matchRoute (Function fun) req = fun req
-
-matchRoute (Capture pat) req = go (T.split (=='/') pat) (T.split (=='/') $ path req) []
+matchRoute (Capture pat)  req = go (T.split (=='/') pat) (T.split (=='/') $ path req) []
     where go [] [] prs = Just prs -- request string and pattern match!
           go [] r  prs | T.null (mconcat r)  = Just prs -- in case request has trailing slashes
                        | otherwise           = Nothing  -- request string is longer than pattern
@@ -112,21 +109,22 @@ path :: Request -> T.Text
 path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo
 
 -- Stolen from wai-extra, modified to accept body as lazy ByteString
-parseRequestBody :: MonadIO m
+parseRequestBody :: (MonadBaseControl IO m, MonadIO m)
                  => BL.ByteString
                  -> Parse.BackEnd y
                  -> Request
-                 -> ResourceT m ([Parse.Param], [Parse.File y])
+                 -> m ([Parse.Param], [Parse.File y])
 parseRequestBody b s r =
     case Parse.getRequestBodyType r of
         Nothing -> return ([], [])
-        Just rbt -> transResourceT liftIO $ liftM partitionEithers $ sourceLbs b $$ Parse.conduitRequestBody s rbt =$ consume
+        Just rbt -> runResourceT $ withInternalState $ \ is -> 
+                        liftIO $ liftM partitionEithers $ sourceLbs b $$ Parse.conduitRequestBody is s rbt =$ consume
 
-mkEnv :: MonadIO m => Request -> [Param] -> ResourceT m ActionEnv
+mkEnv :: MonadIO m => Request -> [Param] -> m ActionEnv
 mkEnv req captures = do
-    b <- transResourceT liftIO $ liftM BL.fromChunks $ lazyConsume (requestBody req)
+    b <- liftIO $ liftM BL.fromChunks $ lazyConsume (requestBody req)
 
-    (formparams, fs) <- transResourceT liftIO $ parseRequestBody b Parse.lbsBackEnd req
+    (formparams, fs) <- liftIO $ parseRequestBody b Parse.lbsBackEnd req
 
     let convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
         parameters = captures ++ map convert formparams ++ queryparams

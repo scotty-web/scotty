@@ -21,5 +21,5 @@ import           Web.Scotty.Util
 --
 -- > redirect =<< addQueryString "/foo"
 --
-addQueryString :: Monad m => T.Text -> ActionT m T.Text
+addQueryString :: Monad m => T.Text -> ActionT e m T.Text
 addQueryString r = liftM ((r <>) . strictByteStringToLazyText . Wai.rawQueryString) request

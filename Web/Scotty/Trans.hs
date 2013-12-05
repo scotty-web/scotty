@@ -39,7 +39,6 @@ import Blaze.ByteString.Builder (fromByteString)
 
 import Control.Monad (when)
 import Control.Monad.State (execStateT, modify)
-import Control.Monad.Trans.Resource (transResourceT)
 import Control.Monad.IO.Class
 
 import Data.Default (def)
@@ -86,15 +85,15 @@ scottyAppT :: (Monad m, Monad n)
            -> n Application
 scottyAppT runM runActionToIO defs = do
     s <- runM $ execStateT (runS defs) def
-    let rapp = transResourceT runActionToIO . foldl (flip ($)) notFoundApp (routes s)
+    let rapp = runActionToIO . foldl (flip ($)) notFoundApp (routes s)
     return $ foldl (flip ($)) rapp (middlewares s)
 
 notFoundApp :: Monad m => Scotty.Application m
-notFoundApp _ = return $ ResponseBuilder status404 [("Content-Type","text/html")]
+notFoundApp _ = return $ responseBuilder status404 [("Content-Type","text/html")]
                        $ fromByteString "<h1>404: File Not Found!</h1>"
 
 -- | Use given middleware. Middleware is nested such that the first declared
 -- is the outermost middleware (it has first dibs on the request and last action
 -- on the response). Every middleware is run on each request.
 middleware :: Monad m => Middleware -> ScottyT m ()
-middleware = modify . addMiddleware
+middleware = ScottyT . modify . addMiddleware
