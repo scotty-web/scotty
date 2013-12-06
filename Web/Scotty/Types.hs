@@ -64,6 +64,8 @@ data ActionError e = Redirect Text
                    | Next
                    | ActionError e
 
+-- | In order to use a custom exception type (aside from 'Text'), you must
+-- define an instance of 'ScottyError' for that type. 
 class ScottyError e where
     stringError :: String -> e
     showError :: e -> Text
