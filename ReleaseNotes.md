@@ -1,3 +1,17 @@
+## 0.6.0
+
+* The Scotty transformers (`ScottyT` and `ActionT`) are now parameterized
+  over a custom exception type, allowing one to extend Scotty's `ErrorT`
+  layer with something richer than `Text` errors. See the `exceptions`
+  example for use. `ScottyM` and `ActionM` remain specialized to `Text`
+  exceptions for simplicity.
+
+* Both monads are now instances of `Functor` and `Applicative`.
+
+* There is a new `cookies` example.
+
+* Internals brought up-to-date with WAI 2.0 and related packages.
+
 ## 0.5.0
 
 * The Scotty monads (`ScottyM` and `ActionM`) are now monad transformers,
