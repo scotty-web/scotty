@@ -1,8 +1,8 @@
 Name:                scotty
 Version:             0.6.0
 Synopsis:            Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp
-Homepage:            https://github.com/ku-fpg/scotty
-Bug-reports:         https://github.com/ku-fpg/scotty/issues
+Homepage:            https://github.com/scotty-web/scotty
+Bug-reports:         https://github.com/scotty-web/scotty/issues
 License:             BSD3
 License-file:        LICENSE
 Author:              Andrew Farmer <anfarmer@ku.edu>
@@ -91,4 +91,4 @@ Library
 
 source-repository head
   type:     git
-  location: git://github.com/ku-fpg/scotty.git
+  location: git://github.com/scotty-web/scotty.git
