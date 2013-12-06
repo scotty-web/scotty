@@ -1,13 +1,13 @@
 Name:                wai-middleware-static
-Version:             0.4.0
+Version:             0.4.0.1
 Synopsis:            WAI middleware that intercepts requests to static files.
-Homepage:            https://github.com/ku-fpg/scotty
-Bug-reports:         https://github.com/ku-fpg/scotty/issues
+Homepage:            https://github.com/scotty-web/scotty
+Bug-reports:         https://github.com/scotty-web/scotty/issues
 License:             BSD3
 License-file:        LICENSE
 Author:              Andrew Farmer <anfarmer@ku.edu>
 Maintainer:          Andrew Farmer <anfarmer@ku.edu>
-Copyright:           (c) 2012 Andrew Farmer
+Copyright:           (c) 2012-2013 Andrew Farmer
 Category:            Web
 Stability:           experimental
 Build-type:          Simple
@@ -35,4 +35,4 @@ Library
 
 source-repository head
   type:     git
-  location: git://github.com/ku-fpg/scotty.git
+  location: git://github.com/scotty-web/scotty.git
