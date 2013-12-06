@@ -50,20 +50,18 @@ Extra-source-files:
     ReleaseNotes.md
     examples/404.html
     examples/basic.hs
+    examples/cookies.hs
     examples/exceptions.hs
     examples/globalstate.hs
     examples/gzip.hs
-    examples/json.hs
     examples/options.hs
     examples/upload.hs
     examples/urlshortener.hs
     examples/static/jquery.js
     examples/static/jquery-json.js
-    examples/static/json.js
 
 Library
   Exposed-modules:     Web.Scotty
-                       Web.Scotty.Helpers
                        Web.Scotty.Trans
   other-modules:       Web.Scotty.Action
                        Web.Scotty.Route
