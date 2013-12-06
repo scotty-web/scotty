@@ -83,14 +83,14 @@ raise = throwError . ActionError
 -- As an example, these two routes overlap. The only way the second one will
 -- ever run is if the first one calls 'next'.
 --
--- > get "/foo/:number" $ do
--- >   n <- param "number"
--- >   unless (all isDigit n) $ next
--- >   text "a number"
--- >
 -- > get "/foo/:bar" $ do
--- >   bar <- param "bar"
--- >   text "not a number"
+-- >   w :: Text <- param "bar"
+-- >   unless (w == "special") next
+-- >   text "You made a request to /foo/special"
+-- >
+-- > get "/foo/:baz" $ do
+-- >   w <- param "baz"
+-- >   text $ "You made a request to: " <> w
 next :: (ScottyError e, Monad m) => ActionT e m a
 next = throwError Next
 
@@ -226,7 +226,7 @@ html t = do
     raw $ encodeUtf8 t
 
 -- | Send a file as the response. Doesn't set the \"Content-Type\" header, so you probably
--- want to do that on your own with 'header'.
+-- want to do that on your own with 'setHeader'.
 file :: (ScottyError e, Monad m) => FilePath -> ActionT e m ()
 file = ActionT . MS.modify . setContent . ContentFile
 
@@ -239,12 +239,12 @@ json v = do
 
 -- | Set the body of the response to a Source. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your
--- own with 'header'.
+-- own with 'setHeader'.
 source :: (ScottyError e, Monad m) => Source IO (Flush Builder) -> ActionT e m ()
 source = ActionT . MS.modify . setContent . ContentSource
 
 -- | Set the body of the response to the given 'BL.ByteString' value. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your
--- own with 'header'.
+-- own with 'setHeader'.
 raw :: (ScottyError e, Monad m) => BL.ByteString -> ActionT e m ()
 raw = ActionT . MS.modify . setContent . ContentBuilder . fromLazyByteString

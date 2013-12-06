@@ -92,7 +92,10 @@ notFoundApp :: Monad m => Scotty.Application m
 notFoundApp _ = return $ responseBuilder status404 [("Content-Type","text/html")]
                        $ fromByteString "<h1>404: File Not Found!</h1>"
 
--- | Global handler for uncaught custom exceptions. 
+-- | Global handler for uncaught exceptions. 
+--
+-- Uncaught exceptions normally become 500 responses. 
+-- You can use this to selectively override that behavior.
 defaultHandler :: Monad m => (e -> ActionT e m ()) -> ScottyT e m ()
 defaultHandler f = ScottyT $ modify $ addHandler $ Just f
 

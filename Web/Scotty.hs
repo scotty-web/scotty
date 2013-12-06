@@ -62,6 +62,9 @@ scottyApp :: ScottyM () -> IO Application
 scottyApp = Trans.scottyAppT id id
 
 -- | Global handler for uncaught exceptions. 
+--
+-- Uncaught exceptions normally become 500 responses. 
+-- You can use this to selectively override that behavior.
 defaultHandler :: (Text -> ActionM ()) -> ScottyM ()
 defaultHandler = Trans.defaultHandler
 
@@ -82,14 +85,14 @@ raise = Trans.raise
 -- As an example, these two routes overlap. The only way the second one will
 -- ever run is if the first one calls 'next'.
 --
--- > get "/foo/:number" $ do
--- >   n <- param "number"
--- >   unless (all isDigit n) $ next
--- >   text "a number"
--- >
 -- > get "/foo/:bar" $ do
--- >   bar <- param "bar"
--- >   text "not a number"
+-- >   w :: Text <- param "bar"
+-- >   unless (w == "special") next
+-- >   text "You made a request to /foo/special"
+-- >
+-- > get "/foo/:baz" $ do
+-- >   w <- param "baz"
+-- >   text $ "You made a request to: " <> w
 next :: ActionM a
 next = Trans.next
 
@@ -168,7 +171,7 @@ html :: Text -> ActionM ()
 html = Trans.html
 
 -- | Send a file as the response. Doesn't set the \"Content-Type\" header, so you probably
--- want to do that on your own with 'header'.
+-- want to do that on your own with 'setHeader'.
 file :: FilePath -> ActionM ()
 file = Trans.file
 
@@ -179,12 +182,12 @@ json = Trans.json
 
 -- | Set the body of the response to a Source. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your
--- own with 'header'.
+-- own with 'setHeader'.
 source :: Source IO (Flush Builder) -> ActionM ()
 source = Trans.source
 
 -- | Set the body of the response to the given 'BL.ByteString' value. Doesn't set the
--- \"Content-Type\" header, so you probably want to do that on your own with 'header'.
+-- \"Content-Type\" header, so you probably want to do that on your own with 'setHeader'.
 raw :: ByteString -> ActionM ()
 raw = Trans.raw
 
