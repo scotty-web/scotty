@@ -1,5 +1,5 @@
 Name:                scotty
-Version:             0.6.0
+Version:             0.6.1
 Synopsis:            Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp
 Homepage:            https://github.com/scotty-web/scotty
 Bug-reports:         https://github.com/scotty-web/scotty/issues
@@ -78,11 +78,10 @@ Library
                        http-types       >= 0.8.2    && < 0.9,
                        mtl              >= 2.1.2    && < 2.2,
                        regex-compat     >= 0.95.1   && < 0.96,
-                       resourcet        >= 0.4.7.2  && < 0.5,
                        text             >= 0.11.3.1 && < 0.12,
                        transformers     >= 0.3.0.0  && < 0.4,
                        wai              >= 2.0.0    && < 2.1,
-                       wai-extra        >= 2.0.0.1  && < 2.1,
+                       wai-extra        >= 2.0.1    && < 2.1,
                        warp             >= 2.0.0.1  && < 2.1
 
   GHC-options: -Wall -fno-warn-orphans

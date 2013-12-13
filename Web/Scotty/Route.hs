@@ -7,7 +7,6 @@ module Web.Scotty.Route
 import Control.Arrow ((***))
 import Control.Monad.Error
 import qualified Control.Monad.State as MS
-import Control.Monad.Trans.Resource (runResourceT, withInternalState, MonadBaseControl)
 
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
@@ -109,7 +108,7 @@ path :: Request -> T.Text
 path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo
 
 -- Stolen from wai-extra, modified to accept body as lazy ByteString
-parseRequestBody :: (MonadBaseControl IO m, MonadIO m)
+parseRequestBody :: MonadIO m
                  => BL.ByteString
                  -> Parse.BackEnd y
                  -> Request
@@ -117,8 +116,7 @@ parseRequestBody :: (MonadBaseControl IO m, MonadIO m)
 parseRequestBody b s r =
     case Parse.getRequestBodyType r of
         Nothing -> return ([], [])
-        Just rbt -> runResourceT $ withInternalState $ \ is -> 
-                        liftIO $ liftM partitionEithers $ sourceLbs b $$ Parse.conduitRequestBody is s rbt =$ consume
+        Just rbt -> liftIO $ liftM partitionEithers $ sourceLbs b $$ Parse.conduitRequestBody s rbt =$ consume
 
 mkEnv :: MonadIO m => Request -> [Param] -> m ActionEnv
 mkEnv req captures = do
