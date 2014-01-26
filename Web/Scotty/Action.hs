@@ -183,7 +183,13 @@ instance Parsable () where
 
 instance (Parsable a) => Parsable [a] where parseParam = parseParamList
 
-instance Parsable Bool where parseParam = readEither
+instance Parsable Bool where
+    parseParam s
+      | "true" `T.isPrefixOf` s'  = Right True
+      | "false" `T.isPrefixOf` s' = Right False
+      | otherwise                 = Left "parseParam Bool: no parse"
+      where s' = T.toLower s
+
 instance Parsable Double where parseParam = readEither
 instance Parsable Float where parseParam = readEither
 instance Parsable Int where parseParam = readEither
