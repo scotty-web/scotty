@@ -1,3 +1,18 @@
+## 0.7.0
+
+* Make `Bool` parsing case-insensitive. Goal: support both Haskell's True/False
+  and Javascript's true/false. Thanks to Ben Gamari for suggesting this.
+
+* Bump `aeson`/`text` upper bounds.
+
+## 0.6.2
+
+* Bump upper bound for `text`.
+
+## 0.6.1
+
+* Match changes in `wai-extra`.
+
 ## 0.6.0
 
 * The Scotty transformers (`ScottyT` and `ActionT`) are now parameterized
