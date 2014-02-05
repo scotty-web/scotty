@@ -20,6 +20,8 @@ module Web.Scotty.Trans
     , request, reqHeader, body, param, params, jsonData, files
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
+      -- ** Setting Cookies
+    , setCookie, setCookie', getCookie
       -- ** Setting Response Body
       --
       -- | Note: only one of these should be present in any given route

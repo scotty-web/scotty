@@ -82,7 +82,9 @@ Library
                        transformers     >= 0.3.0.0  && < 0.4,
                        wai              >= 2.0.0    && < 2.1,
                        wai-extra        >= 2.0.1    && < 2.1,
-                       warp             >= 2.0.0.1  && < 2.1
+                       warp             >= 2.0.0.1  && < 2.1,
+                       old-locale       >= 1.0      && < 1.1,
+                       time             >= 1.4      && < 1.5
 
   GHC-options: -Wall -fno-warn-orphans
 

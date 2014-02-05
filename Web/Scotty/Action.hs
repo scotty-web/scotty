@@ -18,6 +18,9 @@ module Web.Scotty.Action
     , request
     , rescue
     , setHeader
+    , setCookie
+    , setCookie'
+    , getCookie
     , source
     , status
     , text
@@ -29,6 +32,7 @@ module Web.Scotty.Action
 
 import Blaze.ByteString.Builder (Builder, fromLazyByteString)
 
+import Control.Arrow
 import Control.Monad.Error
 import Control.Monad.Reader
 import qualified Control.Monad.State as MS
@@ -42,7 +46,10 @@ import Data.Default (def)
 import Data.Monoid (mconcat)
 import qualified Data.Text as ST
 import qualified Data.Text.Lazy as T
-import Data.Text.Lazy.Encoding (encodeUtf8)
+import Data.Text.Lazy.Encoding (decodeUtf8, encodeUtf8)
+
+import Data.Time
+import System.Locale
 
 import Network.HTTP.Types
 import Network.Wai
@@ -217,6 +224,36 @@ addHeader k v = ActionT . MS.modify $ setHeaderWith $ add (CI.mk $ lazyTextToStr
 -- Header names are case-insensitive.
 setHeader :: (ScottyError e, Monad m) => T.Text -> T.Text -> ActionT e m ()
 setHeader k v = ActionT . MS.modify $ setHeaderWith $ replace (CI.mk $ lazyTextToStrictByteString k) (lazyTextToStrictByteString v)
+
+-- | Set a cookie living for a given number of seconds
+setCookie :: (ScottyError e, MonadIO m) => T.Text -> T.Text -> NominalDiffTime -> ActionT e m ()
+setCookie name value validSeconds =
+    do now <- liftIO getCurrentTime
+       setCookie' name value (validSeconds `addUTCTime` now)
+
+-- | Set a cookie living until a specific 'UTCTime'
+setCookie' :: (ScottyError e, Monad m) => T.Text -> T.Text -> UTCTime -> ActionT e m ()
+setCookie' name value validUntil =
+    let formattedTime =
+            T.pack $ formatTime defaultTimeLocale "%a, %d-%b-%Y %X %Z" validUntil
+    in setHeader "Set-Cookie" (T.concat [ name
+                                         , "="
+                                         , value
+                                         , "; path=/; expires="
+                                         , formattedTime
+                                         , ";"
+                                         ])
+
+-- | Read a cookie previously set in the users browser for your site
+getCookie :: (ScottyError e, Monad m) => T.Text -> ActionT e m (Maybe T.Text)
+getCookie name =
+    do req <- request
+       return $ lookup "cookie" (requestHeaders req) >>=
+              lookup name . parseCookies . decodeUtf8 .  BL.fromStrict
+    where
+      parseCookies :: T.Text -> [(T.Text, T.Text)]
+      parseCookies = map parseCookie . T.splitOn ";" . T.concat . T.words
+      parseCookie = first T.init . T.breakOnEnd "="
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
 -- header to \"text/plain\".

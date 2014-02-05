@@ -16,6 +16,8 @@ module Web.Scotty
     , request, reqHeader, body, param, params, jsonData, files
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
+      -- ** Setting Cookies
+    , setCookie, setCookie', getCookie
       -- ** Setting Response Body
       --
       -- | Note: only one of these should be present in any given route
@@ -43,10 +45,12 @@ import Network.HTTP.Types (Status, StdMethod)
 import Network.Wai (Application, Middleware, Request)
 import Network.Wai.Handler.Warp (Port)
 
+import Data.Time (UTCTime, NominalDiffTime)
+
 import Web.Scotty.Types (ScottyT, ActionT, Param, RoutePattern, Options, File)
 
 type ScottyM = ScottyT Text IO
-type ActionM = ActionT Text IO 
+type ActionM = ActionT Text IO
 
 -- | Run a scotty application using the warp server.
 scotty :: Port -> ScottyM () -> IO ()
@@ -159,6 +163,18 @@ addHeader = Trans.addHeader
 -- Header names are case-insensitive.
 setHeader :: Text -> Text -> ActionM ()
 setHeader = Trans.setHeader
+
+-- | Set a cookie living for a given number of seconds
+setCookie :: Text -> Text -> NominalDiffTime -> ActionM ()
+setCookie = Trans.setCookie
+
+-- | Set a cookie living until a specific 'UTCTime'
+setCookie' :: Text -> Text -> UTCTime -> ActionM ()
+setCookie' = Trans.setCookie'
+
+-- | Read a cookie previously set in the users browser for your site
+getCookie :: Text -> ActionM (Maybe Text)
+getCookie = Trans.getCookie
 
 -- | Set the body of the response to the given 'Text' value. Also sets \"Content-Type\"
 -- header to \"text/plain\".
