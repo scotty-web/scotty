@@ -44,6 +44,7 @@ import Data.Monoid (mconcat)
 import qualified Data.Text as ST
 import qualified Data.Text.Lazy as T
 import Data.Text.Lazy.Encoding (encodeUtf8)
+import qualified Data.Map as M
 
 import Network.HTTP.Types
 import Network.Wai
@@ -129,10 +130,10 @@ reqHeader k = do
     return $ fmap strictByteStringToLazyText $ lookup (CI.mk (lazyTextToStrictByteString k)) hs
 
 -- | Get all request headers. Header names are returned lower-case.
-reqHeaders :: (ScottyError e, Monad m) => ActionT e m [(T.Text, T.Text)]
+reqHeaders :: (ScottyError e, Monad m) => ActionT e m (M.Map T.Text T.Text)
 reqHeaders = do
     hs <- liftM requestHeaders request
-    return $ fmap conv hs
+    return $ M.fromList $ fmap conv hs
     where
       conv :: Header -> (T.Text, T.Text)
       conv (name, val) = let n' = strictByteStringToLazyText $ CI.original name

@@ -17,7 +17,7 @@ module Web.Scotty.Trans
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, reqHeader, body, param, params, jsonData, files
+    , request, reqHeader, reqHeaders, body, param, params, jsonData, files
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
       -- ** Setting Response Body
