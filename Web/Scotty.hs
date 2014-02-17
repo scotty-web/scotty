@@ -13,7 +13,7 @@ module Web.Scotty
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, reqHeader, body, param, params, jsonData, files
+    , request, reqHeader, reqHeaders, body, param, params, jsonData, files
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
       -- ** Setting Response Body
@@ -38,6 +38,7 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Conduit (Flush, Source)
 import Data.Text.Lazy (Text)
+import qualified Data.Map as M
 
 import Network.HTTP.Types (Status, StdMethod)
 import Network.Wai (Application, Middleware, Request)
@@ -124,6 +125,10 @@ files = Trans.files
 -- | Get a request header. Header name is case-insensitive.
 reqHeader :: Text -> ActionM (Maybe Text)
 reqHeader = Trans.reqHeader
+
+-- | Get all request headers. Header names are lower-case.
+reqHeaders :: ActionM (M.Map Text Text)
+reqHeaders = Trans.reqHeaders
 
 -- | Get the request body.
 body :: ActionM ByteString

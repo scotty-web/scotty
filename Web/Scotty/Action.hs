@@ -15,6 +15,7 @@ module Web.Scotty.Action
     , readEither
     , redirect
     , reqHeader
+    , reqHeaders
     , request
     , rescue
     , setHeader
@@ -43,6 +44,7 @@ import Data.Monoid (mconcat)
 import qualified Data.Text as ST
 import qualified Data.Text.Lazy as T
 import Data.Text.Lazy.Encoding (encodeUtf8)
+import qualified Data.Map as M
 
 import Network.HTTP.Types
 import Network.Wai
@@ -126,6 +128,17 @@ reqHeader :: (ScottyError e, Monad m) => T.Text -> ActionT e m (Maybe T.Text)
 reqHeader k = do
     hs <- liftM requestHeaders request
     return $ fmap strictByteStringToLazyText $ lookup (CI.mk (lazyTextToStrictByteString k)) hs
+
+-- | Get all request headers. Header names are returned lower-case.
+reqHeaders :: (ScottyError e, Monad m) => ActionT e m (M.Map T.Text T.Text)
+reqHeaders = do
+    hs <- liftM requestHeaders request
+    return $ M.fromList $ fmap conv hs
+    where
+      conv :: Header -> (T.Text, T.Text)
+      conv (name, val) = let n' = strictByteStringToLazyText $ CI.original name
+                             v' = strictByteStringToLazyText val
+                         in (T.toLower n',v')
 
 -- | Get the request body.
 body :: (ScottyError e, Monad m) => ActionT e m BL.ByteString
