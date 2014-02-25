@@ -58,6 +58,22 @@ main = scotty 3000 $ do
         v <- param "bar"
         html $ mconcat ["<h1>", v, "</h1>"]
 
+    -- Matches many path components
+    get "/doc1/*" $ do
+        s <- param "splat"
+        html $ mconcat ["<h1>", s, "</h1>"]
+
+    -- Matches many path components
+    get "/doc2/*/html" $ do
+        s <- param "splat"
+        html $ mconcat ["<h1>", s, "</h1>"]
+
+    -- Matches many path components
+    get "/doc3/*/:format" $ do
+        s <- param "splat"
+        f <- param "format"
+        html $ mconcat ["<h1>", s, ".", f, "</h1>"]
+
     -- Files are streamed directly to the client.
     get "/404" $ file "404.html"
 

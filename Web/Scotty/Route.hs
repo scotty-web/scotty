@@ -15,7 +15,8 @@ import Data.Conduit.Binary (sourceLbs)
 import Data.Conduit.Lazy (lazyConsume)
 import Data.Conduit.List (consume)
 import Data.Either (partitionEithers)
-import Data.Maybe (fromMaybe)
+import Data.List (inits, tails)
+import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Data.Monoid (mconcat)
 import qualified Data.Text.Lazy as T
 import qualified Data.Text as TS
@@ -98,10 +99,13 @@ matchRoute (Capture pat)  req = go (T.split (=='/') pat) (T.split (=='/') $ path
                        | otherwise           = Nothing  -- request string is longer than pattern
           go p  [] prs | T.null (mconcat p)  = Just prs -- in case pattern has trailing slashes
                        | otherwise           = Nothing  -- request string is not long enough
-          go (p:ps) (r:rs) prs | p == r          = go ps rs prs -- equal literals, keeping checking
-                               | T.null p        = Nothing      -- p is null, but r is not, fail
-                               | T.head p == ':' = go ps rs $ (T.tail p, r) : prs -- p is a capture, add to params
-                               | otherwise       = Nothing      -- both literals, but unequal, fail
+          go (p:ps) req'@(r:rs) prs | p == r          = go ps rs prs -- equal literals, keeping checking
+                                    | T.null p        = Nothing      -- p is null, but r is not, fail
+                                    | T.head p == ':' = go ps rs $ (T.tail p, r) : prs -- p is a capture, add to params
+                                    | p == "*"        = listToMaybe . mapMaybe (matchSplat ps prs) . subPaths $ req'
+                                    | otherwise       = Nothing      -- both literals, but unequal, fail
+          matchSplat ps prs (m, rs) = go ps rs $ ("splat", T.intercalate "/" m) : prs
+          subPaths xs = zip (inits xs) (tails xs)
 
 -- Pretend we are at the top level.
 path :: Request -> T.Text
