@@ -102,10 +102,12 @@ matchRoute (Capture pat)  req = go (T.split (=='/') pat) (T.split (=='/') $ path
           go (p:ps) req'@(r:rs) prs | p == r          = go ps rs prs -- equal literals, keeping checking
                                     | T.null p        = Nothing      -- p is null, but r is not, fail
                                     | T.head p == ':' = go ps rs $ (T.tail p, r) : prs -- p is a capture, add to params
-                                    | p == "*"        = listToMaybe . mapMaybe (matchSplat ps prs) . subPaths $ req'
+                                    | T.head p == '*' = listToMaybe . mapMaybe (matchSplat p ps prs) . subPaths $ req'
                                     | otherwise       = Nothing      -- both literals, but unequal, fail
-          matchSplat ps prs (m, rs) = go ps rs $ ("splat", T.intercalate "/" m) : prs
+          matchSplat n ps prs (m, rs) = go ps rs $ (splatName n, T.intercalate "/" m) : prs
           subPaths xs = zip (inits xs) (tails xs)
+          splatName "*" = "splat"
+          splatName n   = T.tail n
 
 -- Pretend we are at the top level.
 path :: Request -> T.Text

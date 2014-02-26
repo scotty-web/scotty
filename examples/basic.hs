@@ -74,6 +74,12 @@ main = scotty 3000 $ do
         f <- param "format"
         html $ mconcat ["<h1>", s, ".", f, "</h1>"]
 
+    -- Matches many path components
+    get "/doc4/*dept/files/*file" $ do
+        d <- param "dept"
+        f <- param "file"
+        html $ mconcat ["<h1>", d, " -> ", f, "</h1>"]
+
     -- Files are streamed directly to the client.
     get "/404" $ file "404.html"
 
