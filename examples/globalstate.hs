@@ -68,6 +68,7 @@ main = do
 app :: ScottyT Text WebM ()
 app = do
     middleware logStdoutDev
+    scottyMiddleware logTickCount
     get "/" $ do
         c <- webM $ gets tickCount
         text $ fromString $ show c
@@ -79,3 +80,13 @@ app = do
     get "/plustwo" $ do
         webM $ modify $ \ st -> st { tickCount = tickCount st + 2 }
         redirect "/"
+
+-- Log tick count after every request, but before the 'logStdoutDev'
+-- logs the status. As you can see, it can access AppState.
+-- However, unlike in actions, you do not need 'WebM' to lift state accessing.
+logTickCount :: Application WebM -> Application WebM
+logTickCount a req = do
+  r <- a req
+  c <- gets tickCount
+  liftIO $ putStrLn $ "* tick count after request handled: " ++ show c
+  return r

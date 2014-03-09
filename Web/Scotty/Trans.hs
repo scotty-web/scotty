@@ -13,7 +13,8 @@ module Web.Scotty.Trans
       -- | 'Middleware' and routes are run in the order in which they
       -- are defined. All middleware is run first, followed by the first
       -- route that matches. If no route matches, a 404 response is given.
-    , middleware, get, post, put, delete, patch, addroute, matchAny, notFound
+    , middleware, scottyMiddleware, get, post, put, delete, patch, addroute
+    , matchAny, notFound
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
@@ -32,7 +33,7 @@ module Web.Scotty.Trans
       -- * Types
     , RoutePattern, File
       -- * Monad Transformers
-    , ScottyT, ActionT
+    , ScottyT, ActionT, Scotty.Middleware, Scotty.Application
     ) where
 
 import Blaze.ByteString.Builder (fromByteString)
@@ -85,8 +86,10 @@ scottyAppT :: (Monad m, Monad n)
            -> n Application
 scottyAppT runM runActionToIO defs = do
     s <- runM $ execStateT (runS defs) def
-    let rapp = runActionToIO . foldl (flip ($)) notFoundApp (routes s)
-    return $ foldl (flip ($)) rapp (middlewares s)
+    let chain = foldl $ flip ($)
+        rapp' = chain notFoundApp (routes s)
+        rapp  = runActionToIO . chain rapp' (scottyMiddlewares s)
+    return $ chain rapp (middlewares s)
 
 notFoundApp :: Monad m => Scotty.Application m
 notFoundApp _ = return $ responseBuilder status404 [("Content-Type","text/html")]
@@ -104,3 +107,12 @@ defaultHandler f = ScottyT $ modify $ addHandler $ Just f
 -- on the response). Every middleware is run on each request.
 middleware :: Monad m => Middleware -> ScottyT e m ()
 middleware = ScottyT . modify . addMiddleware
+
+-- | Use given Scotty middleware. Middleware is nested such that the first
+-- declared is the outermost middleware (it has first dibs on the request and
+-- last action on the response). Every middleware is run on each request.
+--
+-- Scotty middlewares are different from WAI middlewares, as they can access the
+-- state in the monad wrapped by 'ScottyT'.
+scottyMiddleware :: Monad m => Scotty.Middleware m -> ScottyT e m ()
+scottyMiddleware = ScottyT . modify . addScottyMiddleware
