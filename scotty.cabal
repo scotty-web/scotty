@@ -80,9 +80,9 @@ Library
                        regex-compat     >= 0.95.1   && < 0.96,
                        text             >= 0.11.3.1 && < 1.2,
                        transformers     >= 0.3.0.0  && < 0.4,
-                       wai              >= 2.0.0    && < 2.1,
-                       wai-extra        >= 2.0.1    && < 2.1,
-                       warp             >= 2.0.0.1  && < 2.1
+                       wai              >= 2.0.0    && < 2.2,
+                       wai-extra        >= 2.0.1    && < 2.2,
+                       warp             >= 2.0.3.3  && < 2.2
 
   GHC-options: -Wall -fno-warn-orphans
 
