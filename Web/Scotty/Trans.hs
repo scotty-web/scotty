@@ -45,7 +45,7 @@ import Data.Default (def)
 
 import Network.HTTP.Types (status404)
 import Network.Wai
-import Network.Wai.Handler.Warp (Port, runSettings, settingsPort)
+import Network.Wai.Handler.Warp (Port, runSettings, setPort, settingsPort)
 
 import Web.Scotty.Action
 import Web.Scotty.Route
@@ -60,7 +60,7 @@ scottyT :: (Monad m, MonadIO n)
         -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
         -> ScottyT e m ()
         -> n ()
-scottyT p = scottyOptsT $ def { settings = (settings def) { settingsPort = p } }
+scottyT p = scottyOptsT $ def { settings = setPort p (settings def) }
 
 -- | Run a scotty application using the warp server, passing extra options.
 -- NB: 'scottyOpts opts' === 'scottyOptsT opts id id'
