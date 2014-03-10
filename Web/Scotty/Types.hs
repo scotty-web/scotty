@@ -4,6 +4,7 @@ module Web.Scotty.Types where
 import           Blaze.ByteString.Builder (Builder)
 
 import           Control.Applicative
+import           Control.Exception (catch, SomeException)
 import           Control.Monad.Error
 import           Control.Monad.Reader
 import           Control.Monad.State
@@ -109,7 +110,12 @@ instance Default ScottyResponse where
     def = SR status200 [] (ContentBuilder mempty)
 
 newtype ActionT e m a = ActionT { runAM :: ErrorT (ActionError e) (ReaderT ActionEnv (StateT ScottyResponse m)) a }
-    deriving ( Functor, Applicative, Monad, MonadIO )
+    deriving ( Functor, Applicative, Monad )
+
+instance (MonadIO m, ScottyError e) => MonadIO (ActionT e m) where
+    liftIO io = ActionT $ do
+                    r <- liftIO $ liftM Right io `catch` (\ e -> return $ Left $ stringError $ show (e :: SomeException))
+                    either throwError return r
 
 instance ScottyError e => MonadTrans (ActionT e) where
     lift = ActionT . lift . lift . lift
