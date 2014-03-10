@@ -47,7 +47,7 @@ Description:
 
 Extra-source-files:
     README.md
-    ReleaseNotes.md
+    changelog.md
     examples/404.html
     examples/basic.hs
     examples/cookies.hs

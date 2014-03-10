@@ -5,6 +5,8 @@
 
 * Bump `aeson`/`text` upper bounds.
 
+* Bump `wai`/`wai-extra`/`warp` bounds, including new lower bound for `warp`, which fixes a security issue related to Slowloris protection.
+
 ## 0.6.2
 
 * Bump upper bound for `text`.
