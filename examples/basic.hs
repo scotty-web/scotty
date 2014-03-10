@@ -3,6 +3,7 @@ import Web.Scotty
 
 import Network.Wai.Middleware.RequestLogger -- install wai-extra if you don't have this
 
+import Control.Monad
 import Control.Monad.Trans
 import Data.Monoid
 import System.Random (newStdGen, randomRs)
@@ -12,6 +13,7 @@ import Network.Wai
 import qualified Data.Text.Lazy as T
 
 import Data.Text.Lazy.Encoding (decodeUtf8)
+import Data.String (fromString)
 
 main :: IO ()
 main = scotty 3000 $ do
@@ -88,6 +90,13 @@ main = scotty 3000 $ do
     get "/reqHeader" $ do
         agent <- reqHeader "User-Agent"
         maybe (raise "User-Agent header not found!") text agent
+
+    -- Make a request to this URI, then type a line in the terminal, which
+    -- will be the response. Using ctrl-c will cause getLine to fail.
+    -- This demonstrates that IO exceptions are lifted into ActionM exceptions.
+    get "/iofail" $ do
+        msg <- liftIO $ liftM fromString getLine
+        text msg
 
 {- If you don't want to use Warp as your webserver,
    you can use any WAI handler.
