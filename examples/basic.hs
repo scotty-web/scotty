@@ -87,8 +87,8 @@ main = scotty 3000 $ do
         b <- body
         text $ decodeUtf8 b
 
-    get "/reqHeader" $ do
-        agent <- reqHeader "User-Agent"
+    get "/header" $ do
+        agent <- header "User-Agent"
         maybe (raise "User-Agent header not found!") text agent
 
     -- Make a request to this URI, then type a line in the terminal, which
