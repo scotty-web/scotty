@@ -1,5 +1,10 @@
 ## 0.7.0
 
+* Renamed `reqHeader` to `header`. Added `headers` function to get all headers.
+
+* Changed `MonadIO` instance for `ActionT` such that IO exceptions are lifted
+  into `ScottyError`s via `stringError`.
+
 * Make `Bool` parsing case-insensitive. Goal: support both Haskell's True/False
   and Javascript's true/false. Thanks to Ben Gamari for suggesting this.
 
