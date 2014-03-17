@@ -4,6 +4,8 @@ module Web.Scotty.Action
     , body
     , file
     , files
+    , header
+    , headers
     , html
     , json
     , jsonData
@@ -14,7 +16,7 @@ module Web.Scotty.Action
     , raw
     , readEither
     , redirect
-    , reqHeader
+    , reqHeader -- Deprecated
     , request
     , rescue
     , setHeader
@@ -121,11 +123,24 @@ request = ActionT $ liftM getReq ask
 files :: (ScottyError e, Monad m) => ActionT e m [File]
 files = ActionT $ liftM getFiles ask
 
--- | Get a request header. Header name is case-insensitive.
+-- | Get a request header. Header name is case-insensitive. (Deprecated in favor of `header`.)
 reqHeader :: (ScottyError e, Monad m) => T.Text -> ActionT e m (Maybe T.Text)
-reqHeader k = do
+reqHeader = header
+{-# DEPRECATED reqHeader "Use header instead. This will be removed in the next release." #-}
+
+-- | Get a request header. Header name is case-insensitive.
+header :: (ScottyError e, Monad m) => T.Text -> ActionT e m (Maybe T.Text)
+header k = do
     hs <- liftM requestHeaders request
     return $ fmap strictByteStringToLazyText $ lookup (CI.mk (lazyTextToStrictByteString k)) hs
+
+-- | Get all the request headers. Header names are case-insensitive.
+headers :: (ScottyError e, Monad m) => ActionT e m [(T.Text, T.Text)]
+headers = do
+    hs <- liftM requestHeaders request
+    return [ ( strictByteStringToLazyText (CI.original k)
+             , strictByteStringToLazyText v)  
+           | (k,v) <- hs ]
 
 -- | Get the request body.
 body :: (ScottyError e, Monad m) => ActionT e m BL.ByteString

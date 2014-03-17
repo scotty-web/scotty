@@ -13,7 +13,7 @@ module Web.Scotty
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, reqHeader, body, param, params, jsonData, files
+    , request, header, reqHeader, headers, body, param, params, jsonData, files
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
       -- ** Setting Response Body
@@ -122,8 +122,17 @@ files :: ActionM [File]
 files = Trans.files
 
 -- | Get a request header. Header name is case-insensitive.
+header :: Text -> ActionM (Maybe Text)
+header = Trans.header
+
+-- | Get a request header. Header name is case-insensitive. (Deprecated in favor of `header`.)
 reqHeader :: Text -> ActionM (Maybe Text)
-reqHeader = Trans.reqHeader
+reqHeader = Trans.header
+{-# DEPRECATED reqHeader "Use header instead. reqHeader will be removed in the next release." #-}
+
+-- | Get all the request headers. Header names are case-insensitive.
+headers :: ActionM [(Text, Text)]
+headers = Trans.headers
 
 -- | Get the request body.
 body :: ActionM ByteString
