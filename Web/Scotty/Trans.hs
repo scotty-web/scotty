@@ -45,7 +45,7 @@ import Data.Default (def)
 
 import Network.HTTP.Types (status404)
 import Network.Wai
-import Network.Wai.Handler.Warp (Port, runSettings, setPort, settingsPort)
+import Network.Wai.Handler.Warp (Port, runSettings, setPort, getPort)
 
 import Web.Scotty.Action
 import Web.Scotty.Route
@@ -72,7 +72,7 @@ scottyOptsT :: (Monad m, MonadIO n)
             -> n ()
 scottyOptsT opts runM runActionToIO s = do
     when (verbose opts > 0) $
-        liftIO $ putStrLn $ "Setting phasers to stun... (port " ++ show (settingsPort (settings opts)) ++ ") (ctrl-c to quit)"
+        liftIO $ putStrLn $ "Setting phasers to stun... (port " ++ show (getPort (settings opts)) ++ ") (ctrl-c to quit)"
     liftIO . runSettings (settings opts) =<< scottyAppT runM runActionToIO s
 
 -- | Turn a scotty application into a WAI 'Application', which can be
