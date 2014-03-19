@@ -20,16 +20,22 @@ import           Network.HTTP.Types
 
 import           Network.Wai hiding (Middleware, Application)
 import qualified Network.Wai as Wai
-import           Network.Wai.Handler.Warp (Settings, defaultSettings)
+import           Network.Wai.Handler.Warp (Settings, defaultSettings, setFdCacheDuration)
 import           Network.Wai.Parse (FileInfo)
 
 --------------------- Options -----------------------
 data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
                        , settings :: Settings -- ^ Warp 'Settings'
+                                              -- Note: to work around an issue in warp,
+                                              -- the default FD cache duration is set to 0
+                                              -- so changes to static files are always picked
+                                              -- up. This likely has performance implications,
+                                              -- so you may want to modify this for production
+                                              -- servers using `setFdCacheDuration`.
                        }
 
 instance Default Options where
-    def = Options 1 defaultSettings
+    def = Options 1 (setFdCacheDuration 0 defaultSettings)
 
 ----- Transformer Aware Applications/Middleware -----
 type Middleware m = Application m -> Application m
