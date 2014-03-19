@@ -1,3 +1,8 @@
+## 0.7.1
+
+* Default warp settings now use `setFdCacheDuration 0` to work around a warp
+  issue where file changes are not getting picked up.
+
 ## 0.7.0
 
 * Renamed `reqHeader` to `header`. Added `headers` function to get all headers.
