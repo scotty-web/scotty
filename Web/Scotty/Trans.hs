@@ -5,6 +5,10 @@
 -- The functions in this module allow an arbitrary monad to be embedded
 -- in Scotty's monad transformer stack in order that Scotty be combined
 -- with other DSLs.
+--
+-- Scotty is set up by default for development mode. For production servers,
+-- you will likely want to modify 'settings' and the 'defaultHandler'. See
+-- the comments on each of these functions for more information.
 module Web.Scotty.Trans
     ( -- * scotty-to-WAI
       scottyT, scottyAppT, scottyOptsT, Options(..)
@@ -53,7 +57,7 @@ import Web.Scotty.Types hiding (Application, Middleware)
 import qualified Web.Scotty.Types as Scotty
 
 -- | Run a scotty application using the warp server.
--- NB: 'scotty p' === 'scottyT p id id'
+-- NB: scotty p === scottyT p id id
 scottyT :: (Monad m, MonadIO n)
         => Port
         -> (forall a. m a -> n a)      -- ^ Run monad 'm' into monad 'n', called once at 'ScottyT' level.
@@ -63,7 +67,7 @@ scottyT :: (Monad m, MonadIO n)
 scottyT p = scottyOptsT $ def { settings = setPort p (settings def) }
 
 -- | Run a scotty application using the warp server, passing extra options.
--- NB: 'scottyOpts opts' === 'scottyOptsT opts id id'
+-- NB: scottyOpts opts === scottyOptsT opts id id
 scottyOptsT :: (Monad m, MonadIO n)
             => Options
             -> (forall a. m a -> n a)      -- ^ Run monad 'm' into monad 'n', called once at 'ScottyT' level.
@@ -77,7 +81,7 @@ scottyOptsT opts runM runActionToIO s = do
 
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
--- NB: 'scottyApp' === 'scottyAppT id id'
+-- NB: scottyApp === scottyAppT id id
 scottyAppT :: (Monad m, Monad n)
            => (forall a. m a -> n a)      -- ^ Run monad 'm' into monad 'n', called once at 'ScottyT' level.
            -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
@@ -96,6 +100,11 @@ notFoundApp _ = return $ responseBuilder status404 [("Content-Type","text/html")
 --
 -- Uncaught exceptions normally become 500 responses. 
 -- You can use this to selectively override that behavior.
+--
+-- Note: IO exceptions are lifted into 'ScottyError's by 'stringError'.
+-- This has security implications, so you probably want to provide your
+-- own defaultHandler in production which does not send out the error 
+-- strings as 500 responses.
 defaultHandler :: Monad m => (e -> ActionT e m ()) -> ScottyT e m ()
 defaultHandler f = ScottyT $ modify $ addHandler $ Just f
 

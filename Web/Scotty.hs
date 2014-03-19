@@ -1,6 +1,10 @@
 {-# LANGUAGE OverloadedStrings, RankNTypes #-}
 -- | It should be noted that most of the code snippets below depend on the
 -- OverloadedStrings language pragma.
+--
+-- Scotty is set up by default for development mode. For production servers,
+-- you will likely want to modify 'Trans.settings' and the 'defaultHandler'. See
+-- the comments on each of these functions for more information.
 module Web.Scotty
     ( -- * scotty-to-WAI
       scotty, scottyApp, scottyOpts, Options(..)
@@ -65,6 +69,11 @@ scottyApp = Trans.scottyAppT id id
 --
 -- Uncaught exceptions normally become 500 responses. 
 -- You can use this to selectively override that behavior.
+--
+-- Note: IO exceptions are lifted into Scotty exceptions by default.
+-- This has security implications, so you probably want to provide your
+-- own defaultHandler in production which does not send out the error 
+-- strings as 500 responses.
 defaultHandler :: (Text -> ActionM ()) -> ScottyM ()
 defaultHandler = Trans.defaultHandler
 
