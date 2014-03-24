@@ -10,10 +10,10 @@
 --   on the file extension and returns the file contents as the response.
 module Network.Wai.Middleware.Static
     ( -- * Middlewares
-      static, staticPolicy
+      static, staticPolicy, unsafeStaticPolicy
     , -- * Policies
       Policy, (<|>), (>->), policy, predicate
-    , addBase, addSlash, contains, hasPrefix, hasSuffix, noDots, only
+    , addBase, addSlash, contains, hasPrefix, hasSuffix, noDots, isNotAbsolute, only
     , -- * Utilities
       tryPolicy
     ) where
@@ -69,7 +69,7 @@ p1 <|> p2 = policy (\s -> maybe (tryPolicy p2 s) Just (tryPolicy p1 s))
 -- GET \"foo\/bar\" looks for \"\/home\/user\/files\/foo\/bar\"
 --
 addBase :: String -> Policy
-addBase b = policy (Just . (b FP.</>))
+addBase b = isNotAbsolute >-> policy (Just . (b FP.</>))
 
 -- | Add an initial slash to to the URI, if not already present.
 --
@@ -97,6 +97,11 @@ contains s = predicate (isInfixOf s)
 noDots :: Policy
 noDots = predicate (not . isInfixOf "..")
 
+-- | Reject URIs that are not absolute
+isNotAbsolute :: Policy
+isNotAbsolute = predicate $ not . FP.isAbsolute
+
+
 -- | Use URI as the key to an association list, rejecting those not found.
 -- The policy result is the matching value.
 --
@@ -111,11 +116,16 @@ only al = policy (flip lookup al)
 -- | Serve static files out of the application root (current directory).
 -- If file is found, it is streamed to the client and no further middleware is run.
 static :: Middleware
-static = staticPolicy mempty
+static = staticPolicy $ noDots >-> isNotAbsolute
 
 -- | Serve static files subject to a 'Policy'
 staticPolicy :: Policy -> Middleware
-staticPolicy p app req =
+staticPolicy p = 
+  unsafeStaticPolicy $ noDots >-> isNotAbsolute >-> p
+
+-- | Serve potentially unsafe static files subject to a 'Policy'
+unsafeStaticPolicy :: Policy -> Middleware
+unsafeStaticPolicy p app req =
     maybe (app req)
           (\fp -> do exists <- liftIO $ doesFileExist fp
                      if exists
