@@ -77,9 +77,11 @@ Library
                        data-default     >= 0.5.3    && < 0.6,
                        http-types       >= 0.8.2    && < 0.9,
                        mtl              >= 2.1.2    && < 2.3,
+                       monad-control    >= 0.3.2.3  && < 0.4,
                        regex-compat     >= 0.95.1   && < 0.96,
                        text             >= 0.11.3.1 && < 1.2,
                        transformers     >= 0.3.0.0  && < 0.5,
+                       transformers-base >= 0.4.1   && < 0.5,
                        wai              >= 3.0.0    && < 3.1,
                        wai-extra        >= 3.0.0    && < 3.1,
                        warp             >= 3.0.0    && < 3.1
