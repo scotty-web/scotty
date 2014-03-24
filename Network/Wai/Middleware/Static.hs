@@ -69,7 +69,7 @@ p1 <|> p2 = policy (\s -> maybe (tryPolicy p2 s) Just (tryPolicy p1 s))
 -- GET \"foo\/bar\" looks for \"\/home\/user\/files\/foo\/bar\"
 --
 addBase :: String -> Policy
-addBase b = isNotAbsolute >-> policy (Just . (b FP.</>))
+addBase b = policy (Just . (b FP.</>))
 
 -- | Add an initial slash to to the URI, if not already present.
 --
@@ -83,24 +83,23 @@ addSlash = policy slashOpt
 
 -- | Accept only URIs with given suffix
 hasSuffix :: String -> Policy
-hasSuffix suf = predicate (isSuffixOf suf)
+hasSuffix = predicate . isSuffixOf
 
 -- | Accept only URIs with given prefix
 hasPrefix :: String -> Policy
-hasPrefix pre = predicate (isPrefixOf pre)
+hasPrefix = predicate . isPrefixOf
 
 -- | Accept only URIs containing given string
 contains :: String -> Policy
-contains s = predicate (isInfixOf s)
+contains = predicate . isInfixOf
 
 -- | Reject URIs containing \"..\"
 noDots :: Policy
 noDots = predicate (not . isInfixOf "..")
 
--- | Reject URIs that are not absolute
+-- | Reject URIs that are absolute paths
 isNotAbsolute :: Policy
 isNotAbsolute = predicate $ not . FP.isAbsolute
-
 
 -- | Use URI as the key to an association list, rejecting those not found.
 -- The policy result is the matching value.
@@ -115,15 +114,19 @@ only al = policy (flip lookup al)
 
 -- | Serve static files out of the application root (current directory).
 -- If file is found, it is streamed to the client and no further middleware is run.
+--
+-- Note: for security reasons, this uses the 'noDots' and 'isNotAbsolute' policy by default.
 static :: Middleware
-static = staticPolicy $ noDots >-> isNotAbsolute
+static = staticPolicy mempty
 
 -- | Serve static files subject to a 'Policy'
+--
+-- Note: for security reasons, this uses the 'noDots' and 'isNotAbsolute' policy by default.
 staticPolicy :: Policy -> Middleware
-staticPolicy p = 
-  unsafeStaticPolicy $ noDots >-> isNotAbsolute >-> p
+staticPolicy p = unsafeStaticPolicy $ noDots >-> isNotAbsolute >-> p
 
--- | Serve potentially unsafe static files subject to a 'Policy'
+-- | Serve static files subject to a 'Policy'. Unlike 'static' and 'staticPolicy', this 
+-- has no policies enabled by default, and is hence insecure.
 unsafeStaticPolicy :: Policy -> Middleware
 unsafeStaticPolicy p app req =
     maybe (app req)
