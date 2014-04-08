@@ -1,3 +1,7 @@
+## 0.7.2
+
+* Bump lower bound on conduit, add conduit-extra to cabal build depends.
+
 ## 0.7.1
 
 * Default warp settings now use `setFdCacheDuration 0` to work around a warp
