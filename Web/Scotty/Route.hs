@@ -17,6 +17,7 @@ import Data.Conduit.List (consume)
 import Data.Either (partitionEithers)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (mconcat)
+import Data.String (fromString)
 import qualified Data.Text.Lazy as T
 import qualified Data.Text as TS
 
@@ -164,7 +165,7 @@ regex pattern = Function $ \ req -> fmap (map (T.pack . show *** T.pack) . zip [
 --
 --   are equivalent.
 capture :: String -> RoutePattern
-capture = Capture . T.pack
+capture = fromString
 
 -- | Build a route based on a function which can match using the entire 'Request' object.
 --   'Nothing' indicates the route does not match. A 'Just' value indicates
