@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings, RankNTypes #-}
 module Web.Scotty.Action
     ( addHeader
+    , allowOrigin
+    , allowOrigins
     , body
     , file
     , files
@@ -42,9 +44,12 @@ import qualified Data.CaseInsensitive as CI
 import Data.Conduit (Flush, Source)
 import Data.Default (def)
 import Data.Monoid (mconcat)
+import Data.Maybe (isJust)
 import qualified Data.Text as ST
 import qualified Data.Text.Lazy as T
 import Data.Text.Lazy.Encoding (encodeUtf8)
+
+import Text.Regex (mkRegex, matchRegex)
 
 import Network.HTTP.Types
 import Network.Wai
@@ -232,6 +237,24 @@ addHeader k v = ActionT . MS.modify $ setHeaderWith $ add (CI.mk $ lazyTextToStr
 -- Header names are case-insensitive.
 setHeader :: (ScottyError e, Monad m) => T.Text -> T.Text -> ActionT e m ()
 setHeader k v = ActionT . MS.modify $ setHeaderWith $ replace (CI.mk $ lazyTextToStrictByteString k) (lazyTextToStrictByteString v)
+
+-- | Set the Access-Control-Allow-Origin header to allow access from a single
+-- origin.
+allowOrigin :: (ScottyError e, Monad m) => T.Text -> ActionT e m ()
+allowOrigin origin = setHeader "Access-Control-Allow-Origin" origin
+
+-- | Match the Origin request header against a regular expression. Returns the
+-- request origin in the Access-Control-Allow-Origin header if the Origin
+-- matches the given pattern.
+allowOrigins :: (ScottyError e, Monad m) => T.Text -> ActionT e m ()
+allowOrigins "*" = allowOrigin "*"
+allowOrigins pattern = do
+    maybeOrigin <- header "Origin"
+    case maybeOrigin of
+        Just origin -> when (isJust $ matchRegex reg $ T.unpack origin) $
+            setHeader "Access-Control-Allow-Origin" origin
+        Nothing -> return ()
+        where reg = mkRegex $ T.unpack pattern
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
 -- header to \"text/plain\".

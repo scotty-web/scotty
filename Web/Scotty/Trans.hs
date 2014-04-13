@@ -23,7 +23,7 @@ module Web.Scotty.Trans
       -- ** Accessing the Request, Captures, and Query Parameters
     , request, header, reqHeader, headers, body, param, params, jsonData, files
       -- ** Modifying the Response and Redirecting
-    , status, addHeader, setHeader, redirect
+    , status, addHeader, setHeader, redirect, allowOrigin, allowOrigins
       -- ** Setting Response Body
       --
       -- | Note: only one of these should be present in any given route

@@ -19,7 +19,7 @@ module Web.Scotty
       -- ** Accessing the Request, Captures, and Query Parameters
     , request, header, reqHeader, headers, body, param, params, jsonData, files
       -- ** Modifying the Response and Redirecting
-    , status, addHeader, setHeader, redirect
+    , status, addHeader, setHeader, redirect, allowOrigin, allowOrigins
       -- ** Setting Response Body
       --
       -- | Note: only one of these should be present in any given route
@@ -177,6 +177,17 @@ addHeader = Trans.addHeader
 -- Header names are case-insensitive.
 setHeader :: Text -> Text -> ActionM ()
 setHeader = Trans.setHeader
+
+-- | Set the Access-Control-Allow-Origin header to allow access from a single
+-- origin.
+allowOrigin :: Text -> ActionM ()
+allowOrigin = Trans.allowOrigin
+
+-- | Match the Origin request header against a regular expression. Returns the
+-- request origin in the Access-Control-Allow-Origin header if the Origin
+-- matches the given pattern.
+allowOrigins :: Text -> ActionM ()
+allowOrigins = Trans.allowOrigins
 
 -- | Set the body of the response to the given 'Text' value. Also sets \"Content-Type\"
 -- header to \"text/plain\".
