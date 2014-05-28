@@ -1,3 +1,7 @@
+## 0.7.3
+
+* Bump upper bound for `case-insensitive`, `mtl` and `transformers`.
+
 ## 0.7.2
 
 * Bump lower bound on conduit, add conduit-extra to cabal build depends.
