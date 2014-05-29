@@ -2,6 +2,7 @@ language: haskell
 
 before_install:
   - cabal install hpc-coveralls
+  - cabal sandbox init
 script:
   - cabal configure --enable-tests --enable-library-coverage && cabal build
   - run-cabal-test --show-details=always
