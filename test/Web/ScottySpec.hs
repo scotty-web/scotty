@@ -14,9 +14,6 @@ spec :: Spec
 spec =  do
     let availableMethods = [GET, POST, HEAD, PUT, DELETE, PATCH]
 
-    describe "scotty" $
-      it "should run a scotty application" pending
-
     describe "get" $
       it "should route GET request" $ do
         app <- scottyApp $ get "/scotty" $ html ""
@@ -42,7 +39,7 @@ spec =  do
         app <- scottyApp $ patch "/scotty" $ html ""
         Helper.status <$> Helper.patch app "/scotty" "" `shouldReturn` status200
 
-    describe "addroute" $ -- TODO The name should be `addRoute`.
+    describe "addroute" $
       it ("should route " ++ show availableMethods ++ " request") $
         forM_ availableMethods $ \(method) -> do
           app <- scottyApp $
