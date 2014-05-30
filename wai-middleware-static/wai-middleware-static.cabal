@@ -1,5 +1,5 @@
 Name:                wai-middleware-static
-Version:             0.5.0.0
+Version:             0.5.0.1
 Synopsis:            WAI middleware that serves requests to static files.
 Homepage:            https://github.com/scotty-web/scotty
 Bug-reports:         https://github.com/scotty-web/scotty/issues

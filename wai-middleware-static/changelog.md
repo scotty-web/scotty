@@ -1,3 +1,6 @@
+## 0.5.0.1
+ * Bump upper bound for `mtl`
+
 ## 0.5.0.0
 
 * Add `isNotAbsolute` policy and change `static` and `staticPolicy` to 
