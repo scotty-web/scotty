@@ -1,3 +1,12 @@
+## 0.8.0
+
+* Upgrade to wai/wai-extra/warp 3.0
+
+* No longer depend on conduit/conduit-extra
+
+* The `source` response method has been removed in favor of new `stream` response,
+  which matches changes in WAI 3.0.
+
 ## 0.7.3
 
 * Bump upper bound for `case-insensitive`, `mtl` and `transformers`.
@@ -65,7 +74,7 @@
 * Removed lambda action syntax. This will return when we have a better
   story for typesafe routes.
 
-* `reqHeader :: Text -> ActionM Text` ==> 
+* `reqHeader :: Text -> ActionM Text` ==>
   `reqHeader :: Text -> ActionM (Maybe Text)`
 
 * New `raw` method to set body to a raw `ByteString`

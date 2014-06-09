@@ -125,18 +125,18 @@ static = staticPolicy mempty
 staticPolicy :: Policy -> Middleware
 staticPolicy p = unsafeStaticPolicy $ noDots >-> isNotAbsolute >-> p
 
--- | Serve static files subject to a 'Policy'. Unlike 'static' and 'staticPolicy', this 
+-- | Serve static files subject to a 'Policy'. Unlike 'static' and 'staticPolicy', this
 -- has no policies enabled by default, and is hence insecure.
 unsafeStaticPolicy :: Policy -> Middleware
-unsafeStaticPolicy p app req =
-    maybe (app req)
+unsafeStaticPolicy p app req callback =
+    maybe (app req callback)
           (\fp -> do exists <- liftIO $ doesFileExist fp
                      if exists
-                        then return $ responseFile status200
-                                                   [("Content-Type", getMimeType fp)]
-                                                   fp
-                                                   Nothing
-                        else app req)
+                        then callback $ responseFile status200
+                                                     [("Content-Type", getMimeType fp)]
+                                                     fp
+                                                     Nothing
+                        else app req callback)
           (tryPolicy p $ T.unpack $ T.intercalate "/" $ pathInfo req)
 
 type Ascii = B.ByteString
