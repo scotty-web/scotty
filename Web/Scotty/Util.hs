@@ -34,11 +34,14 @@ setHeaderWith f sr = sr { srHeaders = f (srHeaders sr) }
 setStatus :: Status -> ScottyResponse -> ScottyResponse
 setStatus s sr = sr { srStatus = s }
 
+-- Note: we currently don't support responseRaw, which may be useful
+-- for websockets. However, we always read the request body, which
+-- is incompatible with responseRaw responses.
 mkResponse :: ScottyResponse -> Response
 mkResponse sr = case srContent sr of
                     ContentBuilder b  -> responseBuilder s h b
                     ContentFile f     -> responseFile s h f Nothing
-                    ContentSource src -> responseSource s h src
+                    ContentStream str -> responseStream s h str
     where s = srStatus sr
           h = srHeaders sr
 

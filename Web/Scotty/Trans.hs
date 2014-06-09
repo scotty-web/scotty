@@ -28,7 +28,7 @@ module Web.Scotty.Trans
       --
       -- | Note: only one of these should be present in any given route
       -- definition, as they completely replace the current 'Response' body.
-    , text, html, file, json, source, raw
+    , text, html, file, json, stream, raw
       -- ** Exceptions
     , raise, rescue, next, defaultHandler, ScottyError(..)
       -- * Parsing Parameters
@@ -89,21 +89,21 @@ scottyAppT :: (Monad m, Monad n)
            -> n Application
 scottyAppT runM runActionToIO defs = do
     s <- runM $ execStateT (runS defs) def
-    let rapp = runActionToIO . foldl (flip ($)) notFoundApp (routes s)
+    let rapp = \ req callback -> runActionToIO (foldl (flip ($)) notFoundApp (routes s) req) >>= callback
     return $ foldl (flip ($)) rapp (middlewares s)
 
 notFoundApp :: Monad m => Scotty.Application m
 notFoundApp _ = return $ responseBuilder status404 [("Content-Type","text/html")]
                        $ fromByteString "<h1>404: File Not Found!</h1>"
 
--- | Global handler for uncaught exceptions. 
+-- | Global handler for uncaught exceptions.
 --
--- Uncaught exceptions normally become 500 responses. 
+-- Uncaught exceptions normally become 500 responses.
 -- You can use this to selectively override that behavior.
 --
 -- Note: IO exceptions are lifted into 'ScottyError's by 'stringError'.
 -- This has security implications, so you probably want to provide your
--- own defaultHandler in production which does not send out the error 
+-- own defaultHandler in production which does not send out the error
 -- strings as 500 responses.
 defaultHandler :: Monad m => (e -> ActionT e m ()) -> ScottyT e m ()
 defaultHandler f = ScottyT $ modify $ addHandler $ Just f

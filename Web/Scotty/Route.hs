@@ -1,20 +1,17 @@
-{-# LANGUAGE OverloadedStrings, FlexibleContexts, FlexibleInstances, RankNTypes #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, LambdaCase,
+             OverloadedStrings, RankNTypes, ScopedTypeVariables #-}
 module Web.Scotty.Route
     ( get, post, put, delete, patch, addroute, matchAny, notFound,
       capture, regex, function, literal
     ) where
 
 import Control.Arrow ((***))
+import Control.Concurrent.MVar
 import Control.Monad.Error
 import qualified Control.Monad.State as MS
 
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
-import Data.Conduit (($$), (=$))
-import Data.Conduit.Binary (sourceLbs)
-import Data.Conduit.Lazy (lazyConsume)
-import Data.Conduit.List (consume)
-import Data.Either (partitionEithers)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (mconcat)
 import Data.String (fromString)
@@ -108,26 +105,39 @@ matchRoute (Capture pat)  req = go (T.split (=='/') pat) (T.split (=='/') $ path
 path :: Request -> T.Text
 path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo
 
--- Stolen from wai-extra, modified to accept body as lazy ByteString
+-- Stolen from wai-extra's Network.Wai.Parse, modified to accept body as list of Bytestrings.
+-- Reason: WAI's requestBody is an IO action that returns the body as chunks. Once read,
+-- they can't be read again. We read them into a lazy Bytestring, so Scotty user can get
+-- the raw body, even if they also want to call wai-extra's parsing routines.
 parseRequestBody :: MonadIO m
-                 => BL.ByteString
+                 => [B.ByteString]
                  -> Parse.BackEnd y
                  -> Request
                  -> m ([Parse.Param], [Parse.File y])
-parseRequestBody b s r =
+parseRequestBody bl s r =
     case Parse.getRequestBodyType r of
         Nothing -> return ([], [])
-        Just rbt -> liftIO $ liftM partitionEithers $ sourceLbs b $$ Parse.conduitRequestBody s rbt =$ consume
+        Just rbt -> do
+            mvar <- liftIO $ newMVar bl -- MVar is a bit of a hack so we don't have to inline
+                                        -- large portions of Network.Wai.Parse
+            let provider = takeMVar mvar >>= \case
+                                                []     -> putMVar mvar [] >> return B.empty
+                                                (b:bs) -> putMVar mvar bs >> return b
+            liftIO $ Parse.sinkRequestBody s rbt provider
 
-mkEnv :: MonadIO m => Request -> [Param] -> m ActionEnv
+mkEnv :: forall m. MonadIO m => Request -> [Param] -> m ActionEnv
 mkEnv req captures = do
-    b <- liftIO $ liftM BL.fromChunks $ lazyConsume (requestBody req)
+    let rbody = requestBody req
+        takeAll :: ([B.ByteString] -> m [B.ByteString]) -> m [B.ByteString]
+        takeAll prefix = liftIO rbody >>= \ b -> if B.null b then prefix [] else takeAll (prefix . (b:))
+    bs <- takeAll return
 
-    (formparams, fs) <- liftIO $ parseRequestBody b Parse.lbsBackEnd req
+    (formparams, fs) <- liftIO $ parseRequestBody bs Parse.lbsBackEnd req
 
     let convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
         parameters = captures ++ map convert formparams ++ queryparams
         queryparams = parseEncodedParams $ rawQueryString req
+        b = BL.fromChunks bs
 
     return $ Env req parameters b [ (strictByteStringToLazyText k, fi) | (k,fi) <- fs ]
 

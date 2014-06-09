@@ -10,7 +10,6 @@ import           Control.Monad.Reader
 import           Control.Monad.State
 
 import           Data.ByteString.Lazy.Char8 (ByteString)
-import qualified Data.Conduit as C
 import           Data.Default (Default, def)
 import           Data.Monoid (mempty)
 import           Data.String (IsString(..))
@@ -42,7 +41,7 @@ type Middleware m = Application m -> Application m
 type Application m = Request -> m Response
 
 --------------- Scotty Applications -----------------
-data ScottyState e m = 
+data ScottyState e m =
     ScottyState { middlewares :: [Wai.Middleware]
                 , routes :: [Middleware m]
                 , handler :: ErrorHandler e m
@@ -72,7 +71,7 @@ data ActionError e = Redirect Text
                    | ActionError e
 
 -- | In order to use a custom exception type (aside from 'Text'), you must
--- define an instance of 'ScottyError' for that type. 
+-- define an instance of 'ScottyError' for that type.
 class ScottyError e where
     stringError :: String -> e
     showError :: e -> Text
@@ -87,7 +86,7 @@ instance ScottyError e => ScottyError (ActionError e) where
     showError Next            = pack "Next"
     showError (ActionError e) = showError e
 
-instance ScottyError e => Error (ActionError e) where 
+instance ScottyError e => Error (ActionError e) where
     strMsg = stringError
 
 type ErrorHandler e m = Maybe (e -> ActionT e m ())
@@ -100,12 +99,12 @@ type File = (Text, FileInfo ByteString)
 data ActionEnv = Env { getReq    :: Request
                      , getParams :: [Param]
                      , getBody   :: ByteString
-                     , getFiles  :: [File] 
+                     , getFiles  :: [File]
                      }
 
 data Content = ContentBuilder Builder
              | ContentFile    FilePath
-             | ContentSource  (C.Source IO (C.Flush Builder))
+             | ContentStream  StreamingBody
 
 data ScottyResponse = SR { srStatus  :: Status
                          , srHeaders :: ResponseHeaders
@@ -136,5 +135,5 @@ data RoutePattern = Capture   Text
                   | Literal   Text
                   | Function  (Request -> Maybe [Param])
 
-instance IsString RoutePattern where 
+instance IsString RoutePattern where
     fromString = Capture . pack

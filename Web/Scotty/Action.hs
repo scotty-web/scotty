@@ -20,8 +20,8 @@ module Web.Scotty.Action
     , request
     , rescue
     , setHeader
-    , source
     , status
+    , stream
     , text
     , Param
     , Parsable(..)
@@ -29,7 +29,7 @@ module Web.Scotty.Action
     , runAction
     ) where
 
-import Blaze.ByteString.Builder (Builder, fromLazyByteString)
+import Blaze.ByteString.Builder (fromLazyByteString)
 
 import Control.Monad.Error
 import Control.Monad.Reader
@@ -39,7 +39,6 @@ import qualified Data.Aeson as A
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive as CI
-import Data.Conduit (Flush, Source)
 import Data.Default (def)
 import Data.Monoid (mconcat)
 import qualified Data.Text as ST
@@ -139,7 +138,7 @@ headers :: (ScottyError e, Monad m) => ActionT e m [(T.Text, T.Text)]
 headers = do
     hs <- liftM requestHeaders request
     return [ ( strictByteStringToLazyText (CI.original k)
-             , strictByteStringToLazyText v)  
+             , strictByteStringToLazyText v)
            | (k,v) <- hs ]
 
 -- | Get the request body.
@@ -198,7 +197,7 @@ instance Parsable () where
 
 instance (Parsable a) => Parsable [a] where parseParam = parseParamList
 
-instance Parsable Bool where 
+instance Parsable Bool where
     parseParam t = if t' == T.toCaseFold "true"
                    then Right True
                    else if t' == T.toCaseFold "false"
@@ -262,8 +261,8 @@ json v = do
 -- | Set the body of the response to a Source. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your
 -- own with 'setHeader'.
-source :: (ScottyError e, Monad m) => Source IO (Flush Builder) -> ActionT e m ()
-source = ActionT . MS.modify . setContent . ContentSource
+stream :: (ScottyError e, Monad m) => StreamingBody -> ActionT e m ()
+stream = ActionT . MS.modify . setContent . ContentStream
 
 -- | Set the body of the response to the given 'BL.ByteString' value. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your
