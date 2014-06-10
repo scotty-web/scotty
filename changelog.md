@@ -2,14 +2,14 @@
 
 * Upgrade to wai/wai-extra/warp 3.0
 
-* No longer depend on conduit/conduit-extra
+* No longer depend on conduit-extra.
 
-* The `source` response method has been removed in favor of new `stream` response,
-  which matches changes in WAI 3.0.
+* The `source` response method has been deprecated in favor
+  of a new `stream` response, matching changes in WAI 3.0.
 
 ## 0.7.3
 
-* Bump upper bound for `case-insensitive`, `mtl` and `transformers`.
+* Bump upper bound for case-insensitive, mtl and transformers.
 
 ## 0.7.2
 
