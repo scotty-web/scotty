@@ -16,7 +16,6 @@ module Web.Scotty.Action
     , raw
     , readEither
     , redirect
-    , reqHeader -- Deprecated
     , request
     , rescue
     , setHeader
@@ -126,11 +125,6 @@ request = ActionT $ liftM getReq ask
 -- | Get list of uploaded files.
 files :: (ScottyError e, Monad m) => ActionT e m [File]
 files = ActionT $ liftM getFiles ask
-
--- | Get a request header. Header name is case-insensitive. (Deprecated in favor of `header`.)
-reqHeader :: (ScottyError e, Monad m) => T.Text -> ActionT e m (Maybe T.Text)
-reqHeader = header
-{-# DEPRECATED reqHeader "Use header instead. This will be removed in the next release." #-}
 
 -- | Get a request header. Header name is case-insensitive.
 header :: (ScottyError e, Monad m) => T.Text -> ActionT e m (Maybe T.Text)
