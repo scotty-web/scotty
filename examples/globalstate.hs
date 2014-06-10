@@ -10,7 +10,7 @@
 module Main where
 
 import Control.Concurrent.STM
-import Control.Monad.Reader 
+import Control.Monad.Reader
 
 import Data.Default
 import Data.String
@@ -30,9 +30,9 @@ instance Default AppState where
 -- to provide the state to _every action_, and save the resulting
 -- state, using an MVar. This means actions would be blocking,
 -- effectively meaning only one request could be serviced at a time.
--- The 'ReaderT' solution means only actions that actually modify 
+-- The 'ReaderT' solution means only actions that actually modify
 -- the state need to block/retry.
--- 
+--
 -- Also note: your monad must be an instance of 'MonadIO' for
 -- Scotty to use it.
 newtype WebM a = WebM { runWebM :: ReaderT (TVar AppState) IO a }
