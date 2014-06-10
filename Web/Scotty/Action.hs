@@ -22,6 +22,7 @@ module Web.Scotty.Action
     , setHeader
     , status
     , stream
+    , source    -- Deprecated
     , text
     , Param
     , Parsable(..)
@@ -47,6 +48,10 @@ import Data.Text.Lazy.Encoding (encodeUtf8)
 
 import Network.HTTP.Types
 import Network.Wai
+
+import Blaze.ByteString.Builder (Builder)
+import Data.Conduit
+import qualified Data.Conduit.List as CL
 
 import Web.Scotty.Types
 import Web.Scotty.Util
@@ -263,6 +268,16 @@ json v = do
 -- own with 'setHeader'.
 stream :: (ScottyError e, Monad m) => StreamingBody -> ActionT e m ()
 stream = ActionT . MS.modify . setContent . ContentStream
+
+-- | Set the body of the response to a Source. Doesn't set the
+-- \"Content-Type\" header, so you probably want to do that on your
+-- own with 'setHeader'. (Deprecated, use stream instead)
+source :: (ScottyError e, Monad m) => Source IO (Flush Builder) -> ActionT e m ()
+source src = stream $ \send flush -> src $$ CL.mapM_ (\mbuilder ->
+    case mbuilder of
+      Chunk b -> send b
+      Flush -> flush)
+{-# DEPRECATED source "Use stream instead. This will be removed in the next release." #-}
 
 -- | Set the body of the response to the given 'BL.ByteString' value. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your
