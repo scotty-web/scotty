@@ -31,4 +31,8 @@ Setting phasers to stun... (port 3000) (ctrl-c to quit)
 
 As for the name: Sinatra + Warp = Scotty.
 
+### Development & Support
+
+Open an issue on GitHub or join `#hspec` on Freenode.
+
 Copyright (c) 2012-2013 Andrew Farmer
