@@ -9,6 +9,8 @@ import           Data.Monoid           (mconcat)
 import           Network.HTTP.Types
 import           Test.Hspec
 import           Web.Scotty
+import qualified Control.Exception.Lifted as EL
+import qualified Control.Exception as E
 
 spec :: Spec
 spec =  do
@@ -83,3 +85,8 @@ spec =  do
           get "/scotty" $ html "<p>scotty</p>"
         Helper.body <$> app `Helper.get` "/scotty"
           `shouldReturn` "<p>scotty</p>"
+
+    describe "lifted-base" $
+      it "should not return the default exception handler" $ do
+        app <- scottyApp $ get "/" $ ((undefined) `EL.catch` ((\_ -> html "") :: E.SomeException -> ActionM ()))
+        Helper.status <$> app `Helper.get` "/" `shouldReturn` status200

@@ -96,6 +96,7 @@ test-suite spec
   build-depends:       base,
                        bytestring,
                        http-types,
+                       lifted-base,
                        wai,
                        hspec            >= 1.9.2,
                        wai-extra        >= 3.0.0,
