@@ -33,6 +33,6 @@ As for the name: Sinatra + Warp = Scotty.
 
 ### Development & Support
 
-Open an issue on GitHub or join `#hspec` on Freenode.
+Open an issue on GitHub or join `#scotty` on Freenode.
 
 Copyright (c) 2012-2013 Andrew Farmer
