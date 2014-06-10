@@ -24,7 +24,7 @@ module Web.Scotty
       --
       -- | Note: only one of these should be present in any given route
       -- definition, as they completely replace the current 'Response' body.
-    , text, html, file, json, stream, raw
+    , text, html, file, json, stream, source, raw
       -- ** Exceptions
     , raise, rescue, next, defaultHandler
       -- * Parsing Parameters
@@ -39,6 +39,8 @@ import qualified Web.Scotty.Trans as Trans
 import Data.Aeson (FromJSON, ToJSON)
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Text.Lazy (Text)
+import Blaze.ByteString.Builder (Builder)
+import Data.Conduit (Flush, Source)
 
 import Network.HTTP.Types (Status, StdMethod)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
@@ -200,6 +202,13 @@ json = Trans.json
 -- own with 'setHeader'.
 stream :: StreamingBody -> ActionM ()
 stream = Trans.stream
+
+-- | Set the body of the response to a Source. Doesn't set the
+-- \"Content-Type\" header, so you probably want to do that on your
+-- own with 'setHeader'. (Deprecated, use stream instead)
+source :: Source IO (Flush Builder) -> ActionM ()
+source = Trans.source
+{-# DEPRECATED source "Use stream instead. This will be removed in the next release." #-}
 
 -- | Set the body of the response to the given 'BL.ByteString' value. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your own with 'setHeader'.
