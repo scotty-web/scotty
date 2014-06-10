@@ -7,6 +7,8 @@
 * The `source` response method has been deprecated in favor
   of a new `stream` response, matching changes in WAI 3.0.
 
+* Removed the deprecated `reqHeader` function.
+
 ## 0.7.3
 
 * Bump upper bound for case-insensitive, mtl and transformers.
