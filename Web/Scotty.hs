@@ -35,11 +35,13 @@ module Web.Scotty
 
 -- With the exception of this, everything else better just import types.
 import qualified Web.Scotty.Trans as Trans
+import qualified Web.Scotty.Action as Action -- for 'source', to avoid deprecation warning on Trans.source
+
+import Blaze.ByteString.Builder (Builder)
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Text.Lazy (Text)
-import Blaze.ByteString.Builder (Builder)
 import Data.Conduit (Flush, Source)
 
 import Network.HTTP.Types (Status, StdMethod)
@@ -200,10 +202,10 @@ stream = Trans.stream
 
 -- | Set the body of the response to a Source. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your
--- own with 'setHeader'. (Deprecated, use stream instead)
+-- own with 'setHeader'.
 source :: Source IO (Flush Builder) -> ActionM ()
-source = Trans.source
-{-# DEPRECATED source "Use stream instead. This will be removed in the next release." #-}
+source = Action.source
+{-# DEPRECATED source "Use 'stream' instead. This will be removed in the next release." #-}
 
 -- | Set the body of the response to the given 'BL.ByteString' value. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your own with 'setHeader'.

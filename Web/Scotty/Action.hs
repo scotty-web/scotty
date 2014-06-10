@@ -29,7 +29,7 @@ module Web.Scotty.Action
     , runAction
     ) where
 
-import Blaze.ByteString.Builder (fromLazyByteString)
+import Blaze.ByteString.Builder (Builder, fromLazyByteString)
 
 import Control.Monad.Error
 import Control.Monad.Reader
@@ -39,18 +39,16 @@ import qualified Data.Aeson as A
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive as CI
-import Data.Default (def)
-import Data.Monoid (mconcat)
+import           Data.Conduit
+import qualified Data.Conduit.List as CL
+import           Data.Default (def)
+import           Data.Monoid (mconcat)
 import qualified Data.Text as ST
 import qualified Data.Text.Lazy as T
-import Data.Text.Lazy.Encoding (encodeUtf8)
+import           Data.Text.Lazy.Encoding (encodeUtf8)
 
 import Network.HTTP.Types
 import Network.Wai
-
-import Blaze.ByteString.Builder (Builder)
-import Data.Conduit
-import qualified Data.Conduit.List as CL
 
 import Web.Scotty.Types
 import Web.Scotty.Util
@@ -265,13 +263,13 @@ stream = ActionT . MS.modify . setContent . ContentStream
 
 -- | Set the body of the response to a Source. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your
--- own with 'setHeader'. (Deprecated, use stream instead)
+-- own with 'setHeader'.
 source :: (ScottyError e, Monad m) => Source IO (Flush Builder) -> ActionT e m ()
 source src = stream $ \send flush -> src $$ CL.mapM_ (\mbuilder ->
     case mbuilder of
       Chunk b -> send b
       Flush -> flush)
-{-# DEPRECATED source "Use stream instead. This will be removed in the next release." #-}
+-- Deprecated, but pragma is in Web.Scotty and Web.Scotty.Trans
 
 -- | Set the body of the response to the given 'BL.ByteString' value. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your
