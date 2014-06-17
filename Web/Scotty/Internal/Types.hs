@@ -1,5 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, FlexibleInstances, MultiParamTypeClasses #-}
-module Web.Scotty.Types where
+module Web.Scotty.Internal.Types where
 
 import           Blaze.ByteString.Builder (Builder)
 

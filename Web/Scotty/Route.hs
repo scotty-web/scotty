@@ -25,7 +25,7 @@ import qualified Network.Wai.Parse as Parse hiding (parseRequestBody)
 import qualified Text.Regex as Regex
 
 import Web.Scotty.Action
-import Web.Scotty.Types
+import Web.Scotty.Internal.Types
 import Web.Scotty.Util
 
 -- | get = 'addroute' 'GET'

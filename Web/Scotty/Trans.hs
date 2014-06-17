@@ -55,8 +55,8 @@ import Network.Wai.Handler.Warp (Port, runSettings, setPort, getPort)
 import Web.Scotty.Action hiding (source)
 import qualified Web.Scotty.Action as Action
 import Web.Scotty.Route
-import Web.Scotty.Types hiding (Application, Middleware)
-import qualified Web.Scotty.Types as Scotty
+import Web.Scotty.Internal.Types hiding (Application, Middleware)
+import qualified Web.Scotty.Internal.Types as Scotty
 
 -- | Set the body of the response to a Source. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your

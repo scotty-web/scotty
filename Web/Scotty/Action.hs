@@ -50,7 +50,7 @@ import           Data.Text.Lazy.Encoding (encodeUtf8)
 import Network.HTTP.Types
 import Network.Wai
 
-import Web.Scotty.Types
+import Web.Scotty.Internal.Types
 import Web.Scotty.Util
 
 -- Nothing indicates route failed (due to Next) and pattern matching should continue.
