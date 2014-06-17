@@ -1,3 +1,7 @@
+## 0.8.1
+
+* Export internal types
+
 ## 0.8.0
 
 * Upgrade to wai/wai-extra/warp 3.0
