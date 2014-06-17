@@ -17,7 +17,7 @@ import qualified Data.ByteString as B
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Encoding as ES
 
-import Web.Scotty.Types
+import Web.Scotty.Internal.Types
 
 lazyTextToStrictByteString :: T.Text -> B.ByteString
 lazyTextToStrictByteString = ES.encodeUtf8 . T.toStrict

@@ -48,7 +48,7 @@ import Network.HTTP.Types (Status, StdMethod)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 
-import Web.Scotty.Types (ScottyT, ActionT, Param, RoutePattern, Options, File)
+import Web.Scotty.Internal.Types (ScottyT, ActionT, Param, RoutePattern, Options, File)
 
 type ScottyM = ScottyT Text IO
 type ActionM = ActionT Text IO
