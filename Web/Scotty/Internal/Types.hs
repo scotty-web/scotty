@@ -1,13 +1,16 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, FlexibleInstances, MultiParamTypeClasses #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, FlexibleInstances, MultiParamTypeClasses, UndecidableInstances, TypeFamilies #-}
 module Web.Scotty.Internal.Types where
 
 import           Blaze.ByteString.Builder (Builder)
 
 import           Control.Applicative
 import qualified Control.Exception as E
+import           Control.Monad.Base (MonadBase, liftBase, liftBaseDefault)
 import           Control.Monad.Error
 import           Control.Monad.Reader
 import           Control.Monad.State
+import           Control.Monad.Trans.Control (MonadBaseControl, StM, liftBaseWith, restoreM, ComposeSt, defaultLiftBaseWith, defaultRestoreM, MonadTransControl, StT, liftWith, restoreT)
+
 
 import           Data.ByteString.Lazy.Char8 (ByteString)
 import           Data.Default (Default, def)
@@ -129,6 +132,25 @@ instance (ScottyError e, Monad m) => MonadError (ActionError e) (ActionT e m) wh
     throwError = ActionT . throwError
 
     catchError (ActionT m) f = ActionT (catchError m (runAM . f))
+    
+    
+instance (MonadBase b m, ScottyError e) => MonadBase b (ActionT e m) where
+    liftBase = liftBaseDefault
+    
+
+instance (ScottyError e) => MonadTransControl (ActionT e) where
+     newtype StT (ActionT e) a = StAction {unStAction :: StT (StateT ScottyResponse) (StT (ReaderT ActionEnv) (StT (ErrorT (ActionError e)) a))}
+     liftWith = \f -> 
+        ActionT $  liftWith $ \run  -> 
+                   liftWith $ \run' -> 
+                   liftWith $ \run'' -> 
+                   f $ liftM StAction . run'' . run' . run . runAM            
+     restoreT = ActionT . restoreT . restoreT . restoreT . liftM unStAction
+
+instance (ScottyError e, MonadBaseControl b m) => MonadBaseControl b (ActionT e m) where
+    newtype StM (ActionT e m) a = STMAction {unStMActionT :: ComposeSt (ActionT e) m a}
+    liftBaseWith = defaultLiftBaseWith STMAction
+    restoreM     = defaultRestoreM   unStMActionT
 
 ------------------ Scotty Routes --------------------
 data RoutePattern = Capture   Text
