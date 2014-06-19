@@ -1,6 +1,8 @@
 ## 0.8.1
 
 * Export internal types
+* Added `MonadBase`, `MonadTransControl` and `MonadBaseControl` instances for
+  `ActionT`
 
 ## 0.8.0
 
