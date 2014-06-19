@@ -132,19 +132,19 @@ instance (ScottyError e, Monad m) => MonadError (ActionError e) (ActionT e m) wh
     throwError = ActionT . throwError
 
     catchError (ActionT m) f = ActionT (catchError m (runAM . f))
-    
-    
+
+
 instance (MonadBase b m, ScottyError e) => MonadBase b (ActionT e m) where
     liftBase = liftBaseDefault
-    
+
 
 instance (ScottyError e) => MonadTransControl (ActionT e) where
      newtype StT (ActionT e) a = StAction {unStAction :: StT (StateT ScottyResponse) (StT (ReaderT ActionEnv) (StT (ErrorT (ActionError e)) a))}
-     liftWith = \f -> 
-        ActionT $  liftWith $ \run  -> 
-                   liftWith $ \run' -> 
-                   liftWith $ \run'' -> 
-                   f $ liftM StAction . run'' . run' . run . runAM            
+     liftWith = \f ->
+        ActionT $  liftWith $ \run  ->
+                   liftWith $ \run' ->
+                   liftWith $ \run'' ->
+                   f $ liftM StAction . run'' . run' . run . runAM
      restoreT = ActionT . restoreT . restoreT . restoreT . liftM unStAction
 
 instance (ScottyError e, MonadBaseControl b m) => MonadBaseControl b (ActionT e m) where
