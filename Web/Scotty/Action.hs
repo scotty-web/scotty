@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, RankNTypes #-}
+{-# LANGUAGE CPP, OverloadedStrings, RankNTypes #-}
 module Web.Scotty.Action
     ( addHeader
     , body
@@ -29,10 +29,14 @@ module Web.Scotty.Action
     , runAction
     ) where
 
-import Blaze.ByteString.Builder (Builder, fromLazyByteString)
+import           Blaze.ByteString.Builder (Builder, fromLazyByteString)
 
-import Control.Monad.Error
-import Control.Monad.Reader
+#if MIN_VERSION_mtl(2,2,1)
+import           Control.Monad.Except
+#else
+import           Control.Monad.Error
+#endif
+import           Control.Monad.Reader
 import qualified Control.Monad.State as MS
 
 import qualified Data.Aeson as A
@@ -47,11 +51,11 @@ import qualified Data.Text as ST
 import qualified Data.Text.Lazy as T
 import           Data.Text.Lazy.Encoding (encodeUtf8)
 
-import Network.HTTP.Types
-import Network.Wai
+import           Network.HTTP.Types
+import           Network.Wai
 
-import Web.Scotty.Internal.Types
-import Web.Scotty.Util
+import           Web.Scotty.Internal.Types
+import           Web.Scotty.Util
 
 -- Nothing indicates route failed (due to Next) and pattern matching should continue.
 -- Just indicates a successful response.
@@ -59,7 +63,11 @@ runAction :: (ScottyError e, Monad m) => ErrorHandler e m -> ActionEnv -> Action
 runAction h env action = do
     (e,r) <- flip MS.runStateT def
            $ flip runReaderT env
+#if MIN_VERSION_mtl(2,2,1)
+           $ runExceptT
+#else
            $ runErrorT
+#endif
            $ runAM
            $ action `catchError` (defH h)
     return $ either (const Nothing) (const $ Just $ mkResponse r) e

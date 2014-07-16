@@ -1,32 +1,36 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, LambdaCase,
+{-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, LambdaCase,
              OverloadedStrings, RankNTypes, ScopedTypeVariables #-}
 module Web.Scotty.Route
     ( get, post, put, delete, patch, addroute, matchAny, notFound,
       capture, regex, function, literal
     ) where
 
-import Control.Arrow ((***))
-import Control.Concurrent.MVar
-import Control.Monad.Error
+import           Control.Arrow ((***))
+import           Control.Concurrent.MVar
+#if MIN_VERSION_mtl(2,2,1)
+import           Control.Monad.Except
+#else
+import           Control.Monad.Error
+#endif
 import qualified Control.Monad.State as MS
 
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
-import Data.Maybe (fromMaybe)
-import Data.Monoid (mconcat)
-import Data.String (fromString)
+import           Data.Maybe (fromMaybe)
+import           Data.Monoid (mconcat)
+import           Data.String (fromString)
 import qualified Data.Text.Lazy as T
 import qualified Data.Text as TS
 
-import Network.HTTP.Types
-import Network.Wai (Request(..))
+import           Network.HTTP.Types
+import           Network.Wai (Request(..))
 import qualified Network.Wai.Parse as Parse hiding (parseRequestBody)
 
 import qualified Text.Regex as Regex
 
-import Web.Scotty.Action
-import Web.Scotty.Internal.Types
-import Web.Scotty.Util
+import           Web.Scotty.Action
+import           Web.Scotty.Internal.Types
+import           Web.Scotty.Util
 
 -- | get = 'addroute' 'GET'
 get :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
