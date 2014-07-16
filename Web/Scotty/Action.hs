@@ -29,14 +29,14 @@ module Web.Scotty.Action
     , runAction
     ) where
 
-import Blaze.ByteString.Builder (Builder, fromLazyByteString)
+import           Blaze.ByteString.Builder (Builder, fromLazyByteString)
 
 #if MIN_VERSION_mtl(2,2,1)
 import           Control.Monad.Except
 #else
 import           Control.Monad.Error
 #endif
-import Control.Monad.Reader
+import           Control.Monad.Reader
 import qualified Control.Monad.State as MS
 
 import qualified Data.Aeson as A
@@ -51,11 +51,11 @@ import qualified Data.Text as ST
 import qualified Data.Text.Lazy as T
 import           Data.Text.Lazy.Encoding (encodeUtf8)
 
-import Network.HTTP.Types
-import Network.Wai
+import           Network.HTTP.Types
+import           Network.Wai
 
-import Web.Scotty.Internal.Types
-import Web.Scotty.Util
+import           Web.Scotty.Internal.Types
+import           Web.Scotty.Util
 
 -- Nothing indicates route failed (due to Next) and pattern matching should continue.
 -- Just indicates a successful response.
