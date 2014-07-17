@@ -31,6 +31,10 @@ Setting phasers to stun... (port 3000) (ctrl-c to quit)
 
 As for the name: Sinatra + Warp = Scotty.
 
+### Tutorial
+
+A more in-depth tutorial on building a website with Scotty can be found [here](http://adit.io/posts/2013-04-15-making-a-website-with-haskell.html).
+
 ### Development & Support
 
 Open an issue on GitHub or join `#scotty` on Freenode.
