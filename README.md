@@ -31,8 +31,14 @@ Setting phasers to stun... (port 3000) (ctrl-c to quit)
 
 As for the name: Sinatra + Warp = Scotty.
 
+### More Information
+
+Tutorials and related projects can be found in the Scotty wiki:
+
+https://github.com/scotty-web/scotty/wiki
+
 ### Development & Support
 
 Open an issue on GitHub or join `#scotty` on Freenode.
 
-Copyright (c) 2012-2013 Andrew Farmer
+Copyright (c) 2012-2014 Andrew Farmer
