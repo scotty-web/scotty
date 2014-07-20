@@ -1,6 +1,13 @@
+## 0.8.2
+
+* Bump `aeson` upper bound
+
+* Fix `mtl` related deprecation warnings
+
 ## 0.8.1
 
 * Export internal types
+
 * Added `MonadBase`, `MonadTransControl` and `MonadBaseControl` instances for
   `ActionT`
 
