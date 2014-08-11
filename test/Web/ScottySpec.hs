@@ -5,7 +5,8 @@ import qualified SpecHelper            as Helper
 
 import           Control.Applicative
 import           Control.Monad
-import           Data.Monoid           (mconcat)
+import           Data.Monoid             (mconcat)
+import           Data.Text.Lazy.Encoding (encodeUtf8)
 import           Network.HTTP.Types
 import           Test.Hspec
 import           Web.Scotty
@@ -73,18 +74,35 @@ spec =  do
         Helper.body <$> app `Helper.get` "/search?query=haskell"
           `shouldReturn` "<p>haskell</p>"
 
-    describe "html" $ do
-      it "should return response in text/html" $ do
-        app <- scottyApp $
-          get "/scotty" $ html "<p>scotty</p>"
+    describe "text" $ do
+      let
+        modernGreekText = "νέα ελληνικά"
+        app' = scottyApp $ get "/scotty" $ text modernGreekText
+
+      it "should return response in text/plain encoded in utf-8" $ do
+        app <- app'
         Helper.header "Content-Type" <$> app `Helper.get` "/scotty"
-          `shouldReturn` Just "text/html"
+          `shouldReturn` Just "text/plain; charset=utf-8"
+
+      it "should return given string as text" $ do
+        app <- app'
+        Helper.body <$> app `Helper.get` "/scotty"
+          `shouldReturn` (encodeUtf8 modernGreekText)
+
+    describe "html" $ do
+      let
+        russianLanguageTextInHtml = "<p>ру́сский язы́к</p>"
+        app' = scottyApp $ get "/scotty" $ html russianLanguageTextInHtml
+
+      it "should return response in text/html encoded in utf-8" $ do
+        app <- app'
+        Helper.header "Content-Type" <$> app `Helper.get` "/scotty"
+          `shouldReturn` Just "text/html; charset=utf-8"
 
       it "should return given string as html" $ do
-        app <- scottyApp $
-          get "/scotty" $ html "<p>scotty</p>"
+        app <- app'
         Helper.body <$> app `Helper.get` "/scotty"
-          `shouldReturn` "<p>scotty</p>"
+          `shouldReturn` (encodeUtf8 russianLanguageTextInHtml)
 
     describe "lifted-base" $
       it "should not return the default exception handler" $ do
