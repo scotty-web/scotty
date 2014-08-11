@@ -238,17 +238,17 @@ setHeader :: (ScottyError e, Monad m) => T.Text -> T.Text -> ActionT e m ()
 setHeader k v = ActionT . MS.modify $ setHeaderWith $ replace (CI.mk $ lazyTextToStrictByteString k) (lazyTextToStrictByteString v)
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
--- header to \"text/plain\".
+-- header to \"text/plain; charset=utf-8\".
 text :: (ScottyError e, Monad m) => T.Text -> ActionT e m ()
 text t = do
-    setHeader "Content-Type" "text/plain"
+    setHeader "Content-Type" "text/plain; charset=utf-8"
     raw $ encodeUtf8 t
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
--- header to \"text/html\".
+-- header to \"text/html; charset=utf-8\".
 html :: (ScottyError e, Monad m) => T.Text -> ActionT e m ()
 html t = do
-    setHeader "Content-Type" "text/html"
+    setHeader "Content-Type" "text/html; charset=utf-8"
     raw $ encodeUtf8 t
 
 -- | Send a file as the response. Doesn't set the \"Content-Type\" header, so you probably
