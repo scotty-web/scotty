@@ -1,1 +1,0 @@
-../../../../Network/Wai/Middleware/Static.hs
