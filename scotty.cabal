@@ -99,8 +99,8 @@ test-suite spec
                        http-types,
                        lifted-base,
                        wai,
-                       hspec            >= 1.9.2,
-                       wai-extra        >= 3.0.0,
+                       hspec2,
+                       hspec-wai >= 0.3.0,
                        scotty
   GHC-options:         -Wall -fno-warn-orphans
 

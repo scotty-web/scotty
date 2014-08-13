@@ -1,110 +1,89 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Web.ScottySpec (spec) where
+module Web.ScottySpec (main, spec) where
 
-import qualified SpecHelper            as Helper
-
-import           Control.Applicative
-import           Control.Monad
-import           Data.Monoid             (mconcat)
-import           Data.Text.Lazy.Encoding (encodeUtf8)
-import           Network.HTTP.Types
 import           Test.Hspec
-import           Web.Scotty
+import           Test.Hspec.Wai
+import           Network.Wai (Application)
+
+import           Control.Monad
+import           Data.Char
+import           Data.String
+import           Network.HTTP.Types
 import qualified Control.Exception.Lifted as EL
 import qualified Control.Exception as E
 
+import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request)
+import qualified Web.Scotty as Scotty
+
+main :: IO ()
+main = hspec spec
+
+availableMethods :: [StdMethod]
+availableMethods = [GET, POST, HEAD, PUT, PATCH, DELETE]
+
+withApp :: ScottyM () -> SpecWith Application -> Spec
+withApp = with . scottyApp
+
 spec :: Spec
-spec =  do
-    let availableMethods = [GET, POST, HEAD, PUT, DELETE, PATCH]
+spec = do
+  describe "ScottyM" $ do
+    forM_ [
+        ("GET", Scotty.get, get)
+      , ("POST", Scotty.post, (`post` ""))
+      , ("PUT", Scotty.put, (`put` ""))
+      , ("PATCH", Scotty.patch, (`patch` ""))
+      , ("DELETE", Scotty.delete, delete)
+      ] $ \(method, route, makeRequest) -> do
+      describe (map toLower method) $ do
+        withApp (route "/scotty" $ html "") $ do
+          it ("adds route for " ++ method ++ " requests") $ do
+            makeRequest "/scotty" `shouldRespondWith` 200
 
-    describe "get" $
-      it "should route GET request" $ do
-        app <- scottyApp $ get "/scotty" $ html ""
-        Helper.status <$> app `Helper.get` "/scotty" `shouldReturn` status200
+    describe "addroute" $ do
+      forM_ availableMethods $ \method -> do
+        withApp (addroute method "/scotty" $ html "") $ do
+          it ("can be used to add route for " ++ show method ++ " requests") $ do
+            request (renderStdMethod method) "/scotty" "" `shouldRespondWith` 200
 
-    describe "post" $
-      it "should route POST request" $ do
-        app <- scottyApp $ post "/scotty" $ html ""
-        Helper.status <$> Helper.post app "/scotty" "" `shouldReturn` status200
+    describe "matchAny" $ do
+      withApp (matchAny "/scotty" $ html "") $ do
+        forM_ availableMethods $ \method -> do
+          it ("adds route that matches " ++ show method ++ " requests") $ do
+            request (renderStdMethod method) "/scotty" "" `shouldRespondWith` 200
 
-    describe "put" $
-      it "should route PUT request" $ do
-        app <- scottyApp $ put "/scotty" $ html ""
-        Helper.status <$> Helper.put app "/scotty" "" `shouldReturn` status200
+    describe "notFound" $ do
+      withApp (notFound $ html "my custom not found page") $ do
+        it "adds handler for requests that do not match any route" $ do
+          get "/somewhere" `shouldRespondWith` "my custom not found page" {matchStatus = 404}
 
-    describe "delete" $
-      it "should route DELETE request" $ do
-        app <- scottyApp $ delete "/scotty" $ html ""
-        Helper.status <$> Helper.delete app "/scotty" `shouldReturn` status200
+  describe "ActionM" $ do
+    withApp (Scotty.get "/" $ (undefined `EL.catch` ((\_ -> html "") :: E.SomeException -> ActionM ()))) $ do
+      it "has a MonadBaseControl instance" $ do
+        get "/" `shouldRespondWith` 200
 
-    describe "patch" $
-      it "should route PATCH request" $ do
-        app <- scottyApp $ patch "/scotty" $ html ""
-        Helper.status <$> Helper.patch app "/scotty" "" `shouldReturn` status200
-
-    describe "addroute" $
-      it ("should route " ++ show availableMethods ++ " request") $
-        forM_ availableMethods $ \(method) -> do
-          app <- scottyApp $
-            addroute method "/scotty" $ html ""
-          Helper.status <$> Helper.request app (renderStdMethod method) "/scotty" ""
-            `shouldReturn` status200
-
-    describe "matchAny" $
-      it ("should route " ++ show availableMethods ++ " request") $
-        forM_ availableMethods $ \(method) -> do
-          app <- scottyApp $
-            matchAny "/scotty" $ html ""
-          Helper.status <$> Helper.request app (renderStdMethod method) "/scotty" ""
-            `shouldReturn` status200
-
-    describe "notFound" $
-      it "should route all request" $ do
-        app <- scottyApp $
-          notFound $ html "routed to not found"
-        Helper.body <$> Helper.get app "/somewhere"
-          `shouldReturn` "routed to not found"
-
-    describe "param" $
-      it "should return query parameter with given key" $ do
-        app <- scottyApp $
-          get "/search" $ do
-            query <- param "query"
-            html $ mconcat ["<p>", query, "</p>"]
-        Helper.body <$> app `Helper.get` "/search?query=haskell"
-          `shouldReturn` "<p>haskell</p>"
+    describe "param" $ do
+      withApp (Scotty.get "/search" $ param "query" >>= text) $ do
+        it "returns query parameter with given name" $ do
+          get "/search?query=haskell" `shouldRespondWith` "haskell"
 
     describe "text" $ do
-      let
-        modernGreekText = "νέα ελληνικά"
-        app' = scottyApp $ get "/scotty" $ text modernGreekText
+      let modernGreekText :: IsString a => a
+          modernGreekText = "νέα ελληνικά"
 
-      it "should return response in text/plain encoded in utf-8" $ do
-        app <- app'
-        Helper.header "Content-Type" <$> app `Helper.get` "/scotty"
-          `shouldReturn` Just "text/plain; charset=utf-8"
+      withApp (Scotty.get "/scotty" $ text modernGreekText) $ do
+        it "sets body to given text" $ do
+          get "/scotty" `shouldRespondWith` modernGreekText
 
-      it "should return given string as text" $ do
-        app <- app'
-        Helper.body <$> app `Helper.get` "/scotty"
-          `shouldReturn` (encodeUtf8 modernGreekText)
+        it "sets Content-Type header to \"text/plain; charset=utf-8\"" $ do
+          get "/scotty" `shouldRespondWith` 200 {matchHeaders = [("Content-Type", "text/plain; charset=utf-8")]}
 
     describe "html" $ do
-      let
-        russianLanguageTextInHtml = "<p>ру́сский язы́к</p>"
-        app' = scottyApp $ get "/scotty" $ html russianLanguageTextInHtml
+      let russianLanguageTextInHtml :: IsString a => a
+          russianLanguageTextInHtml = "<p>ру́сский язы́к</p>"
 
-      it "should return response in text/html encoded in utf-8" $ do
-        app <- app'
-        Helper.header "Content-Type" <$> app `Helper.get` "/scotty"
-          `shouldReturn` Just "text/html; charset=utf-8"
+      withApp (Scotty.get "/scotty" $ html russianLanguageTextInHtml) $ do
+        it "sets body to given text" $ do
+          get "/scotty" `shouldRespondWith` russianLanguageTextInHtml
 
-      it "should return given string as html" $ do
-        app <- app'
-        Helper.body <$> app `Helper.get` "/scotty"
-          `shouldReturn` (encodeUtf8 russianLanguageTextInHtml)
-
-    describe "lifted-base" $
-      it "should not return the default exception handler" $ do
-        app <- scottyApp $ get "/" $ ((undefined) `EL.catch` ((\_ -> html "") :: E.SomeException -> ActionM ()))
-        Helper.status <$> app `Helper.get` "/" `shouldReturn` status200
+        it "sets Content-Type header to \"text/html; charset=utf-8\"" $ do
+          get "/scotty" `shouldRespondWith` 200 {matchHeaders = [("Content-Type", "text/html; charset=utf-8")]}
