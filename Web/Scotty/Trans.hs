@@ -48,7 +48,7 @@ import Control.Monad.IO.Class
 import Data.Conduit (Flush, Source)
 import Data.Default (def)
 
-import Network.HTTP.Types (status404)
+import Network.HTTP.Types (status404, status500)
 import Network.Wai
 import Network.Wai.Handler.Warp (Port, runSettings, setPort, getPort)
 
@@ -115,7 +115,7 @@ notFoundApp _ = return $ responseBuilder status404 [("Content-Type","text/html")
 -- own defaultHandler in production which does not send out the error
 -- strings as 500 responses.
 defaultHandler :: Monad m => (e -> ActionT e m ()) -> ScottyT e m ()
-defaultHandler f = ScottyT $ modify $ addHandler $ Just f
+defaultHandler f = ScottyT $ modify $ addHandler $ Just (\e -> status status500 >> f e)
 
 -- | Use given middleware. Middleware is nested such that the first declared
 -- is the outermost middleware (it has first dibs on the request and last action
