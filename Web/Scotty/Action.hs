@@ -225,7 +225,7 @@ readEither t = case [ x | (x,"") <- reads (T.unpack t) ] of
                 _   -> Left "readEither: ambiguous parse"
 
 -- | Set the HTTP response status. Default is 200.
-status :: (ScottyError e, Monad m) => Status -> ActionT e m ()
+status :: Monad m => Status -> ActionT e m ()
 status = ActionT . MS.modify . setStatus
 
 -- | Add to the response headers. Header names are case-insensitive.
