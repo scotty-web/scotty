@@ -175,12 +175,12 @@ setHeader :: Text -> Text -> ActionM ()
 setHeader = Trans.setHeader
 
 -- | Set the body of the response to the given 'Text' value. Also sets \"Content-Type\"
--- header to \"text/plain\".
+-- header to \"text/plain; charset=utf-8\".
 text :: Text -> ActionM ()
 text = Trans.text
 
 -- | Set the body of the response to the given 'Text' value. Also sets \"Content-Type\"
--- header to \"text/html\".
+-- header to \"text/html; charset=utf-8\".
 html :: Text -> ActionM ()
 html = Trans.html
 
@@ -190,7 +190,7 @@ file :: FilePath -> ActionM ()
 file = Trans.file
 
 -- | Set the body of the response to the JSON encoding of the given value. Also sets \"Content-Type\"
--- header to \"application/json\".
+-- header to \"application/json; charset=utf-8\".
 json :: ToJSON a => a -> ActionM ()
 json = Trans.json
 
