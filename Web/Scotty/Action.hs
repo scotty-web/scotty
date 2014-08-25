@@ -260,7 +260,7 @@ file = ActionT . MS.modify . setContent . ContentFile
 -- header to \"application/json\".
 json :: (A.ToJSON a, ScottyError e, Monad m) => a -> ActionT e m ()
 json v = do
-    setHeader "Content-Type" "application/json"
+    setHeader "Content-Type" "application/json; charset=utf-8"
     raw $ A.encode v
 
 -- | Set the body of the response to a Source. Doesn't set the
