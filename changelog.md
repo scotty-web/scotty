@@ -1,3 +1,9 @@
+## 0.9.0
+
+* Add `charset=utf-8` to `Content-Type` for `text`, `html` and `json`
+
+* Assume HTTP status 500 for `defaultHandler`
+
 ## 0.8.2
 
 * Bump `aeson` upper bound
