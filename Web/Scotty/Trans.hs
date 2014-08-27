@@ -105,7 +105,7 @@ notFoundApp _ = return $ responseBuilder status404 [("Content-Type","text/html")
 -- This has security implications, so you probably want to provide your
 -- own defaultHandler in production which does not send out the error
 -- strings as 500 responses.
-defaultHandler :: Monad m => (e -> ActionT e m ()) -> ScottyT e m ()
+defaultHandler :: (ScottyError e, Monad m) => (e -> ActionT e m ()) -> ScottyT e m ()
 defaultHandler f = ScottyT $ modify $ addHandler $ Just (\e -> status status500 >> f e)
 
 -- | Use given middleware. Middleware is nested such that the first declared
