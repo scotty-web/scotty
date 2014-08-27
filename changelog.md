@@ -4,6 +4,10 @@
 
 * Assume HTTP status 500 for `defaultHandler`
 
+* Remove deprecated `source` method.
+
+* No longer depend on conduit.
+
 ## 0.8.2
 
 * Bump `aeson` upper bound
