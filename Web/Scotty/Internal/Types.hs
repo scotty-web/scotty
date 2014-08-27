@@ -148,7 +148,7 @@ instance (MonadBase b m, ScottyError e) => MonadBase b (ActionT e m) where
     liftBase = liftBaseDefault
 
 
-instance (ScottyError e) => MonadTransControl (ActionT e) where
+instance ScottyError e => MonadTransControl (ActionT e) where
 #if MIN_VERSION_mtl(2,2,1)
      newtype StT (ActionT e) a = StAction {unStAction :: StT (StateT ScottyResponse) (StT (ReaderT ActionEnv) (StT (ExceptT (ActionError e)) a))}
 #else
