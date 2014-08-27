@@ -21,7 +21,6 @@ module Web.Scotty.Action
     , setHeader
     , status
     , stream
-    , source    -- Deprecated
     , text
     , Param
     , Parsable(..)
@@ -29,7 +28,7 @@ module Web.Scotty.Action
     , runAction
     ) where
 
-import           Blaze.ByteString.Builder (Builder, fromLazyByteString)
+import           Blaze.ByteString.Builder (fromLazyByteString)
 
 #if MIN_VERSION_mtl(2,2,1)
 import           Control.Monad.Except
@@ -43,8 +42,6 @@ import qualified Data.Aeson as A
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive as CI
-import           Data.Conduit
-import qualified Data.Conduit.List as CL
 import           Data.Default (def)
 import           Data.Monoid (mconcat)
 import qualified Data.Text as ST
@@ -268,16 +265,6 @@ json v = do
 -- own with 'setHeader'.
 stream :: (ScottyError e, Monad m) => StreamingBody -> ActionT e m ()
 stream = ActionT . MS.modify . setContent . ContentStream
-
--- | Set the body of the response to a Source. Doesn't set the
--- \"Content-Type\" header, so you probably want to do that on your
--- own with 'setHeader'.
-source :: (ScottyError e, Monad m) => Source IO (Flush Builder) -> ActionT e m ()
-source src = stream $ \send flush -> src $$ CL.mapM_ (\mbuilder ->
-    case mbuilder of
-      Chunk b -> send b
-      Flush -> flush)
--- Deprecated, but pragma is in Web.Scotty and Web.Scotty.Trans
 
 -- | Set the body of the response to the given 'BL.ByteString' value. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your

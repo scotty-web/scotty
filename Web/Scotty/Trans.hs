@@ -28,7 +28,7 @@ module Web.Scotty.Trans
       --
       -- | Note: only one of these should be present in any given route
       -- definition, as they completely replace the current 'Response' body.
-    , text, html, file, json, stream, source, raw
+    , text, html, file, json, stream, raw
       -- ** Exceptions
     , raise, rescue, next, defaultHandler, ScottyError(..)
       -- * Parsing Parameters
@@ -39,31 +39,22 @@ module Web.Scotty.Trans
     , ScottyT, ActionT
     ) where
 
-import Blaze.ByteString.Builder (Builder, fromByteString)
+import Blaze.ByteString.Builder (fromByteString)
 
 import Control.Monad (when)
 import Control.Monad.State (execStateT, modify)
 import Control.Monad.IO.Class
 
-import Data.Conduit (Flush, Source)
 import Data.Default (def)
 
 import Network.HTTP.Types (status404, status500)
 import Network.Wai
 import Network.Wai.Handler.Warp (Port, runSettings, setPort, getPort)
 
-import Web.Scotty.Action hiding (source)
-import qualified Web.Scotty.Action as Action
+import Web.Scotty.Action
 import Web.Scotty.Route
 import Web.Scotty.Internal.Types hiding (Application, Middleware)
 import qualified Web.Scotty.Internal.Types as Scotty
-
--- | Set the body of the response to a Source. Doesn't set the
--- \"Content-Type\" header, so you probably want to do that on your
--- own with 'setHeader'.
-source :: (ScottyError e, Monad m) => Source IO (Flush Builder) -> ActionT e m ()
-source = Action.source
-{-# DEPRECATED source "Use 'stream' instead. This will be removed in the next release." #-}
 
 -- | Run a scotty application using the warp server.
 -- NB: scotty p === scottyT p id id
