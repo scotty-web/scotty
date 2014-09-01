@@ -1,3 +1,7 @@
+## 0.9.1
+
+* text/html/json only set Content-Type header when not already set
+
 ## 0.9.0
 
 * Add `charset=utf-8` to `Content-Type` for `text`, `html` and `json`
