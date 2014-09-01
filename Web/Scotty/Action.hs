@@ -215,7 +215,7 @@ instance Parsable Integer where parseParam = readEither
 -- | Useful for creating 'Parsable' instances for things that already implement 'Read'. Ex:
 --
 -- > instance Parsable Int where parseParam = readEither
-readEither :: (Read a) => T.Text -> Either T.Text a
+readEither :: Read a => T.Text -> Either T.Text a
 readEither t = case [ x | (x,"") <- reads (T.unpack t) ] of
                 [x] -> Right x
                 []  -> Left "readEither: no parse"
@@ -225,27 +225,37 @@ readEither t = case [ x | (x,"") <- reads (T.unpack t) ] of
 status :: (ScottyError e, Monad m) => Status -> ActionT e m ()
 status = ActionT . MS.modify . setStatus
 
+-- Not exported, but useful in the functions below.
+changeHeader :: (ScottyError e, Monad m)
+             => (CI.CI B.ByteString -> B.ByteString -> [(HeaderName, B.ByteString)] -> [(HeaderName, B.ByteString)])
+             -> T.Text -> T.Text -> ActionT e m ()
+changeHeader f k = ActionT
+                 . MS.modify
+                 . setHeaderWith
+                 . f (CI.mk $ lazyTextToStrictByteString k)
+                 . lazyTextToStrictByteString
+
 -- | Add to the response headers. Header names are case-insensitive.
 addHeader :: (ScottyError e, Monad m) => T.Text -> T.Text -> ActionT e m ()
-addHeader k v = ActionT . MS.modify $ setHeaderWith $ add (CI.mk $ lazyTextToStrictByteString k) (lazyTextToStrictByteString v)
+addHeader = changeHeader add
 
 -- | Set one of the response headers. Will override any previously set value for that header.
 -- Header names are case-insensitive.
 setHeader :: (ScottyError e, Monad m) => T.Text -> T.Text -> ActionT e m ()
-setHeader k v = ActionT . MS.modify $ setHeaderWith $ replace (CI.mk $ lazyTextToStrictByteString k) (lazyTextToStrictByteString v)
+setHeader = changeHeader replace
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
--- header to \"text/plain; charset=utf-8\".
+-- header to \"text/plain; charset=utf-8\" if it has not already been set.
 text :: (ScottyError e, Monad m) => T.Text -> ActionT e m ()
 text t = do
-    setHeader "Content-Type" "text/plain; charset=utf-8"
+    changeHeader addIfNotPresent "Content-Type" "text/plain; charset=utf-8"
     raw $ encodeUtf8 t
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
--- header to \"text/html; charset=utf-8\".
+-- header to \"text/html; charset=utf-8\" if it has not already been set.
 html :: (ScottyError e, Monad m) => T.Text -> ActionT e m ()
 html t = do
-    setHeader "Content-Type" "text/html; charset=utf-8"
+    changeHeader addIfNotPresent "Content-Type" "text/html; charset=utf-8"
     raw $ encodeUtf8 t
 
 -- | Send a file as the response. Doesn't set the \"Content-Type\" header, so you probably
@@ -254,10 +264,10 @@ file :: (ScottyError e, Monad m) => FilePath -> ActionT e m ()
 file = ActionT . MS.modify . setContent . ContentFile
 
 -- | Set the body of the response to the JSON encoding of the given value. Also sets \"Content-Type\"
--- header to \"application/json; charset=utf-8\".
+-- header to \"application/json; charset=utf-8\" if it has not already been set.
 json :: (A.ToJSON a, ScottyError e, Monad m) => a -> ActionT e m ()
 json v = do
-    setHeader "Content-Type" "application/json; charset=utf-8"
+    changeHeader addIfNotPresent "Content-Type" "application/json; charset=utf-8"
     raw $ A.encode v
 
 -- | Set the body of the response to a Source. Doesn't set the

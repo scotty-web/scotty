@@ -7,6 +7,7 @@ module Web.Scotty.Util
     , mkResponse
     , replace
     , add
+    , addIfNotPresent
     ) where
 
 import Network.Wai
@@ -46,8 +47,15 @@ mkResponse sr = case srContent sr of
           h = srHeaders sr
 
 -- Note: we assume headers are not sensitive to order here (RFC 2616 specifies they are not)
-replace :: (Eq a) => a -> b -> [(a,b)] -> [(a,b)]
-replace k v m = add k v $ filter ((/= k) . fst) m
+replace :: Eq a => a -> b -> [(a,b)] -> [(a,b)]
+replace k v = add k v . filter ((/= k) . fst)
 
-add :: (Eq a) => a -> b -> [(a,b)] -> [(a,b)]
+add :: Eq a => a -> b -> [(a,b)] -> [(a,b)]
 add k v m = (k,v):m
+
+addIfNotPresent :: Eq a => a -> b -> [(a,b)] -> [(a,b)]
+addIfNotPresent k v = go
+    where go []         = [(k,v)]
+          go l@((x,y):r)
+            | x == k    = l
+            | otherwise = (x,y) : go r
