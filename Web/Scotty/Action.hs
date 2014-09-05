@@ -8,6 +8,7 @@ module Web.Scotty.Action
     , headers
     , html
     , json
+    , jsonParse
     , jsonData
     , next
     , param
@@ -147,11 +148,16 @@ headers = do
 body :: (ScottyError e, Monad m) => ActionT e m BL.ByteString
 body = ActionT $ liftM getBody ask
 
+-- | Parse a given string as a JSON object and return it. Raises an exception if parse is unsuccessful.
+--
+-- This is useful in cases the body of a request needs some additional processing
+-- (such as signature verification).
+jsonParse :: (A.FromJSON a, ScottyError e, Monad m) => BL.ByteString -> ActionT e m a
+jsonParse b = maybe (raise $ stringError $ "jsonData - no parse: " ++ BL.unpack b) return . A.decode $ b
+
 -- | Parse the request body as a JSON object and return it. Raises an exception if parse is unsuccessful.
 jsonData :: (A.FromJSON a, ScottyError e, Monad m) => ActionT e m a
-jsonData = do
-    b <- body
-    maybe (raise $ stringError $ "jsonData - no parse: " ++ BL.unpack b) return $ A.decode b
+jsonData = body >>= jsonParse
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
