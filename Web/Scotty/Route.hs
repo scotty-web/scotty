@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, LambdaCase,
+{-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances,
              OverloadedStrings, RankNTypes, ScopedTypeVariables #-}
 module Web.Scotty.Route
     ( get, post, put, delete, patch, addroute, matchAny, notFound,
@@ -124,9 +124,9 @@ parseRequestBody bl s r =
         Just rbt -> do
             mvar <- liftIO $ newMVar bl -- MVar is a bit of a hack so we don't have to inline
                                         -- large portions of Network.Wai.Parse
-            let provider = takeMVar mvar >>= \case
-                                                []     -> putMVar mvar [] >> return B.empty
-                                                (b:bs) -> putMVar mvar bs >> return b
+            let provider = modifyMVar mvar $ \bsold -> case bsold of
+                                                []     -> return ([], B.empty)
+                                                (b:bs) -> return (bs, b)
             liftIO $ Parse.sinkRequestBody s rbt provider
 
 mkEnv :: forall m. MonadIO m => Request -> [Param] -> m ActionEnv
