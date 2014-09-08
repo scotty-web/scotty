@@ -43,13 +43,13 @@ spec = do
       forM_ availableMethods $ \method -> do
         withApp (addroute method "/scotty" $ html "") $ do
           it ("can be used to add route for " ++ show method ++ " requests") $ do
-            request (renderStdMethod method) "/scotty" "" `shouldRespondWith` 200
+            request (renderStdMethod method) "/scotty" [] "" `shouldRespondWith` 200
 
     describe "matchAny" $ do
       withApp (matchAny "/scotty" $ html "") $ do
         forM_ availableMethods $ \method -> do
           it ("adds route that matches " ++ show method ++ " requests") $ do
-            request (renderStdMethod method) "/scotty" "" `shouldRespondWith` 200
+            request (renderStdMethod method) "/scotty" [] "" `shouldRespondWith` 200
 
     describe "notFound" $ do
       withApp (notFound $ html "my custom not found page") $ do
