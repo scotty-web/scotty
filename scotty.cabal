@@ -99,7 +99,7 @@ test-suite spec
                        lifted-base,
                        wai,
                        hspec2,
-                       hspec-wai >= 0.4.0,
+                       hspec-wai >= 0.4.1,
                        scotty
   GHC-options:         -Wall -fno-warn-orphans
 
