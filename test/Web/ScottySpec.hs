@@ -98,11 +98,11 @@ spec = do
           get "/scotty" `shouldRespondWith` modernGreekText
 
         it "sets Content-Type header to \"text/plain; charset=utf-8\"" $ do
-          get "/scotty" `shouldRespondWith` 200 {matchHeaders = [("Content-Type", "text/plain; charset=utf-8")]}
+          get "/scotty" `shouldRespondWith` 200 {matchHeaders = ["Content-Type" <:> "text/plain; charset=utf-8"]}
 
       withApp (Scotty.get "/scotty" $ setHeader "Content-Type" "text/somethingweird" >> text modernGreekText) $ do
         it "doesn't override a previously set Content-Type header" $ do
-          get "/scotty" `shouldRespondWith` 200 {matchHeaders = [("Content-Type", "text/somethingweird")]}
+          get "/scotty" `shouldRespondWith` 200 {matchHeaders = ["Content-Type" <:> "text/somethingweird"]}
 
     describe "html" $ do
       let russianLanguageTextInHtml :: IsString a => a
@@ -113,13 +113,13 @@ spec = do
           get "/scotty" `shouldRespondWith` russianLanguageTextInHtml
 
         it "sets Content-Type header to \"text/html; charset=utf-8\"" $ do
-          get "/scotty" `shouldRespondWith` 200 {matchHeaders = [("Content-Type", "text/html; charset=utf-8")]}
+          get "/scotty" `shouldRespondWith` 200 {matchHeaders = ["Content-Type" <:> "text/html; charset=utf-8"]}
 
       withApp (Scotty.get "/scotty" $ setHeader "Content-Type" "text/somethingweird" >> html russianLanguageTextInHtml) $ do
         it "doesn't override a previously set Content-Type header" $ do
-          get "/scotty" `shouldRespondWith` 200 {matchHeaders = [("Content-Type", "text/somethingweird")]}
+          get "/scotty" `shouldRespondWith` 200 {matchHeaders = ["Content-Type" <:> "text/somethingweird"]}
 
     describe "json" $ do
       withApp (Scotty.get "/scotty" $ setHeader "Content-Type" "text/somethingweird" >> json (Just (5::Int))) $ do
         it "doesn't override a previously set Content-Type header" $ do
-          get "/scotty" `shouldRespondWith` 200 {matchHeaders = [("Content-Type", "text/somethingweird")]}
+          get "/scotty" `shouldRespondWith` 200 {matchHeaders = ["Content-Type" <:> "text/somethingweird"]}
