@@ -3,6 +3,7 @@
 
 module Main where
 
+import Control.Applicative (Applicative)
 import Control.Monad.Reader (MonadIO, MonadReader, ReaderT, asks, lift, runReaderT)
 import Data.Default (def)
 import Data.Text.Lazy (Text, pack)
@@ -14,7 +15,7 @@ data Config = Config
 
 newtype ConfigM a = ConfigM
   { runConfigM :: ReaderT Config IO a
-  } deriving (Monad, MonadIO, MonadReader Config)
+  } deriving (Applicative, Functor, Monad, MonadIO, MonadReader Config)
 
 application :: ScottyT Text ConfigM ()
 application = do
