@@ -1,6 +1,10 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+{-
+    An example of embedding a custom monad into Scotty's transformer
+    stack, using ReaderT to provide access to a global state.
+-}
 module Main where
 
 import Control.Applicative (Applicative)
