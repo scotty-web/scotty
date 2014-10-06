@@ -8,15 +8,15 @@ import Data.Default (def)
 import Data.Text.Lazy (Text, pack)
 import Web.Scotty.Trans (ScottyT, get, scottyOptsT, text)
 
-data State = State
+data Config = Config
   { environment :: String
   } deriving (Eq, Read, Show)
 
-newtype StateM a = StateM
-  { runStateM :: ReaderT State IO a
-  } deriving (Monad, MonadIO, MonadReader State)
+newtype ConfigM a = ConfigM
+  { runConfigM :: ReaderT Config IO a
+  } deriving (Monad, MonadIO, MonadReader Config)
 
-application :: ScottyT Text StateM ()
+application :: ScottyT Text ConfigM ()
 application = do
   get "/" $ do
     e <- lift $ asks environment
@@ -24,13 +24,13 @@ application = do
 
 main :: IO ()
 main = scottyOptsT def runM runIO application where
-  runM :: StateM a -> IO a
-  runM m = runReaderT (runStateM m) state
+  runM :: ConfigM a -> IO a
+  runM m = runReaderT (runConfigM m) config
 
-  runIO :: StateM a -> IO a
+  runIO :: ConfigM a -> IO a
   runIO = runM
 
-  state :: State
-  state = State
+  config :: Config
+  config = Config
     { environment = "Development"
     }
