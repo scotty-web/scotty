@@ -13,7 +13,7 @@ module Web.Scotty
       -- | 'Middleware' and routes are run in the order in which they
       -- are defined. All middleware is run first, followed by the first
       -- route that matches. If no route matches, a 404 response is given.
-    , middleware, get, post, put, delete, patch, addroute, matchAny, notFound
+    , middleware, scottyMiddleware, get, post, put, delete, patch, addroute, matchAny, notFound
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
@@ -45,6 +45,7 @@ import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 
 import Web.Scotty.Internal.Types (ScottyT, ActionT, Param, RoutePattern, Options, File)
+import qualified Web.Scotty.Internal.Types as Scotty
 
 type ScottyM = ScottyT Text IO
 type ActionM = ActionT Text IO
@@ -79,6 +80,11 @@ defaultHandler = Trans.defaultHandler
 -- on the response). Every middleware is run on each request.
 middleware :: Middleware -> ScottyM ()
 middleware = Trans.middleware
+
+-- | Use given scotty middleware. They are nested like WAI middlewares
+-- but act after all WAI middlewares.
+scottyMiddleware :: Scotty.Middleware IO -> ScottyM ()
+scottyMiddleware = Trans.scottyMiddleware
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.

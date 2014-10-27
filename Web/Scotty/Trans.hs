@@ -17,7 +17,7 @@ module Web.Scotty.Trans
       -- | 'Middleware' and routes are run in the order in which they
       -- are defined. All middleware is run first, followed by the first
       -- route that matches. If no route matches, a 404 response is given.
-    , middleware, get, post, put, delete, patch, addroute, matchAny, notFound
+    , middleware, scottyMiddleware, get, post, put, delete, patch, addroute, matchAny, notFound
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
@@ -89,8 +89,17 @@ scottyAppT :: (Monad m, Monad n)
            -> n Application
 scottyAppT runM runActionToIO defs = do
     s <- runM $ execStateT (runS defs) def
-    let rapp = \ req callback -> runActionToIO (foldl (flip ($)) notFoundApp (routes s) req) >>= callback
-    return $ foldl (flip ($)) rapp (middlewares s)
+    -- Convert scotty app to WAI app
+    let wai app = \req callback -> callback =<< runActionToIO (app req)
+    -- Apply WAI middlewares
+    return $ chain (middlewares s)
+           $ wai
+           $ chain (scottyMiddlewares s)
+           $ chain (routes s)
+           $ notFoundApp
+
+chain :: [a -> a] -> a -> a
+chain fs a = foldl (flip ($)) a fs
 
 notFoundApp :: Monad m => Scotty.Application m
 notFoundApp _ = return $ responseBuilder status404 [("Content-Type","text/html")]
@@ -113,3 +122,8 @@ defaultHandler f = ScottyT $ modify $ addHandler $ Just (\e -> status status500 
 -- on the response). Every middleware is run on each request.
 middleware :: Monad m => Middleware -> ScottyT e m ()
 middleware = ScottyT . modify . addMiddleware
+
+-- | Use given scotty middleware. They are nested like WAI middlewares
+-- but act after all WAI middlewares.
+scottyMiddleware :: Monad m => Scotty.Middleware m -> ScottyT e m ()
+scottyMiddleware = ScottyT . modify . addScottyMiddleware

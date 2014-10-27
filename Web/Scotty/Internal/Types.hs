@@ -50,15 +50,19 @@ type Application m = Request -> m Response
 --------------- Scotty Applications -----------------
 data ScottyState e m =
     ScottyState { middlewares :: [Wai.Middleware]
+                , scottyMiddlewares :: [Middleware m]
                 , routes :: [Middleware m]
                 , handler :: ErrorHandler e m
                 }
 
 instance Monad m => Default (ScottyState e m) where
-    def = ScottyState [] [] Nothing
+    def = ScottyState [] [] [] Nothing
 
 addMiddleware :: Wai.Middleware -> ScottyState e m -> ScottyState e m
 addMiddleware m s@(ScottyState {middlewares = ms}) = s { middlewares = m:ms }
+
+addScottyMiddleware :: Middleware m -> ScottyState e m -> ScottyState e m
+addScottyMiddleware m s@(ScottyState {scottyMiddlewares = ms}) = s { scottyMiddlewares = m:ms }
 
 addRoute :: Monad m => Middleware m -> ScottyState e m -> ScottyState e m
 addRoute r s@(ScottyState {routes = rs}) = s { routes = r:rs }
