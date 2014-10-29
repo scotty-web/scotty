@@ -151,7 +151,7 @@ body = ActionT $ liftM getBody ask
 jsonData :: (A.FromJSON a, ScottyError e, Monad m) => ActionT e m a
 jsonData = do
     b <- body
-    maybe (raise $ stringError $ "jsonData - no parse: " ++ BL.unpack b) return $ A.decode b
+    either (\e -> raise $ stringError $ "jsonData - no parse: " ++ e ++ ". Data was:" ++ BL.unpack b) return $ A.eitherDecode b
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
