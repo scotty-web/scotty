@@ -85,9 +85,13 @@ spec = do
         get "/" `shouldRespondWith` 200
 
     describe "param" $ do
-      withApp (Scotty.get "/search" $ param "query" >>= text) $ do
+      withApp (Scotty.matchAny "/search" $ param "query" >>= text) $ do
         it "returns query parameter with given name" $ do
           get "/search?query=haskell" `shouldRespondWith` "haskell"
+
+        context "when used with application/x-www-form-urlencoded data" $ do
+          it "returns POST parameter with given name" $ do
+            request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=haskell" `shouldRespondWith` "haskell"
 
     describe "text" $ do
       let modernGreekText :: IsString a => a
