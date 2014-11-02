@@ -93,6 +93,10 @@ spec = do
           it "returns POST parameter with given name" $ do
             request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=haskell" `shouldRespondWith` "haskell"
 
+          it "handles newline normalization as per the HTML 4.01 Specification" $ do
+            -- see http://www.w3.org/TR/html401/interact/forms.html#h-17.13.4.1
+            request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=foo%0D%0Abar" `shouldRespondWith` "foo\nbar"
+
     describe "text" $ do
       let modernGreekText :: IsString a => a
           modernGreekText = "νέα ελληνικά"
