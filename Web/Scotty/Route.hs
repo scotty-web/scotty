@@ -16,7 +16,7 @@ import qualified Control.Monad.State as MS
 
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
-import           Data.Maybe (fromMaybe)
+import           Data.Maybe (fromMaybe, isJust)
 import           Data.Monoid (mconcat)
 import           Data.String (fromString)
 import qualified Data.Text.Lazy as T
@@ -132,18 +132,26 @@ parseRequestBody bl s r =
 mkEnv :: forall m. MonadIO m => Request -> [Param] -> m ActionEnv
 mkEnv req captures = do
     let rbody = requestBody req
-        takeAll :: ([B.ByteString] -> m [B.ByteString]) -> m [B.ByteString]
-        takeAll prefix = liftIO rbody >>= \ b -> if B.null b then prefix [] else takeAll (prefix . (b:))
-    bs <- takeAll return
+        takeAll :: ([B.ByteString] -> IO [B.ByteString]) -> IO [B.ByteString]
+        takeAll prefix = rbody >>= \b -> if B.null b then prefix [] else takeAll (prefix . (b:))
+        bs = takeAll return
 
-    (formparams, fs) <- liftIO $ parseRequestBody bs Parse.lbsBackEnd req
+        shouldParseBody = isJust $ Parse.getRequestBodyType req
 
-    let convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
-        parameters = captures ++ map convert formparams ++ queryparams
+    (formparams, fs) <- if shouldParseBody
+      then liftIO $ do putStrLn "consuming body"
+                       wholeBody <- bs
+                       parseRequestBody wholeBody Parse.lbsBackEnd req
+      else return ([], [])
+
+    let 
+        convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
+        parameters =  captures ++ map convert formparams ++ queryparams
         queryparams = parseEncodedParams $ rawQueryString req
-        b = BL.fromChunks bs
+        b :: IO BL.ByteString
+        b = BL.fromChunks `fmap` bs 
 
-    return $ Env req parameters b [ (strictByteStringToLazyText k, fi) | (k,fi) <- fs ]
+    return $ Env req parameters b rbody [ (strictByteStringToLazyText k, fi) | (k,fi) <- fs ]
 
 parseEncodedParams :: B.ByteString -> [Param]
 parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]
