@@ -15,7 +15,7 @@ import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Trans.Control (MonadBaseControl, StM, liftBaseWith, restoreM, ComposeSt, defaultLiftBaseWith, defaultRestoreM, MonadTransControl, StT, liftWith, restoreT)
 
-
+import qualified Data.ByteString as BS
 import           Data.ByteString.Lazy.Char8 (ByteString)
 import           Data.Default (Default, def)
 import           Data.Monoid (mempty)
@@ -105,10 +105,11 @@ type Param = (Text, Text)
 
 type File = (Text, FileInfo ByteString)
 
-data ActionEnv = Env { getReq    :: Request
-                     , getParams :: [Param]
-                     , getBody   :: ByteString
-                     , getFiles  :: [File]
+data ActionEnv = Env { getReq       :: Request
+                     , getParams    :: [Param]
+                     , getBody      :: IO ByteString
+                     , getBodyChunk :: IO BS.ByteString
+                     , getFiles     :: [File]
                      }
 
 data Content = ContentBuilder Builder
