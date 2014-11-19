@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, GeneralizedNewtypeDeriving, FlexibleInstances, MultiParamTypeClasses, UndecidableInstances, TypeFamilies #-}
+{-# LANGUAGE CPP, GeneralizedNewtypeDeriving, FlexibleInstances, MultiParamTypeClasses, UndecidableInstances, TypeFamilies, DeriveDataTypeable #-}
 module Web.Scotty.Internal.Types where
 
 import           Blaze.ByteString.Builder (Builder)
@@ -21,6 +21,7 @@ import           Data.Default (Default, def)
 import           Data.Monoid (mempty)
 import           Data.String (IsString(..))
 import           Data.Text.Lazy (Text, pack)
+import           Data.Typeable (Typeable)
 
 import           Network.HTTP.Types
 
@@ -111,6 +112,14 @@ data ActionEnv = Env { getReq       :: Request
                      , getBodyChunk :: IO BS.ByteString
                      , getFiles     :: [File]
                      }
+
+data RequestBodyState = BodyUntouched 
+                      | BodyCached ByteString [BS.ByteString] -- whole body, chunks left to stream
+                      | BodyCorrupted
+
+data BodyPartiallyStreamed = BodyPartiallyStreamed deriving (Show, Typeable)
+
+instance E.Exception BodyPartiallyStreamed
 
 data Content = ContentBuilder Builder
              | ContentFile    FilePath
