@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, GeneralizedNewtypeDeriving, FlexibleInstances, MultiParamTypeClasses, UndecidableInstances, TypeFamilies #-}
+{-# LANGUAGE CPP, GeneralizedNewtypeDeriving, FlexibleInstances, MultiParamTypeClasses, UndecidableInstances, TypeFamilies, DeriveDataTypeable #-}
 module Web.Scotty.Internal.Types where
 
 import           Blaze.ByteString.Builder (Builder)
@@ -15,12 +15,13 @@ import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Trans.Control (MonadBaseControl, StM, liftBaseWith, restoreM, ComposeSt, defaultLiftBaseWith, defaultRestoreM, MonadTransControl, StT, liftWith, restoreT)
 
-
+import qualified Data.ByteString as BS
 import           Data.ByteString.Lazy.Char8 (ByteString)
 import           Data.Default (Default, def)
 import           Data.Monoid (mempty)
 import           Data.String (IsString(..))
 import           Data.Text.Lazy (Text, pack)
+import           Data.Typeable (Typeable)
 
 import           Network.HTTP.Types
 
@@ -105,11 +106,20 @@ type Param = (Text, Text)
 
 type File = (Text, FileInfo ByteString)
 
-data ActionEnv = Env { getReq    :: Request
-                     , getParams :: [Param]
-                     , getBody   :: ByteString
-                     , getFiles  :: [File]
+data ActionEnv = Env { getReq       :: Request
+                     , getParams    :: [Param]
+                     , getBody      :: IO ByteString
+                     , getBodyChunk :: IO BS.ByteString
+                     , getFiles     :: [File]
                      }
+
+data RequestBodyState = BodyUntouched 
+                      | BodyCached ByteString [BS.ByteString] -- whole body, chunks left to stream
+                      | BodyCorrupted
+
+data BodyPartiallyStreamed = BodyPartiallyStreamed deriving (Show, Typeable)
+
+instance E.Exception BodyPartiallyStreamed
 
 data Content = ContentBuilder Builder
              | ContentFile    FilePath
