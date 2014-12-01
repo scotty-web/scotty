@@ -2,6 +2,7 @@
 module Web.Scotty.Action
     ( addHeader
     , body
+    , bodyReader
     , file
     , files
     , header
@@ -144,11 +145,17 @@ headers = do
            | (k,v) <- hs ]
 
 -- | Get the request body.
-body :: (ScottyError e, Monad m) => ActionT e m BL.ByteString
-body = ActionT $ liftM getBody ask
+body :: (ScottyError e,  MonadIO m) => ActionT e m BL.ByteString
+body = ActionT ask >>= (liftIO . getBody)
+
+-- | Get an IO action that reads body chunks
+--
+-- * This is incompatible with 'body' since 'body' consumes all chunks.
+bodyReader :: (ScottyError e, Monad m) => ActionT e m (IO B.ByteString)
+bodyReader = ActionT $ getBodyChunk `liftM` ask
 
 -- | Parse the request body as a JSON object and return it. Raises an exception if parse is unsuccessful.
-jsonData :: (A.FromJSON a, ScottyError e, Monad m) => ActionT e m a
+jsonData :: (A.FromJSON a, ScottyError e, MonadIO m) => ActionT e m a
 jsonData = do
     b <- body
     either (\e -> raise $ stringError $ "jsonData - no parse: " ++ e ++ ". Data was:" ++ BL.unpack b) return $ A.eitherDecode b

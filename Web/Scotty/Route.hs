@@ -7,6 +7,7 @@ module Web.Scotty.Route
 
 import           Control.Arrow ((***))
 import           Control.Concurrent.MVar
+import           Control.Exception (throw)
 #if MIN_VERSION_mtl(2,2,1)
 import           Control.Monad.Except
 #else
@@ -16,7 +17,7 @@ import qualified Control.Monad.State as MS
 
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
-import           Data.Maybe (fromMaybe)
+import           Data.Maybe (fromMaybe, isJust)
 import           Data.Monoid (mconcat)
 import           Data.String (fromString)
 import qualified Data.Text.Lazy as T
@@ -131,19 +132,54 @@ parseRequestBody bl s r =
 
 mkEnv :: forall m. MonadIO m => Request -> [Param] -> m ActionEnv
 mkEnv req captures = do
+    bodyState <- liftIO $ newMVar BodyUntouched
+    
     let rbody = requestBody req
-        takeAll :: ([B.ByteString] -> m [B.ByteString]) -> m [B.ByteString]
-        takeAll prefix = liftIO rbody >>= \ b -> if B.null b then prefix [] else takeAll (prefix . (b:))
-    bs <- takeAll return
+        takeAll :: ([B.ByteString] -> IO [B.ByteString]) -> IO [B.ByteString]
+        takeAll prefix = rbody >>= \b -> if B.null b then prefix [] else takeAll (prefix . (b:))
 
-    (formparams, fs) <- liftIO $ parseRequestBody bs Parse.lbsBackEnd req
+        safeBodyReader :: IO B.ByteString
+        safeBodyReader =  do
+          state <- takeMVar bodyState
+          let direct = putMVar bodyState BodyCorrupted >> rbody
+          case state of 
+            s@(BodyCached _ []) -> 
+              do putMVar bodyState s 
+                 return B.empty
+            BodyCached b (chunk:rest) -> 
+              do putMVar bodyState $ BodyCached b rest
+                 return chunk
+            BodyUntouched -> direct
+            BodyCorrupted -> direct
 
-    let convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
-        parameters = captures ++ map convert formparams ++ queryparams
+        bs :: IO BL.ByteString
+        bs = do
+          state <- takeMVar bodyState
+          case state of 
+            s@(BodyCached b _) -> 
+              do putMVar bodyState s
+                 return b
+            BodyCorrupted -> throw BodyPartiallyStreamed
+            BodyUntouched -> 
+              do chunks <- takeAll return
+                 let b = BL.fromChunks chunks
+                 putMVar bodyState $ BodyCached b chunks
+                 return b
+
+        shouldParseBody = isJust $ Parse.getRequestBodyType req
+
+    (formparams, fs) <- if shouldParseBody
+      then liftIO $ do putStrLn "consuming body"
+                       wholeBody <- BL.toChunks `fmap` bs
+                       parseRequestBody wholeBody Parse.lbsBackEnd req
+      else return ([], [])
+
+    let 
+        convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
+        parameters =  captures ++ map convert formparams ++ queryparams
         queryparams = parseEncodedParams $ rawQueryString req
-        b = BL.fromChunks bs
 
-    return $ Env req parameters b [ (strictByteStringToLazyText k, fi) | (k,fi) <- fs ]
+    return $ Env req parameters bs safeBodyReader [ (strictByteStringToLazyText k, fi) | (k,fi) <- fs ]
 
 parseEncodedParams :: B.ByteString -> [Param]
 parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]

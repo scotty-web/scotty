@@ -17,7 +17,7 @@ module Web.Scotty
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, header, headers, body, param, params, jsonData, files
+    , request, header, headers, body, bodyReader, param, params, jsonData, files
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
       -- ** Setting Response Body
@@ -37,6 +37,7 @@ module Web.Scotty
 import qualified Web.Scotty.Trans as Trans
 
 import Data.Aeson (FromJSON, ToJSON)
+import qualified Data.ByteString as BS
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Text.Lazy (Text)
 
@@ -138,6 +139,12 @@ headers = Trans.headers
 -- | Get the request body.
 body :: ActionM ByteString
 body = Trans.body
+
+-- | Get an IO action that reads body chunks
+--
+-- * This is incompatible with 'body' since 'body' consumes all chunks.
+bodyReader :: ActionM (IO BS.ByteString)
+bodyReader = Trans.bodyReader
 
 -- | Parse the request body as a JSON object and return it. Raises an exception if parse is unsuccessful.
 jsonData :: FromJSON a => ActionM a
