@@ -1,4 +1,6 @@
-{-# LANGUAGE CPP, OverloadedStrings, RankNTypes #-}
+{-# LANGUAGE CPP               #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes        #-}
 module Web.Scotty.Action
     ( addHeader
     , body
@@ -29,7 +31,7 @@ module Web.Scotty.Action
     , runAction
     ) where
 
-import           Blaze.ByteString.Builder (fromLazyByteString)
+import           Blaze.ByteString.Builder   (fromLazyByteString)
 
 #if MIN_VERSION_mtl(2,2,1)
 import           Control.Monad.Except
@@ -37,17 +39,17 @@ import           Control.Monad.Except
 import           Control.Monad.Error
 #endif
 import           Control.Monad.Reader
-import qualified Control.Monad.State as MS
+import qualified Control.Monad.State        as MS
 
-import qualified Data.Aeson as A
-import qualified Data.ByteString.Char8 as B
+import qualified Data.Aeson                 as A
+import qualified Data.ByteString.Char8      as B
 import qualified Data.ByteString.Lazy.Char8 as BL
-import qualified Data.CaseInsensitive as CI
-import           Data.Default (def)
-import           Data.Monoid (mconcat)
-import qualified Data.Text as ST
-import qualified Data.Text.Lazy as T
-import           Data.Text.Lazy.Encoding (encodeUtf8)
+import qualified Data.CaseInsensitive       as CI
+import           Data.Default               (def)
+import           Data.Monoid                (mconcat)
+import qualified Data.Text                  as ST
+import qualified Data.Text.Lazy             as T
+import           Data.Text.Lazy.Encoding    (encodeUtf8)
 
 import           Network.HTTP.Types
 import           Network.Wai
@@ -193,6 +195,7 @@ class Parsable a where
 instance Parsable T.Text where parseParam = Right
 instance Parsable ST.Text where parseParam = Right . T.toStrict
 instance Parsable B.ByteString where parseParam = Right . lazyTextToStrictByteString
+instance Parsable BL.ByteString where parseParam = Right . encodeUtf8
 -- | Overrides default 'parseParamList' to parse String.
 instance Parsable Char where
     parseParam t = case T.unpack t of
