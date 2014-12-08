@@ -63,6 +63,7 @@ main = scotty 3000 $ do
     -- Files are streamed directly to the client.
     get "/404" $ file "404.html"
 
+    -- You can stop execution of this action and keep pattern matching routes.
     get "/random" $ do
         next
         redirect "http://www.we-never-go-here.com"
