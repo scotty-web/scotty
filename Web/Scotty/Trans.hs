@@ -21,14 +21,14 @@ module Web.Scotty.Trans
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, header, headers, body, bodyReader, param, params, jsonData, files
+    , request, header, headers, body, bodyReader, param, params, jsonData, xmlData, files
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
       -- ** Setting Response Body
       --
       -- | Note: only one of these should be present in any given route
       -- definition, as they completely replace the current 'Response' body.
-    , text, html, file, json, stream, raw
+    , text, html, file, json, stream, raw, xml
       -- ** Exceptions
     , raise, rescue, next, defaultHandler, ScottyError(..)
       -- * Parsing Parameters

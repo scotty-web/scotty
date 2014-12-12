@@ -83,7 +83,8 @@ Library
                        transformers-base >= 0.4.1   && < 0.5,
                        wai              >= 3.0.0    && < 3.1,
                        wai-extra        >= 3.0.0    && < 3.1,
-                       warp             >= 3.0.0    && < 3.1
+                       warp             >= 3.0.0    && < 3.1,
+                       xml-conduit      == 1.2.3
 
   GHC-options: -Wall -fno-warn-orphans
 

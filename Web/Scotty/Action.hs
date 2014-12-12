@@ -17,6 +17,8 @@ module Web.Scotty.Action
     , params
     , raise
     , raw
+    , xml
+    , xmlData
     , readEither
     , redirect
     , request
@@ -49,7 +51,9 @@ import           Data.Default               (def)
 import           Data.Monoid                (mconcat)
 import qualified Data.Text                  as ST
 import qualified Data.Text.Lazy             as T
-import           Data.Text.Lazy.Encoding    (encodeUtf8)
+import           Data.Text.Lazy.Encoding    (encodeUtf8, decodeUtf8)
+
+import qualified Text.XML                   as X
 
 import           Network.HTTP.Types
 import           Network.Wai
@@ -161,6 +165,15 @@ jsonData :: (A.FromJSON a, ScottyError e, MonadIO m) => ActionT e m a
 jsonData = do
     b <- body
     either (\e -> raise $ stringError $ "jsonData - no parse: " ++ e ++ ". Data was:" ++ BL.unpack b) return $ A.eitherDecode b
+
+-- | Parse the request body as an XML document and return it. Raises an exception if parse is unsuccessful.
+xmlData :: (ScottyError e, MonadIO m) => ActionT e m X.Document
+xmlData = do
+  b <- body
+  either 
+    (\e -> raise $ stringError $ "xmlData - no parse: " ++ show e ++ ". Data was:" ++ BL.unpack b)
+    return
+    $ X.parseText def $ decodeUtf8 b
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
@@ -291,3 +304,12 @@ stream = ActionT . MS.modify . setContent . ContentStream
 -- own with 'setHeader'.
 raw :: (ScottyError e, Monad m) => BL.ByteString -> ActionT e m ()
 raw = ActionT . MS.modify . setContent . ContentBuilder . fromLazyByteString
+
+-- | Set the body of the response to the XML text representation of the given XML document.
+-- Also sets \"Content-Type\" header to \"application/xml; charset=utf-8\"
+-- if it has not already been set.
+xml :: (ScottyError e, Monad m) => X.Document -> ActionT e m ()
+xml d = do
+  changeHeader addIfNotPresent "Content-Type" "application/xml; charset=utf-8"
+  raw $ encodeUtf8 $ X.renderText def d
+

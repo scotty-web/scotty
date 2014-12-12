@@ -17,14 +17,14 @@ module Web.Scotty
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, header, headers, body, bodyReader, param, params, jsonData, files
+    , request, header, headers, body, bodyReader, param, params, jsonData, xmlData, files
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
       -- ** Setting Response Body
       --
       -- | Note: only one of these should be present in any given route
       -- definition, as they completely replace the current 'Response' body.
-    , text, html, file, json, stream, raw
+    , text, html, file, json, stream, raw, xml
       -- ** Exceptions
     , raise, rescue, next, defaultHandler
       -- * Parsing Parameters
@@ -40,6 +40,7 @@ import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString as BS
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Text.Lazy (Text)
+import Text.XML (Document)
 
 import Network.HTTP.Types (Status, StdMethod)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
@@ -150,6 +151,10 @@ bodyReader = Trans.bodyReader
 jsonData :: FromJSON a => ActionM a
 jsonData = Trans.jsonData
 
+-- | Parse the request body as an XML document and return it. Raises an exception if parse is unsuccessful.
+xmlData :: ActionM Document
+xmlData = Trans.xmlData
+
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
 -- * Raises an exception which can be caught by 'rescue' if parameter is not found.
@@ -207,6 +212,12 @@ stream = Trans.stream
 -- \"Content-Type\" header, so you probably want to do that on your own with 'setHeader'.
 raw :: ByteString -> ActionM ()
 raw = Trans.raw
+
+-- | Set the body of the response to the XML text representation of the given XML document.
+-- Also sets \"Content-Type\" header to \"application/xml; charset=utf-8\"
+-- if it has not already been set.
+xml :: Document -> ActionM ()
+xml = Trans.xml
 
 -- | get = 'addroute' 'GET'
 get :: RoutePattern -> ActionM () -> ScottyM ()
