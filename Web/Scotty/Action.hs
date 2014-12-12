@@ -176,6 +176,23 @@ param k = do
         Nothing -> raise $ stringError $ "Param: " ++ T.unpack k ++ " not found!"
         Just v  -> either (const next) return $ parseParam v
 
+-- | Attempt to get a parameter, but call @next@ on failure, instead of throwing 
+-- a 500 error.
+paramNext :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
+paramNext k = do
+    val <- ActionT $ liftM (lookup k . getParams) ask
+    case val of
+        Nothing -> next
+        Just v  -> either (const next) return $ parseParam v
+
+-- | Attempt to get a parameter, returning a @Maybe@.
+paramMaybe :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m (Maybe a)
+paramMaybe k = do
+    val <- ActionT $ liftM (lookup k . getParams) ask
+    case val of
+        Nothing -> return Nothing
+        Just v  -> either (const $ return Nothing) (return . Just) $ parseParam v
+
 -- | Get all parameters from capture, form and query (in that order).
 params :: (ScottyError e, Monad m) => ActionT e m [Param]
 params = ActionT $ liftM getParams ask
