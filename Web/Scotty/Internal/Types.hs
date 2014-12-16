@@ -160,21 +160,21 @@ instance (MonadBase b m, ScottyError e) => MonadBase b (ActionT e m) where
 
 instance ScottyError e => MonadTransControl (ActionT e) where
 #if MIN_VERSION_mtl(2,2,1)
-     newtype StT (ActionT e) a = StAction {unStAction :: StT (StateT ScottyResponse) (StT (ReaderT ActionEnv) (StT (ExceptT (ActionError e)) a))}
+     type StT (ActionT e) a = StT (StateT ScottyResponse) (StT (ReaderT ActionEnv) (StT (ExceptT (ActionError e)) a))
 #else
-     newtype StT (ActionT e) a = StAction {unStAction :: StT (StateT ScottyResponse) (StT (ReaderT ActionEnv) (StT (ErrorT (ActionError e)) a))}
+     type StT (ActionT e) a = StT (StateT ScottyResponse) (StT (ReaderT ActionEnv) (StT (ErrorT (ActionError e)) a))
 #endif
      liftWith = \f ->
         ActionT $  liftWith $ \run  ->
                    liftWith $ \run' ->
                    liftWith $ \run'' ->
-                   f $ liftM StAction . run'' . run' . run . runAM
-     restoreT = ActionT . restoreT . restoreT . restoreT . liftM unStAction
+                   f $ run'' . run' . run . runAM
+     restoreT = ActionT . restoreT . restoreT . restoreT
 
 instance (ScottyError e, MonadBaseControl b m) => MonadBaseControl b (ActionT e m) where
-    newtype StM (ActionT e m) a = STMAction {unStMActionT :: ComposeSt (ActionT e) m a}
-    liftBaseWith = defaultLiftBaseWith STMAction
-    restoreM     = defaultRestoreM   unStMActionT
+    type StM (ActionT e m) a = ComposeSt (ActionT e) m a
+    liftBaseWith = defaultLiftBaseWith
+    restoreM     = defaultRestoreM
 
 ------------------ Scotty Routes --------------------
 data RoutePattern = Capture   Text
