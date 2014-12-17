@@ -17,7 +17,7 @@ module Web.Scotty
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, header, headers, body, bodyReader, param, params, jsonData, files
+    , request, header, headers, body, bodyReader, param, paramNext, paramMaybe, params, jsonData, files
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
       -- ** Setting Response Body
@@ -159,6 +159,12 @@ jsonData = Trans.jsonData
 --   capture cannot be parsed.
 param :: Trans.Parsable a => Text -> ActionM a
 param = Trans.param
+
+paramNext :: Trans.Parsable a => Text -> ActionM a
+paramNext = Trans.paramNext
+
+paramMaybe :: Trans.Parsable a => Text -> ActionM (Maybe a)
+paramMaybe = Trans.paramMaybe
 
 -- | Get all parameters from capture, form and query (in that order).
 params :: ActionM [Param]

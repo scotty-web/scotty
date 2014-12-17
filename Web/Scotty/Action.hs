@@ -14,6 +14,8 @@ module Web.Scotty.Action
     , jsonData
     , next
     , param
+    , paramNext
+    , paramMaybe
     , params
     , raise
     , raw
