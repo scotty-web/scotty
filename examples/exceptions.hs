@@ -1,15 +1,18 @@
-{-# LANGUAGE OverloadedStrings, GeneralizedNewtypeDeriving, ScopedTypeVariables #-}
-module Main where
+{-# LANGUAGE CPP, OverloadedStrings, GeneralizedNewtypeDeriving, ScopedTypeVariables #-}
+module Main (main) where
 
+#if !(MIN_VERSION_base(4,8,0))
 import Control.Applicative
-import Control.Monad.Error
+#endif
+import Control.Monad.IO.Class
 
+#if !(MIN_VERSION_base(4,8,0))
 import Data.Monoid
+#endif
 import Data.String (fromString)
 
 import Network.HTTP.Types
 import Network.Wai.Middleware.RequestLogger
-import Network.Wai
 
 import System.Random
 
@@ -51,7 +54,7 @@ main = scottyT 3000 id id $ do -- note, we aren't using any additional transform
 
     get "/switch/:val" $ do
         v <- param "val"
-        if even v then raise Forbidden else raise (NotFound v)
+        _ <- if even v then raise Forbidden else raise (NotFound v)
         text "this will never be reached"
 
     get "/random" $ do

@@ -1,9 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 -- This examples requires you to: cabal install cookie
 -- and: cabal install blaze-html
+module Main (main) where
+
 import Control.Monad (forM_)
 import Data.Text.Lazy (Text)
-import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.Encoding as T
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -27,7 +28,7 @@ setCookie n v = setHeader "Set-Cookie" (renderSetCookie' (makeCookie n v))
 getCookies :: ActionM (Maybe CookiesText)
 getCookies =
     fmap (fmap (parseCookiesText . lazyToStrict . T.encodeUtf8)) $
-        reqHeader "Cookie"
+        header "Cookie"
     where
         lazyToStrict = BS.concat . BSL.toChunks
 
@@ -37,9 +38,9 @@ renderCookiesTable cs =
         H.tr $ do
             H.th "name"
             H.th "value"
-        forM_ cs $ \(name, val) -> do
+        forM_ cs $ \(name', val) -> do
             H.tr $ do
-                H.td (H.toMarkup name)
+                H.td (H.toMarkup name')
                 H.td (H.toMarkup val)
 
 main :: IO ()
@@ -56,7 +57,7 @@ main = scotty 3000 $ do
                 H.input H.! type_ "submit" H.! value "set a cookie"
 
     post "/set-a-cookie" $ do
-        name <- param "name"
-        value <- param "value"
-        setCookie name value
+        name'  <- param "name"
+        value' <- param "value"
+        setCookie name' value'
         redirect "/"

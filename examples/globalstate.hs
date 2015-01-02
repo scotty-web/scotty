@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE CPP, OverloadedStrings, GeneralizedNewtypeDeriving #-}
 -- An example of embedding a custom monad into
 -- Scotty's transformer stack, using ReaderT to provide access
 -- to a TVar containing global state.
@@ -7,8 +7,11 @@
 -- is IO itself. The types of 'scottyT' and 'scottyAppT' are
 -- general enough to allow a Scotty application to be
 -- embedded into any MonadIO monad.
-module Main where
+module Main (main) where
 
+#if !(MIN_VERSION_base(4,8,0))
+import Control.Applicative
+#endif
 import Control.Concurrent.STM
 import Control.Monad.Reader
 
@@ -36,7 +39,7 @@ instance Default AppState where
 -- Also note: your monad must be an instance of 'MonadIO' for
 -- Scotty to use it.
 newtype WebM a = WebM { runWebM :: ReaderT (TVar AppState) IO a }
-    deriving (Monad, MonadIO, MonadReader (TVar AppState))
+    deriving (Applicative, Functor, Monad, MonadIO, MonadReader (TVar AppState))
 
 -- Scotty's monads are layered on top of our custom monad.
 -- We define this synonym for lift in order to be explicit

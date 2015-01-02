@@ -1,10 +1,14 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP, OverloadedStrings #-}
+module Main (main) where
+
 import Web.Scotty
 
 import Control.Concurrent.MVar
 import Control.Monad.IO.Class
 import qualified Data.Map as M
+#if !(MIN_VERSION_base(4,8,0))
 import Data.Monoid (mconcat)
+#endif
 import qualified Data.Text.Lazy as T
 
 import Network.Wai.Middleware.RequestLogger
