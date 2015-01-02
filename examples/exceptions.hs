@@ -1,9 +1,6 @@
 {-# LANGUAGE CPP, OverloadedStrings, GeneralizedNewtypeDeriving, ScopedTypeVariables #-}
 module Main (main) where
 
-#if !(MIN_VERSION_base(4,8,0))
-import Control.Applicative
-#endif
 import Control.Monad.IO.Class
 
 #if !(MIN_VERSION_base(4,8,0))
