@@ -1,16 +1,18 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP, OverloadedStrings #-}
+module Main (main) where
+
 import Web.Scotty
 
 import Network.Wai.Middleware.RequestLogger -- install wai-extra if you don't have this
 
 import Control.Monad
 import Control.Monad.Trans
+#if !(MIN_VERSION_base(4,8,0))
 import Data.Monoid
+#endif
 import System.Random (newStdGen, randomRs)
 
 import Network.HTTP.Types (status302)
-import Network.Wai
-import qualified Data.Text.Lazy as T
 
 import Data.Text.Lazy.Encoding (decodeUtf8)
 import Data.String (fromString)
@@ -45,12 +47,12 @@ main = scotty 3000 $ do
 
     -- redirects preempt execution
     get "/redirect" $ do
-        redirect "http://www.google.com"
+        void $ redirect "http://www.google.com"
         raise "this error is never reached"
 
     -- Of course you can catch your own errors.
     get "/rescue" $ do
-        (do raise "a rescued error"; redirect "http://www.we-never-go-here.com")
+        (do void $ raise "a rescued error"; redirect "http://www.we-never-go-here.com")
         `rescue` (\m -> text $ "we recovered from " `mappend` m)
 
     -- Parts of the URL that start with a colon match
@@ -65,7 +67,7 @@ main = scotty 3000 $ do
 
     -- You can stop execution of this action and keep pattern matching routes.
     get "/random" $ do
-        next
+        void next
         redirect "http://www.we-never-go-here.com"
 
     -- You can do IO with liftIO, and you can return JSON content.

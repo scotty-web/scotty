@@ -1,8 +1,12 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP, OverloadedStrings #-}
+module Main (main) where
+
 import Web.Scotty
 
 import Control.Monad.IO.Class
+#if !(MIN_VERSION_base(4,8,0))
 import Data.Monoid
+#endif
 
 import Network.Wai.Middleware.RequestLogger
 import Network.Wai.Middleware.Static

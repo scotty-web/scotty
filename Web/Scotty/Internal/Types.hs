@@ -3,7 +3,9 @@ module Web.Scotty.Internal.Types where
 
 import           Blaze.ByteString.Builder (Builder)
 
+#if !(MIN_VERSION_base(4,8,0))
 import           Control.Applicative
+#endif
 import qualified Control.Exception as E
 import           Control.Monad.Base (MonadBase, liftBase, liftBaseDefault)
 #if MIN_VERSION_mtl(2,2,1)
@@ -18,7 +20,9 @@ import           Control.Monad.Trans.Control (MonadBaseControl, StM, liftBaseWit
 import qualified Data.ByteString as BS
 import           Data.ByteString.Lazy.Char8 (ByteString)
 import           Data.Default (Default, def)
+#if !(MIN_VERSION_base(4,8,0))
 import           Data.Monoid (mempty)
+#endif
 import           Data.String (IsString(..))
 import           Data.Text.Lazy (Text, pack)
 import           Data.Typeable (Typeable)

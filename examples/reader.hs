@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -7,7 +8,9 @@
 -}
 module Main where
 
+#if !(MIN_VERSION_base(4,8,0))
 import Control.Applicative (Applicative)
+#endif
 import Control.Monad.Reader (MonadIO, MonadReader, ReaderT, asks, lift, runReaderT)
 import Data.Default (def)
 import Data.Text.Lazy (Text, pack)

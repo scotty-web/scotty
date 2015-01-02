@@ -46,7 +46,9 @@ import qualified Data.ByteString.Char8      as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive       as CI
 import           Data.Default               (def)
+#if !(MIN_VERSION_base(4,8,0))
 import           Data.Monoid                (mconcat)
+#endif
 import qualified Data.Text                  as ST
 import qualified Data.Text.Lazy             as T
 import           Data.Text.Lazy.Encoding    (encodeUtf8)
