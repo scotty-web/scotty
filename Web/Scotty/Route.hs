@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances,
              OverloadedStrings, RankNTypes, ScopedTypeVariables #-}
 module Web.Scotty.Route
-    ( get, post, put, delete, patch, addroute, matchAny, notFound,
+    ( get, post, put, delete, patch, options, addroute, matchAny, notFound,
       capture, regex, function, literal
     ) where
 
@@ -52,6 +52,10 @@ delete = addroute DELETE
 -- | patch = 'addroute' 'PATCH'
 patch :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
 patch = addroute PATCH
+
+-- | options = 'addroute' 'OPTIONS'
+options :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
+options = addroute OPTIONS
 
 -- | Add a route that matches regardless of the HTTP verb.
 matchAny :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
