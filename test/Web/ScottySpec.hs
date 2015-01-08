@@ -12,7 +12,7 @@ import           Network.HTTP.Types
 import qualified Control.Exception.Lifted as EL
 import qualified Control.Exception as E
 
-import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request, options)
+import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request)
 import qualified Web.Scotty as Scotty
 
 #ifndef WINDOWS
