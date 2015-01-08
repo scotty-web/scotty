@@ -13,7 +13,7 @@ module Web.Scotty
       -- | 'Middleware' and routes are run in the order in which they
       -- are defined. All middleware is run first, followed by the first
       -- route that matches. If no route matches, a 404 response is given.
-    , middleware, get, post, put, delete, patch, addroute, matchAny, notFound
+    , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
@@ -235,6 +235,10 @@ delete = Trans.delete
 -- | patch = 'addroute' 'PATCH'
 patch :: RoutePattern -> ActionM () -> ScottyM ()
 patch = Trans.patch
+
+-- | options = 'addroute' 'OPTIONS'
+options :: RoutePattern -> ActionM () -> ScottyM ()
+options = Trans.options
 
 -- | Add a route that matches regardless of the HTTP verb.
 matchAny :: RoutePattern -> ActionM () -> ScottyM ()
