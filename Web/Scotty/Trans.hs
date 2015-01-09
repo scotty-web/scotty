@@ -55,6 +55,7 @@ import Network.Wai.Handler.Warp (Port, runSettings, runSettingsSocket, setPort, 
 import Web.Scotty.Action
 import Web.Scotty.Route
 import Web.Scotty.Internal.Types hiding (Application, Middleware)
+import Web.Scotty.Util (socketDescription)
 import qualified Web.Scotty.Internal.Types as Scotty
 
 -- | Run a scotty application using the warp server.
@@ -91,8 +92,9 @@ scottySocketT :: (Monad m, MonadIO n)
               -> ScottyT e m ()
               -> n ()
 scottySocketT opts sock runM runActionToIO s = do
-    when (verbose opts > 0) $
-        liftIO $ putStrLn $ "Setting phasers to stun... (port " ++ show (getPort (settings opts)) ++ ") (ctrl-c to quit)"
+    when (verbose opts > 0) $ do
+        d <- liftIO $ socketDescription sock
+        liftIO $ putStrLn $ "Setting phasers to stun... (" ++ d ++ ") (ctrl-c to quit)"
     liftIO . runSettingsSocket (settings opts) sock =<< scottyAppT runM runActionToIO s
 
 -- | Turn a scotty application into a WAI 'Application', which can be
