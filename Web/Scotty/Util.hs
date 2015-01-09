@@ -8,8 +8,11 @@ module Web.Scotty.Util
     , replace
     , add
     , addIfNotPresent
+    , socketDescription
     ) where
 
+import Network (Socket, PortID(..), socketPort)
+import Network.Socket (PortNumber(..))
 import Network.Wai
 
 import Network.HTTP.Types
@@ -59,3 +62,11 @@ addIfNotPresent k v = go
           go l@((x,y):r)
             | x == k    = l
             | otherwise = (x,y) : go r
+
+-- Assemble a description from the Socket's PortID.
+socketDescription :: Socket -> IO String
+socketDescription = fmap d . socketPort
+    where d p = case p of
+                    Service s -> "service " ++ s
+                    PortNumber (PortNum n) -> "port " ++ show n
+                    UnixSocket u -> "unix socket " ++ show u
