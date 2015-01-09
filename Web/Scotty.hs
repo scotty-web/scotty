@@ -7,7 +7,7 @@
 -- the comments on each of these functions for more information.
 module Web.Scotty
     ( -- * scotty-to-WAI
-      scotty, scottyApp, scottyOpts, Options(..)
+      scotty, scottyApp, scottyOpts, scottySocket, Options(..)
       -- * Defining Middleware and Routes
       --
       -- | 'Middleware' and routes are run in the order in which they
@@ -41,6 +41,7 @@ import qualified Data.ByteString as BS
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Text.Lazy (Text)
 
+import Network (Socket)
 import Network.HTTP.Types (Status, StdMethod)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
@@ -57,6 +58,13 @@ scotty p = Trans.scottyT p id id
 -- | Run a scotty application using the warp server, passing extra options.
 scottyOpts :: Options -> ScottyM () -> IO ()
 scottyOpts opts = Trans.scottyOptsT opts id id
+
+-- | Run a scotty application using the warp server, passing extra options,
+-- and listening on the provided socket. This allows the user to provide, for
+-- example, a Unix named socket, which can be used when reverse HTTP proxying
+-- into your application.
+scottySocket :: Options -> Socket -> ScottyM () -> IO ()
+scottySocket opts sock = Trans.scottySocketT opts sock id id
 
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
