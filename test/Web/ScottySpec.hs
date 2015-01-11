@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, CPP #-}
 module Web.ScottySpec (main, spec) where
 
 import           Test.Hspec
@@ -14,6 +14,14 @@ import qualified Control.Exception as E
 
 import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request)
 import qualified Web.Scotty as Scotty
+
+#ifndef WINDOWS
+import           Control.Concurrent.Async (withAsync)
+import           Data.Default (def)
+import           Network (listenOn, PortID(..))
+import           Network.Socket
+import           System.Directory (removeFile)
+#endif
 
 main :: IO ()
 main = hspec spec
@@ -127,3 +135,29 @@ spec = do
       withApp (Scotty.get "/scotty" $ setHeader "Content-Type" "text/somethingweird" >> json (Just (5::Int))) $ do
         it "doesn't override a previously set Content-Type header" $ do
           get "/scotty" `shouldRespondWith` 200 {matchHeaders = ["Content-Type" <:> "text/somethingweird"]}
+
+-- Unix sockets not available on Windows
+#ifndef WINDOWS
+  describe "scottySocket" .
+    it "works with a unix socket" .
+      withServer (Scotty.get "/scotty" $ html "") .
+        E.bracket (socket AF_UNIX Stream 0) close $ \sock -> do
+          connect sock $ SockAddrUnix socketPath
+          _ <- send sock "GET /scotty HTTP/1.1\r\n\n"
+          r1 <- recv sock 1024
+          _ <- send sock "GET /four-oh-four HTTP/1.1\r\n\n"
+          r2 <- recv sock 1024
+          (take (length ok) r1, take (length no) r2) `shouldBe` (ok, no)
+  where ok = "HTTP/1.1 200 OK"
+        no = "HTTP/1.1 404 Not Found"
+
+socketPath :: FilePath
+socketPath = "/tmp/scotty-test.socket"
+
+withServer :: ScottyM () -> IO a -> IO a
+withServer actions inner = E.bracket
+  (listenOn $ UnixSocket socketPath)
+  (\sock -> close sock >> removeFile socketPath)
+  (\sock -> withAsync (Scotty.scottySocket def sock actions) $ const inner)
+#endif
+
