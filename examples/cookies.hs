@@ -27,7 +27,7 @@ setCookie n v = setHeader "Set-Cookie" (renderSetCookie' (makeCookie n v))
 getCookies :: ActionM (Maybe CookiesText)
 getCookies =
     fmap (fmap (parseCookiesText . lazyToStrict . T.encodeUtf8)) $
-        reqHeader "Cookie"
+        header "Cookie"
     where
         lazyToStrict = BS.concat . BSL.toChunks
 
