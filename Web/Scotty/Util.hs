@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module Web.Scotty.Util
     ( lazyTextToStrictByteString
     , strictByteStringToLazyText
@@ -69,4 +70,6 @@ socketDescription = fmap d . socketPort
     where d p = case p of
                     Service s -> "service " ++ s
                     PortNumber (PortNum n) -> "port " ++ show n
+#ifndef WINDOWS
                     UnixSocket u -> "unix socket " ++ u
+#endif
