@@ -11,7 +11,7 @@
 -- the comments on each of these functions for more information.
 module Web.Scotty.Trans
     ( -- * scotty-to-WAI
-      scottyT, scottyAppT, scottyOptsT, Options(..)
+      scottyT, scottyAppT, scottyOptsT, scottySocketT, Options(..)
       -- * Defining Middleware and Routes
       --
       -- | 'Middleware' and routes are run in the order in which they
@@ -47,13 +47,15 @@ import Control.Monad.IO.Class
 
 import Data.Default (def)
 
+import Network (Socket)
 import Network.HTTP.Types (status404, status500)
 import Network.Wai
-import Network.Wai.Handler.Warp (Port, runSettings, setPort, getPort)
+import Network.Wai.Handler.Warp (Port, runSettings, runSettingsSocket, setPort, getPort)
 
 import Web.Scotty.Action
 import Web.Scotty.Route
 import Web.Scotty.Internal.Types hiding (Application, Middleware)
+import Web.Scotty.Util (socketDescription)
 import qualified Web.Scotty.Internal.Types as Scotty
 
 -- | Run a scotty application using the warp server.
@@ -78,6 +80,22 @@ scottyOptsT opts runM runActionToIO s = do
     when (verbose opts > 0) $
         liftIO $ putStrLn $ "Setting phasers to stun... (port " ++ show (getPort (settings opts)) ++ ") (ctrl-c to quit)"
     liftIO . runSettings (settings opts) =<< scottyAppT runM runActionToIO s
+
+-- | Run a scotty application using the warp server, passing extra options, and
+-- listening on the provided socket.
+-- NB: scottySocket opts sock === scottySocketT opts sock id id
+scottySocketT :: (Monad m, MonadIO n)
+              => Options
+              -> Socket
+              -> (forall a. m a -> n a)
+              -> (m Response -> IO Response)
+              -> ScottyT e m ()
+              -> n ()
+scottySocketT opts sock runM runActionToIO s = do
+    when (verbose opts > 0) $ do
+        d <- liftIO $ socketDescription sock
+        liftIO $ putStrLn $ "Setting phasers to stun... (" ++ d ++ ") (ctrl-c to quit)"
+    liftIO . runSettingsSocket (settings opts) sock =<< scottyAppT runM runActionToIO s
 
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
