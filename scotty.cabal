@@ -98,7 +98,7 @@ test-suite spec
                        data-default,
                        directory,
                        hspec == 2.*,
-                       hspec-wai >= 0.5,
+                       hspec-wai >= 0.6.3,
                        http-types,
                        lifted-base,
                        network,
