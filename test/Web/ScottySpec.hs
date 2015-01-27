@@ -12,7 +12,7 @@ import           Network.HTTP.Types
 import qualified Control.Exception.Lifted as EL
 import qualified Control.Exception as E
 
-import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request)
+import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request, options)
 import qualified Web.Scotty as Scotty
 
 #ifndef WINDOWS
@@ -27,7 +27,7 @@ main :: IO ()
 main = hspec spec
 
 availableMethods :: [StdMethod]
-availableMethods = [GET, POST, HEAD, PUT, PATCH, DELETE]
+availableMethods = [GET, POST, HEAD, PUT, PATCH, DELETE, OPTIONS]
 
 withApp :: ScottyM () -> SpecWith Application -> Spec
 withApp = with . scottyApp
@@ -41,6 +41,7 @@ spec = do
       , ("PUT", Scotty.put, (`put` ""))
       , ("PATCH", Scotty.patch, (`patch` ""))
       , ("DELETE", Scotty.delete, delete)
+      , ("OPTIONS", Scotty.options, options)
       ] $ \(method, route, makeRequest) -> do
       describe (map toLower method) $ do
         withApp (route "/scotty" $ html "") $ do
