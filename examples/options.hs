@@ -3,7 +3,7 @@ import Web.Scotty
 
 import Network.Wai.Middleware.RequestLogger -- install wai-extra if you don't have this
 
-import Data.Default (def)
+import Data.Default.Class (def)
 import Network.Wai.Handler.Warp (settingsPort)
 
 -- Set some Scotty settings

@@ -17,7 +17,7 @@ import           Control.Monad.Trans.Control (MonadBaseControl, StM, liftBaseWit
 
 import qualified Data.ByteString as BS
 import           Data.ByteString.Lazy.Char8 (ByteString)
-import           Data.Default (Default, def)
+import           Data.Default.Class (Default, def)
 import           Data.Monoid (mempty)
 import           Data.String (IsString(..))
 import           Data.Text.Lazy (Text, pack)
