@@ -45,7 +45,7 @@ import qualified Data.Aeson                 as A
 import qualified Data.ByteString.Char8      as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive       as CI
-import           Data.Default               (def)
+import           Data.Default.Class         (def)
 import           Data.Monoid                (mconcat)
 import qualified Data.Text                  as ST
 import qualified Data.Text.Lazy             as T
