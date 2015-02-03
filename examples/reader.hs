@@ -9,7 +9,7 @@ module Main where
 
 import Control.Applicative (Applicative)
 import Control.Monad.Reader (MonadIO, MonadReader, ReaderT, asks, lift, runReaderT)
-import Data.Default (def)
+import Data.Default.Class (def)
 import Data.Text.Lazy (Text, pack)
 import Web.Scotty.Trans (ScottyT, get, scottyOptsT, text)
 

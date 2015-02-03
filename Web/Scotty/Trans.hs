@@ -45,7 +45,7 @@ import Control.Monad (when)
 import Control.Monad.State (execStateT, modify)
 import Control.Monad.IO.Class
 
-import Data.Default (def)
+import Data.Default.Class (def)
 
 import Network (Socket)
 import Network.HTTP.Types (status404, status500)
