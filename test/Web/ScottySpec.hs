@@ -17,7 +17,7 @@ import qualified Web.Scotty as Scotty
 
 #ifndef WINDOWS
 import           Control.Concurrent.Async (withAsync)
-import           Data.Default (def)
+import           Data.Default.Class (def)
 import           Network (listenOn, PortID(..))
 import           Network.Socket
 import           System.Directory (removeFile)
