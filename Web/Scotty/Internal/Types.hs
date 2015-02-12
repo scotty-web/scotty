@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, GeneralizedNewtypeDeriving, FlexibleInstances, MultiParamTypeClasses, UndecidableInstances, TypeFamilies, DeriveDataTypeable #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, FlexibleInstances, MultiParamTypeClasses, UndecidableInstances, TypeFamilies, DeriveDataTypeable #-}
 module Web.Scotty.Internal.Types where
 
 import           Blaze.ByteString.Builder (Builder)
@@ -6,11 +6,7 @@ import           Blaze.ByteString.Builder (Builder)
 import           Control.Applicative
 import qualified Control.Exception as E
 import           Control.Monad.Base (MonadBase, liftBase, liftBaseDefault)
-#if MIN_VERSION_mtl(2,2,1)
 import           Control.Monad.Except
-#else
-import           Control.Monad.Error
-#endif
 import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Trans.Control (MonadBaseControl, StM, liftBaseWith, restoreM, ComposeSt, defaultLiftBaseWith, defaultRestoreM, MonadTransControl, StT, liftWith, restoreT)
@@ -94,11 +90,6 @@ instance ScottyError e => ScottyError (ActionError e) where
     showError Next            = pack "Next"
     showError (ActionError e) = showError e
 
-#if !MIN_VERSION_mtl(2,2,1)
-instance ScottyError e => Error (ActionError e) where
-    strMsg = stringError
-#endif
-
 type ErrorHandler e m = Maybe (e -> ActionT e m ())
 
 ------------------ Scotty Actions -------------------
@@ -133,11 +124,7 @@ data ScottyResponse = SR { srStatus  :: Status
 instance Default ScottyResponse where
     def = SR status200 [] (ContentBuilder mempty)
 
-#if MIN_VERSION_mtl(2,2,1)
 newtype ActionT e m a = ActionT { runAM :: ExceptT (ActionError e) (ReaderT ActionEnv (StateT ScottyResponse m)) a }
-#else
-newtype ActionT e m a = ActionT { runAM :: ErrorT (ActionError e) (ReaderT ActionEnv (StateT ScottyResponse m)) a }
-#endif
     deriving ( Functor, Applicative, Monad )
 
 instance (MonadIO m, ScottyError e) => MonadIO (ActionT e m) where
@@ -159,11 +146,7 @@ instance (MonadBase b m, ScottyError e) => MonadBase b (ActionT e m) where
 
 
 instance ScottyError e => MonadTransControl (ActionT e) where
-#if MIN_VERSION_mtl(2,2,1)
      type StT (ActionT e) a = StT (StateT ScottyResponse) (StT (ReaderT ActionEnv) (StT (ExceptT (ActionError e)) a))
-#else
-     type StT (ActionT e) a = StT (StateT ScottyResponse) (StT (ReaderT ActionEnv) (StT (ErrorT (ActionError e)) a))
-#endif
      liftWith = \f ->
         ActionT $  liftWith $ \run  ->
                    liftWith $ \run' ->
