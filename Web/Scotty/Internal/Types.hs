@@ -6,10 +6,11 @@ import           Blaze.ByteString.Builder (Builder)
 import           Control.Applicative
 import qualified Control.Exception as E
 import           Control.Monad.Base (MonadBase, liftBase, liftBaseDefault)
-import           Control.Monad.Except
+import           Control.Monad.Error.Class
 import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Trans.Control (MonadBaseControl, StM, liftBaseWith, restoreM, ComposeSt, defaultLiftBaseWith, defaultRestoreM, MonadTransControl, StT, liftWith, restoreT)
+import           Control.Monad.Trans.Except
 
 import qualified Data.ByteString as BS
 import           Data.ByteString.Lazy.Char8 (ByteString)
