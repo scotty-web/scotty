@@ -32,9 +32,10 @@ module Web.Scotty.Action
 
 import           Blaze.ByteString.Builder   (fromLazyByteString)
 
-import           Control.Monad.Except
+import           Control.Monad.Error.Class
 import           Control.Monad.Reader
 import qualified Control.Monad.State        as MS
+import           Control.Monad.Trans.Except
 
 import qualified Data.Aeson                 as A
 import qualified Data.ByteString.Char8      as B
