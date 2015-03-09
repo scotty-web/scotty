@@ -1,4 +1,5 @@
-{-# LANGUAGE CPP, GeneralizedNewtypeDeriving, FlexibleInstances, MultiParamTypeClasses, UndecidableInstances, TypeFamilies, DeriveDataTypeable #-}
+{-# LANGUAGE CPP, GeneralizedNewtypeDeriving, FlexibleInstances, MultiParamTypeClasses,
+             UndecidableInstances, TypeFamilies, DeriveDataTypeable, OverloadedStrings #-}
 module Web.Scotty.Internal.Types where
 
 import           Blaze.ByteString.Builder (Builder)
@@ -18,10 +19,12 @@ import           Control.Monad.Trans.Control (MonadBaseControl, StM, liftBaseWit
 import qualified Data.ByteString as BS
 import           Data.ByteString.Lazy.Char8 (ByteString)
 import           Data.Default.Class (Default, def)
-import           Data.Monoid (mempty)
+import           Data.Monoid (Monoid(..), mempty, mappend)
 import           Data.String (IsString(..))
 import           Data.Text.Lazy (Text, pack)
 import           Data.Typeable (Typeable)
+import qualified Data.Text.Lazy as T
+import qualified Data.Text as TS
 
 import           Network.HTTP.Types
 
@@ -183,3 +186,27 @@ data RoutePattern = Capture   Text
 
 instance IsString RoutePattern where
     fromString = Capture . pack
+
+instance Monoid RoutePattern where
+    mempty = Function . const . Just $ []
+    mappend l r = Function $ \req -> liftM2 (++) (matchRoute l req) (matchRoute r req)
+
+matchRoute :: RoutePattern -> Request -> Maybe [Param]
+matchRoute (Literal pat)  req | pat == path req = Just []
+                              | otherwise       = Nothing
+matchRoute (Function fun) req = fun req
+matchRoute (Capture pat)  req = go (T.split (=='/') pat) (T.split (=='/') $ path req) []
+    where go [] [] prs = Just prs -- request string and pattern match!
+          go [] r  prs | T.null (mconcat r)  = Just prs -- in case request has trailing slashes
+                       | otherwise           = Nothing  -- request string is longer than pattern
+          go p  [] prs | T.null (mconcat p)  = Just prs -- in case pattern has trailing slashes
+                       | otherwise           = Nothing  -- request string is not long enough
+          go (p:ps) (r:rs) prs | p == r          = go ps rs prs -- equal literals, keeping checking
+                               | T.null p        = Nothing      -- p is null, but r is not, fail
+                               | T.head p == ':' = go ps rs $ (T.tail p, r) : prs -- p is a capture, add to params
+                               | otherwise       = Nothing      -- both literals, but unequal, fail
+
+
+-- Pretend we are at the top level.
+path :: Request -> T.Text
+path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo

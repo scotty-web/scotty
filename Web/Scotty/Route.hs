@@ -18,10 +18,8 @@ import qualified Control.Monad.State as MS
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import           Data.Maybe (fromMaybe, isJust)
-import           Data.Monoid (mconcat)
 import           Data.String (fromString)
 import qualified Data.Text.Lazy as T
-import qualified Data.Text as TS
 
 import           Network.HTTP.Types
 import           Network.Wai (Request(..))
@@ -95,24 +93,6 @@ route h method pat action app req =
             Nothing -> tryNext
        else tryNext
 
-matchRoute :: RoutePattern -> Request -> Maybe [Param]
-matchRoute (Literal pat)  req | pat == path req = Just []
-                              | otherwise       = Nothing
-matchRoute (Function fun) req = fun req
-matchRoute (Capture pat)  req = go (T.split (=='/') pat) (T.split (=='/') $ path req) []
-    where go [] [] prs = Just prs -- request string and pattern match!
-          go [] r  prs | T.null (mconcat r)  = Just prs -- in case request has trailing slashes
-                       | otherwise           = Nothing  -- request string is longer than pattern
-          go p  [] prs | T.null (mconcat p)  = Just prs -- in case pattern has trailing slashes
-                       | otherwise           = Nothing  -- request string is not long enough
-          go (p:ps) (r:rs) prs | p == r          = go ps rs prs -- equal literals, keeping checking
-                               | T.null p        = Nothing      -- p is null, but r is not, fail
-                               | T.head p == ':' = go ps rs $ (T.tail p, r) : prs -- p is a capture, add to params
-                               | otherwise       = Nothing      -- both literals, but unequal, fail
-
--- Pretend we are at the top level.
-path :: Request -> T.Text
-path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo
 
 -- Stolen from wai-extra's Network.Wai.Parse, modified to accept body as list of Bytestrings.
 -- Reason: WAI's requestBody is an IO action that returns the body as chunks. Once read,
