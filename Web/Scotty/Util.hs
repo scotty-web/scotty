@@ -5,6 +5,7 @@ module Web.Scotty.Util
     , setContent
     , setHeaderWith
     , setStatus
+    , insertIntoTemplate
     , mkResponse
     , replace
     , add
@@ -43,6 +44,12 @@ setHeaderWith f sr = sr { srHeaders = f (srHeaders sr) }
 
 setStatus :: Status -> ScottyResponse -> ScottyResponse
 setStatus s sr = sr { srStatus = s }
+
+insertIntoTemplate :: String -> TemplateVariable -> ScottyResponse -> ScottyResponse
+insertIntoTemplate k v sr = sr { srContent = ContentTemplate (f,insert k v m)}
+    where 
+        (f,m) = g $ srContent sr
+        g (ContentTemplate (f',m')) = (f',m')
 
 -- Note: we currently don't support responseRaw, which may be useful
 -- for websockets. However, we always read the request body, which
