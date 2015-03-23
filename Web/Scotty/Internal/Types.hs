@@ -21,6 +21,7 @@ import           Data.Default.Class (Default, def)
 import           Data.Monoid (mempty)
 import           Data.String (IsString(..))
 import           Data.Text.Lazy (Text, pack)
+import           Data.Map.Strict (Map)
 import           Data.Typeable (Typeable)
 
 import           Network.HTTP.Types
