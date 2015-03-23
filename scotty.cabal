@@ -89,7 +89,7 @@ Library
                        wai                >= 3.0.0    && < 3.1,
                        wai-extra          >= 3.0.0    && < 3.1,
                        warp               >= 3.0.0    && < 3.1,
-                       containers         >= 0.5.5.1,
+                       containers         >= 0.5.0.0  && < 0.6,
                        tagsoup            >= 0.13.3
 
 
