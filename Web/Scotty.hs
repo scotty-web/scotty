@@ -32,7 +32,7 @@ module Web.Scotty
       -- * Parsing Parameters
     , Param, Trans.Parsable(..), Trans.readEither
       -- * Types
-    , ScottyM, ActionM, RoutePattern, File
+    , ScottyM, ActionM, RoutePattern, File, TemplateVariable(..)
     ) where
 
 -- With the exception of this, everything else better just import types.
