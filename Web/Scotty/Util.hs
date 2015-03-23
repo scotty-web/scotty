@@ -18,6 +18,8 @@ import Network.Wai
 
 import Network.HTTP.Types
 
+import           Blaze.ByteString.Builder (fromLazyByteString)
+
 import qualified Data.ByteString as B
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Encoding as ES
