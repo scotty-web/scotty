@@ -51,6 +51,8 @@ Extra-source-files:
     examples/404.html
     examples/basic.hs
     examples/cookies.hs
+    examples/template.hs
+    examples/template.html
     examples/exceptions.hs
     examples/globalstate.hs
     examples/gzip.hs
@@ -64,6 +66,8 @@ Library
   Exposed-modules:     Web.Scotty
                        Web.Scotty.Trans
                        Web.Scotty.Internal.Types
+                       Web.Scotty.Parser
+                       Web.Scotty.Internal.Treegen
   other-modules:       Web.Scotty.Action
                        Web.Scotty.Route
                        Web.Scotty.Util
@@ -84,7 +88,10 @@ Library
                        transformers-base  >= 0.4.1    && < 0.5,
                        wai                >= 3.0.0    && < 3.1,
                        wai-extra          >= 3.0.0    && < 3.1,
-                       warp               >= 3.0.0    && < 3.1
+                       warp               >= 3.0.0    && < 3.1,
+                       containers         >= 0.5.5.1,
+                       tagsoup            >= 0.13.3
+
 
   GHC-options: -Wall -fno-warn-orphans
 
