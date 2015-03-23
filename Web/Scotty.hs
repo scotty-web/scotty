@@ -328,7 +328,7 @@ template_ fn = do
 template :: String -> ActionM ()
 template = Trans.template
 
--- | Create a template map form a list of pairs
+-- | Create a template map from a list of pairs
 fromPairs :: [(String,TemplateVariable)] -> TemplateVariable
 fromPairs = Trans.fromPairs
 
