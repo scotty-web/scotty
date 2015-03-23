@@ -26,7 +26,7 @@ module Web.Scotty
       -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json, stream, raw, template, template_
       -- ** Using templates
-    , tSet
+    , tSet, fromPairs
       -- ** Exceptions
     , raise, rescue, next, defaultHandler
       -- * Parsing Parameters
@@ -326,6 +326,9 @@ template_ fn = do
 
 template :: String -> ActionM ()
 template = Trans.template
+
+fromPairs :: [(String,TemplateVariable)] -> TemplateVariable
+fromPairs = Trans.fromPairs
 
 tSet :: String -> TemplateVariable -> ActionM ()
 tSet = Trans.tSet

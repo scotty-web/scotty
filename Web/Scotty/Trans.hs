@@ -30,7 +30,7 @@ module Web.Scotty.Trans
       -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json, stream, raw, template
       -- ** Using the template
-    , tSet 
+    , tSet, fromPairs
       -- ** Exceptions
     , raise, rescue, next, defaultHandler, ScottyError(..)
       -- * Parsing Parameters
@@ -46,7 +46,7 @@ import Blaze.ByteString.Builder (fromByteString)
 import Control.Monad (when)
 import Control.Monad.State (execStateT, modify)
 import Control.Monad.IO.Class
-
+import Data.Map.Strict(empty, insert)
 import Data.Default.Class (def)
 
 import Network (Socket)
