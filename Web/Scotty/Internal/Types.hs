@@ -124,11 +124,18 @@ instance E.Exception BodyPartiallyStreamed
 data Content = ContentBuilder Builder
              | ContentFile    FilePath
              | ContentStream  StreamingBody
+             | ContentTemplate (String,Map String TemplateVariable)
 
 data ScottyResponse = SR { srStatus  :: Status
                          , srHeaders :: ResponseHeaders
                          , srContent :: Content
                          }
+
+data TemplateVariable = Value  String
+                      | List   [TemplateVariable] 
+                      | TMap   (Map String TemplateVariable)
+                      | TIf    Bool
+  deriving Show
 
 instance Default ScottyResponse where
     def = SR status200 [] (ContentBuilder mempty)
