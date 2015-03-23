@@ -50,6 +50,7 @@ insertIntoTemplate k v sr = sr { srContent = ContentTemplate (f,insert k v m)}
     where 
         (f,m) = g $ srContent sr
         g (ContentTemplate (f',m')) = (f',m')
+        g _ = error "You must call template or template_ before using tSet."
 
 -- Note: we currently don't support responseRaw, which may be useful
 -- for websockets. However, we always read the request body, which
