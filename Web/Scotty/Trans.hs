@@ -131,3 +131,7 @@ defaultHandler f = ScottyT $ modify $ addHandler $ Just (\e -> status status500 
 -- on the response). Every middleware is run on each request.
 middleware :: Monad m => Middleware -> ScottyT e m ()
 middleware = ScottyT . modify . addMiddleware
+
+-- | Create a template map form a list of pairs
+fromPairs :: [(String,TemplateVariable)] -> TemplateVariable
+fromPairs ps = TMap $ foldr (\(s,t) m -> insert s t m) empty ps
