@@ -324,11 +324,14 @@ template_ fn = do
   f <- liftIO $ readFile fn 
   length f `seq` template f
 
+-- | Sets the specified html string as the template to use with 'tSet'
 template :: String -> ActionM ()
 template = Trans.template
 
+-- | Create a template map form a list of pairs
 fromPairs :: [(String,TemplateVariable)] -> TemplateVariable
 fromPairs = Trans.fromPairs
 
+-- | Sets a variable in the template
 tSet :: String -> TemplateVariable -> ActionM ()
 tSet = Trans.tSet
