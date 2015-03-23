@@ -21,8 +21,11 @@ import Network.HTTP.Types
 import qualified Data.ByteString as B
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Encoding as ES
+import           Data.Map.Strict (insert)
+import           Data.Text.Lazy.Encoding (encodeUtf8)
 
 import Web.Scotty.Internal.Types
+import Web.Scotty.Parser
 
 lazyTextToStrictByteString :: T.Text -> B.ByteString
 lazyTextToStrictByteString = ES.encodeUtf8 . T.toStrict
@@ -47,8 +50,10 @@ mkResponse sr = case srContent sr of
                     ContentBuilder b  -> responseBuilder s h b
                     ContentFile f     -> responseFile s h f Nothing
                     ContentStream str -> responseStream s h str
+                    ContentTemplate (f,vars) -> responseBuilder s h (ph f vars)
     where s = srStatus sr
           h = srHeaders sr
+          ph f vars = fromLazyByteString$encodeUtf8$T.pack$runScottyParse f vars
 
 -- Note: we assume headers are not sensitive to order here (RFC 2616 specifies they are not)
 replace :: Eq a => a -> b -> [(a,b)] -> [(a,b)]
