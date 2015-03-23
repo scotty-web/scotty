@@ -24,7 +24,9 @@ module Web.Scotty
       --
       -- | Note: only one of these should be present in any given route
       -- definition, as they completely replace the current 'Response' body.
-    , text, html, file, json, stream, raw
+    , text, html, file, json, stream, raw, template, template_
+      -- ** Using templates
+    , tSet
       -- ** Exceptions
     , raise, rescue, next, defaultHandler
       -- * Parsing Parameters
@@ -40,13 +42,14 @@ import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString as BS
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Text.Lazy (Text)
+import Control.Monad.IO.Class
 
 import Network (Socket)
 import Network.HTTP.Types (Status, StdMethod)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 
-import Web.Scotty.Internal.Types (ScottyT, ActionT, Param, RoutePattern, Options, File)
+import Web.Scotty.Internal.Types (ScottyT, ActionT, Param, RoutePattern, Options, File, TemplateVariable(..))
 
 type ScottyM = ScottyT Text IO
 type ActionM = ActionT Text IO
@@ -314,3 +317,15 @@ function = Trans.function
 -- | Build a route that requires the requested path match exactly, without captures.
 literal :: String -> RoutePattern
 literal = Trans.literal
+
+-- | Sets the specified file as the template to use with 'tSet'
+template_ :: FilePath -> ActionM ()
+template_ fn = do
+  f <- liftIO $ readFile fn 
+  length f `seq` template f
+
+template :: String -> ActionM ()
+template = Trans.template
+
+tSet :: String -> TemplateVariable -> ActionM ()
+tSet = Trans.tSet

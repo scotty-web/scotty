@@ -17,6 +17,8 @@ module Web.Scotty.Action
     , params
     , raise
     , raw
+    , template
+    , tSet
     , readEither
     , redirect
     , request
@@ -50,6 +52,7 @@ import           Data.Monoid                (mconcat)
 import qualified Data.Text                  as ST
 import qualified Data.Text.Lazy             as T
 import           Data.Text.Lazy.Encoding    (encodeUtf8)
+import           Data.Map.Strict            (empty)
 
 import           Network.HTTP.Types
 import           Network.Wai
@@ -291,3 +294,11 @@ stream = ActionT . MS.modify . setContent . ContentStream
 -- own with 'setHeader'.
 raw :: (ScottyError e, Monad m) => BL.ByteString -> ActionT e m ()
 raw = ActionT . MS.modify . setContent . ContentBuilder . fromLazyByteString
+
+-- | Sets the specified html string as the template to use with 'tSet'
+template :: (ScottyError e, Monad m) => String -> ActionT e m ()
+template h = ActionT $ MS.modify $ setContent $ ContentTemplate (h, empty)
+
+-- | Sets a variable in the template
+tSet :: (ScottyError e, Monad m) => String -> TemplateVariable -> ActionT e m ()
+tSet s tv = ActionT $ MS.modify $ (insertIntoTemplate s tv)

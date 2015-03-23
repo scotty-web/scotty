@@ -28,7 +28,9 @@ module Web.Scotty.Trans
       --
       -- | Note: only one of these should be present in any given route
       -- definition, as they completely replace the current 'Response' body.
-    , text, html, file, json, stream, raw
+    , text, html, file, json, stream, raw, template
+      -- ** Using the template
+    , tSet 
       -- ** Exceptions
     , raise, rescue, next, defaultHandler, ScottyError(..)
       -- * Parsing Parameters
