@@ -6,10 +6,10 @@ main = scotty 3000 $
 
 serve = do
   template_ "template.html"
-  tSet "loop" $ List [Value "hej1",Value "hej2"]
+  tSet "loop" $ List [Value "var1",Value "var2"]
   tSet "map" $ fromPairs [("k",Value "v")]
   tSet "bool" (TIf True)
-  tSet "test" $ Value "hej"
+  tSet "simple" $ Value "hi there"
 
 
 
