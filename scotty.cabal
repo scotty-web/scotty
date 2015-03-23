@@ -33,7 +33,7 @@ Description:
   .
     * A page is as simple as defining the verb, url pattern, and Text content.
   .
-    * It is template-language agnostic. Anything that returns a Text value will do.
+    * Using templates is possible, but there are no constraints on using them.
   .
     * Conforms to WAI Application interface.
   .
