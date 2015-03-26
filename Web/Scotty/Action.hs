@@ -46,10 +46,18 @@ import qualified Data.ByteString.Char8      as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive       as CI
 import           Data.Default.Class         (def)
-import           Data.Monoid                (mconcat)
+import           Data.Monoid                (mconcat, (<>))
 import qualified Data.Text                  as ST
 import qualified Data.Text.Lazy             as T
 import           Data.Text.Lazy.Encoding    (encodeUtf8)
+import           Data.Time                  (UTCTime)
+
+#if MIN_VERSION_time(1,5,0)
+import           Data.Time.Format           (parseTimeM, defaultTimeLocale)
+#else
+import           Data.Time.Format           (parseTime)
+import           System.Locale              (defaultTimeLocale)
+#endif
 
 import           Network.HTTP.Types
 import           Network.Wai
@@ -221,6 +229,17 @@ instance Parsable Double where parseParam = readEither
 instance Parsable Float where parseParam = readEither
 instance Parsable Int where parseParam = readEither
 instance Parsable Integer where parseParam = readEither
+
+#if MIN_VERSION_time(1,5,0)
+instance Parsable UTCTime where
+    parseParam = parseTimeM True defaultTimeLocale "%FT%T%QZ" . T.unpack
+#else
+instance Parsable UTCTime where
+    parseParam t =
+        case parseTime defaultTimeLocale "%FT%T%QZ" (T.unpack t) of
+            Just d -> Right d
+            _      -> Left $ "parseParam UTCTime: no parse of \"" <> t <> "\""
+#endif
 
 -- | Useful for creating 'Parsable' instances for things that already implement 'Read'. Ex:
 --
