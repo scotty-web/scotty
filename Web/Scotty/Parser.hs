@@ -9,6 +9,7 @@ import Data.List (isInfixOf, elemIndex)
 import Web.Scotty.Internal.Types
 import qualified Data.Map.Strict as M
 import Control.Monad.Reader
+import Text.StringLike (StringLike)
 
 type TReader = Reader (M.Map String TemplateVariable) HTML
 
