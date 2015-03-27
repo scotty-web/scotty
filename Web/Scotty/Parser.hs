@@ -12,6 +12,7 @@ import Control.Monad.Reader
 
 type TReader = Reader (M.Map String TemplateVariable) HTML
 
+opts :: StringLike str => RenderOptions str
 opts = RenderOptions id (const True) (const False)
 
 -- | Parses the given html, compiles it, renders it back to HTML
