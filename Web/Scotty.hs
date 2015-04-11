@@ -17,7 +17,7 @@ module Web.Scotty
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, header, headers, body, bodyReader, param, params, jsonData, files
+    , request, header, headers, body, bodyReader, param, params, captureParams, formParams, queryParams, jsonData, files
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
       -- ** Setting Response Body
@@ -171,6 +171,18 @@ param = Trans.param
 -- | Get all parameters from capture, form and query (in that order).
 params :: ActionM [Param]
 params = Trans.params
+
+-- | Get all parameters from captures.
+captureParams :: ActionM [Param]
+captureParams = Trans.captureParams
+
+-- | Get all parameters from forms.
+formParams :: ActionM [Param]
+formParams = Trans.formParams
+
+-- | Get all parameters from query strings.
+queryParams :: ActionM [Param]
+queryParams = Trans.queryParams
 
 -- | Set the HTTP response status. Default is 200.
 status :: Status -> ActionM ()

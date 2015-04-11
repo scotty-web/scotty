@@ -15,6 +15,9 @@ module Web.Scotty.Action
     , next
     , param
     , params
+    , captureParams
+    , formParams
+    , queryParams
     , raise
     , raw
     , readEither
@@ -171,14 +174,26 @@ jsonData = do
 --   capture cannot be parsed.
 param :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
 param k = do
-    val <- ActionT $ liftM (lookup k . getParams) ask
-    case val of
+    val <- params
+    case lookup k val of
         Nothing -> raise $ stringError $ "Param: " ++ T.unpack k ++ " not found!"
         Just v  -> either (const next) return $ parseParam v
 
 -- | Get all parameters from capture, form and query (in that order).
 params :: (ScottyError e, Monad m) => ActionT e m [Param]
-params = ActionT $ liftM getParams ask
+params = ActionT $ liftM concat $
+    mapM asks [ getCaptureParams
+              , getFormParams
+              , getQueryParams ]
+
+captureParams :: (ScottyError e, Monad m) => ActionT e m [Param]
+captureParams = ActionT $ asks getCaptureParams
+
+formParams :: (ScottyError e, Monad m) => ActionT e m [Param]
+formParams = ActionT $ asks getFormParams
+
+queryParams :: (ScottyError e, Monad m) => ActionT e m [Param]
+queryParams = ActionT $ asks getQueryParams
 
 -- | Minimum implemention: 'parseParam'
 class Parsable a where

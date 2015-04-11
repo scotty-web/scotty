@@ -11,6 +11,7 @@ import           Data.String
 import           Network.HTTP.Types
 import qualified Control.Exception.Lifted as EL
 import qualified Control.Exception as E
+import qualified Data.Text.Lazy as T
 
 import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request, options)
 import qualified Web.Scotty as Scotty
@@ -101,6 +102,21 @@ spec = do
         context "when used with application/x-www-form-urlencoded data" $ do
           it "returns POST parameter with given name" $ do
             request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=haskell" `shouldRespondWith` "haskell"
+
+    describe "params" $ do
+      withApp (Scotty.matchAny "/search" $ params >>= text . T.pack . show) $ do
+        it "returns all params" $ do
+          get "/search?query=hello" `shouldRespondWith` "[(\"query\",\"hello\")]"
+
+    describe "captureParams" $ do
+      withApp (Scotty.matchAny "/search/:query/" $ captureParams >>= text . T.pack . show) $ do
+        it "returns all capture params" $ do
+          get "/search/hello?query=what" `shouldRespondWith` "[(\"query\",\"hello\")]"
+
+    describe "queryParams" $ do
+      withApp (Scotty.matchAny "/search/:query/" $ queryParams >>= text . T.pack . show) $ do
+        it "returns all query params" $ do
+          get "/search/hello?query=what" `shouldRespondWith` "[(\"query\",\"what\")]"
 
     describe "text" $ do
       let modernGreekText :: IsString a => a
