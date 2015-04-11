@@ -180,7 +180,6 @@ mkEnv req captures = do
 
     let 
         convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
-        parameters =  captures ++ map convert formparams ++ queryparams
         queryparams = parseEncodedParams $ rawQueryString req
 
     return $ Env req captures (map convert formparams) queryparams bs safeBodyReader [ (strictByteStringToLazyText k, fi) | (k,fi) <- fs ]
