@@ -15,7 +15,7 @@ import qualified Control.Exception as E
 import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request, options)
 import qualified Web.Scotty as Scotty
 
-#ifndef WINDOWS
+#ifndef mingw32_HOST_OS
 import           Control.Concurrent.Async (withAsync)
 import           Data.Default.Class (def)
 import           Network (listenOn, PortID(..))
@@ -138,7 +138,7 @@ spec = do
           get "/scotty" `shouldRespondWith` 200 {matchHeaders = ["Content-Type" <:> "text/somethingweird"]}
 
 -- Unix sockets not available on Windows
-#ifndef WINDOWS
+#ifndef mingw32_HOST_OS
   describe "scottySocket" .
     it "works with a unix socket" .
       withServer (Scotty.get "/scotty" $ html "") .
