@@ -1,15 +1,15 @@
 {-# LANGUAGE OverloadedStrings, GeneralizedNewtypeDeriving, ScopedTypeVariables #-}
-module Main where
+module Main (main) where
 
-import Control.Applicative
-import Control.Monad.Error
+import Control.Monad.IO.Class
 
 import Data.Monoid
 import Data.String (fromString)
 
 import Network.HTTP.Types
 import Network.Wai.Middleware.RequestLogger
-import Network.Wai
+
+import Prelude
 
 import System.Random
 
@@ -51,7 +51,7 @@ main = scottyT 3000 id id $ do -- note, we aren't using any additional transform
 
     get "/switch/:val" $ do
         v <- param "val"
-        if even v then raise Forbidden else raise (NotFound v)
+        _ <- if even v then raise Forbidden else raise (NotFound v)
         text "this will never be reached"
 
     get "/random" $ do
