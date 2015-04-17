@@ -8,11 +8,7 @@ module Web.Scotty.Route
 import           Control.Arrow ((***))
 import           Control.Concurrent.MVar
 import           Control.Exception (throw)
-#if MIN_VERSION_mtl(2,2,1)
-import           Control.Monad.Except
-#else
-import           Control.Monad.Error
-#endif
+import           Control.Monad.IO.Class
 import qualified Control.Monad.State as MS
 
 import qualified Data.ByteString.Char8 as B
