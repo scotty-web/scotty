@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+module Main (main) where
+
 import Network.Wai.Middleware.RequestLogger
 import Network.Wai.Middleware.Gzip
 

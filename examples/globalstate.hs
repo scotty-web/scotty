@@ -7,8 +7,9 @@
 -- is IO itself. The types of 'scottyT' and 'scottyAppT' are
 -- general enough to allow a Scotty application to be
 -- embedded into any MonadIO monad.
-module Main where
+module Main (main) where
 
+import Control.Applicative
 import Control.Concurrent.STM
 import Control.Monad.Reader
 
@@ -17,6 +18,8 @@ import Data.String
 import Data.Text.Lazy (Text)
 
 import Network.Wai.Middleware.RequestLogger
+
+import Prelude
 
 import Web.Scotty.Trans
 
@@ -36,7 +39,7 @@ instance Default AppState where
 -- Also note: your monad must be an instance of 'MonadIO' for
 -- Scotty to use it.
 newtype WebM a = WebM { runWebM :: ReaderT (TVar AppState) IO a }
-    deriving (Monad, MonadIO, MonadReader (TVar AppState))
+    deriving (Applicative, Functor, Monad, MonadIO, MonadReader (TVar AppState))
 
 -- Scotty's monads are layered on top of our custom monad.
 -- We define this synonym for lift in order to be explicit
