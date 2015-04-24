@@ -94,7 +94,7 @@ spec = do
       it "has a MonadBaseControl instance" $ do
         get "/" `shouldRespondWith` 200
 
-    withApp (Scotty.get "/dictionary" $ param "word1" <|> param "word2" >>= text) $
+    withApp (Scotty.get "/dictionary" $ empty <|> param "word1" <|> empty <|> param "word2" >>= text) $
       it "has an Alternative instance" $ do
         get "/dictionary?word1=haskell"   `shouldRespondWith` "haskell"
         get "/dictionary?word2=scotty"    `shouldRespondWith` "scotty"
