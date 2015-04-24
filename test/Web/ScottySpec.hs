@@ -5,6 +5,7 @@ import           Test.Hspec
 import           Test.Hspec.Wai
 import           Network.Wai (Application)
 
+import           Control.Applicative
 import           Control.Monad
 import           Data.Char
 import           Data.String
@@ -92,6 +93,12 @@ spec = do
     withApp (Scotty.get "/" $ (undefined `EL.catch` ((\_ -> html "") :: E.SomeException -> ActionM ()))) $ do
       it "has a MonadBaseControl instance" $ do
         get "/" `shouldRespondWith` 200
+
+    withApp (Scotty.get "/dictionary" $ param "word1" <|> param "word2" >>= text) $
+      it "has an Alternative instance" $ do
+        get "/dictionary?word1=haskell"   `shouldRespondWith` "haskell"
+        get "/dictionary?word2=scotty"    `shouldRespondWith` "scotty"
+        get "/dictionary?word1=a&word2=b" `shouldRespondWith` "a"
 
     describe "param" $ do
       withApp (Scotty.matchAny "/search" $ param "query" >>= text) $ do

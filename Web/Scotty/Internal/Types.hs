@@ -3,9 +3,7 @@ module Web.Scotty.Internal.Types where
 
 import           Blaze.ByteString.Builder (Builder)
 
-#if !(MIN_VERSION_base(4,8,0))
 import           Control.Applicative
-#endif
 import qualified Control.Exception as E
 import           Control.Monad.Base (MonadBase, liftBase, liftBaseDefault)
 import           Control.Monad.Error.Class
@@ -136,6 +134,22 @@ instance (Monad m, ScottyError e) => Monad (ActionT e m) where
     return = ActionT . return
     ActionT m >>= k = ActionT (m >>= runAM . k)
     fail = ActionT . throwError . stringError
+
+instance ( Monad m, ScottyError e
+#if !(MIN_VERSION_base(4,8,0))
+         , Functor m
+#endif
+         ) => Alternative (ActionT e m) where
+    empty = mzero
+    (<|>) = mplus
+
+instance (Monad m, ScottyError e) => MonadPlus (ActionT e m) where
+    mzero = ActionT . ExceptT . return $ Left Next
+    ActionT m `mplus` ActionT n = ActionT . ExceptT $ do
+        a <- runExceptT m
+        case a of
+            Left  _ -> runExceptT n
+            Right r -> return $ Right r
 
 instance (MonadIO m, ScottyError e) => MonadIO (ActionT e m) where
     liftIO io = ActionT $ do
