@@ -130,7 +130,12 @@ instance Default ScottyResponse where
     def = SR status200 [] (ContentBuilder mempty)
 
 newtype ActionT e m a = ActionT { runAM :: ExceptT (ActionError e) (ReaderT ActionEnv (StateT ScottyResponse m)) a }
-    deriving ( Functor, Applicative, Monad )
+    deriving ( Functor, Applicative )
+
+instance (Monad m, ScottyError e) => Monad (ActionT e m) where
+    return = ActionT . return
+    ActionT m >>= k = ActionT (m >>= runAM . k)
+    fail = ActionT . throwError . stringError
 
 instance (MonadIO m, ScottyError e) => MonadIO (ActionT e m) where
     liftIO io = ActionT $ do
