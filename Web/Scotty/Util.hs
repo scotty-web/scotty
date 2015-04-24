@@ -54,7 +54,7 @@ mkResponse sr = case srContent sr of
 replace :: Eq a => a -> b -> [(a,b)] -> [(a,b)]
 replace k v = add k v . filter ((/= k) . fst)
 
-add :: Eq a => a -> b -> [(a,b)] -> [(a,b)]
+add :: a -> b -> [(a,b)] -> [(a,b)]
 add k v m = (k,v):m
 
 addIfNotPresent :: Eq a => a -> b -> [(a,b)] -> [(a,b)]
