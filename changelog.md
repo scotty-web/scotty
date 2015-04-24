@@ -1,3 +1,29 @@
+## next
+
+* `Alternative`, `MonadPlus` instances for `ActionT`
+
+* `scotty` now depends on `transformers-compat`. As a result, `ActionT` now
+  uses `ExceptT`, regardless of which version of `transformers` is used.
+  As a result, several functions in `Web.Scotty.Trans` no longer require a
+  `ScottyError` constraint, since `ExceptT` does not require an `Error`
+  constraint (unlike `ErrorT`).
+
+* Added support for OPTIONS routes via the `options` function [alvare]
+
+* Add `scottySocket` and `scottySocketT`, exposing Warp Unix socket support
+  [hakujin]
+
+* `Parsable` instance for lazy `ByteString` [tattsun]
+
+* Added streaming uploads via the `bodyReader` function, which retrieves chunks
+  of the request body. [edofic]
+  - `ActionEnv` had a `getBodyChunk` field added (in 
+    `Web.Scotty.Internal.Types`)
+  - `RequestBodyState` and `BodyPartiallyStreamed` added to
+    `Web.Scotty.Internal.Types`
+
+* `jsonData` uses `aeson`'s `eitherDecode` instead of just `decode` [k-bx]
+
 ## 0.9.1
 
 * text/html/json only set Content-Type header when not already set
