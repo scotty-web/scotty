@@ -56,13 +56,13 @@ data ScottyState e m =
                 , handler :: ErrorHandler e m
                 }
 
-instance Monad m => Default (ScottyState e m) where
+instance Default (ScottyState e m) where
     def = ScottyState [] [] Nothing
 
 addMiddleware :: Wai.Middleware -> ScottyState e m -> ScottyState e m
 addMiddleware m s@(ScottyState {middlewares = ms}) = s { middlewares = m:ms }
 
-addRoute :: Monad m => Middleware m -> ScottyState e m -> ScottyState e m
+addRoute :: Middleware m -> ScottyState e m -> ScottyState e m
 addRoute r s@(ScottyState {routes = rs}) = s { routes = r:rs }
 
 addHandler :: ErrorHandler e m -> ScottyState e m -> ScottyState e m
@@ -142,7 +142,7 @@ instance (MonadIO m, ScottyError e) => MonadIO (ActionT e m) where
                     r <- liftIO $ liftM Right io `E.catch` (\ e -> return $ Left $ stringError $ show (e :: E.SomeException))
                     either throwError return r
 
-instance ScottyError e => MonadTrans (ActionT e) where
+instance MonadTrans (ActionT e) where
     lift = ActionT . lift . lift . lift
 
 instance (ScottyError e, Monad m) => MonadError (ActionError e) (ActionT e m) where
@@ -155,7 +155,7 @@ instance (MonadBase b m, ScottyError e) => MonadBase b (ActionT e m) where
     liftBase = liftBaseDefault
 
 
-instance ScottyError e => MonadTransControl (ActionT e) where
+instance MonadTransControl (ActionT e) where
      type StT (ActionT e) a = StT (StateT ScottyResponse) (StT (ReaderT ActionEnv) (StT (ExceptT (ActionError e)) a))
      liftWith = \f ->
         ActionT $  liftWith $ \run  ->

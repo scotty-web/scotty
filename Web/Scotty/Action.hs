@@ -120,11 +120,11 @@ redirect :: (ScottyError e, Monad m) => T.Text -> ActionT e m a
 redirect = throwError . Redirect
 
 -- | Get the 'Request' object.
-request :: (ScottyError e, Monad m) => ActionT e m Request
+request :: Monad m => ActionT e m Request
 request = ActionT $ liftM getReq ask
 
 -- | Get list of uploaded files.
-files :: (ScottyError e, Monad m) => ActionT e m [File]
+files :: Monad m => ActionT e m [File]
 files = ActionT $ liftM getFiles ask
 
 -- | Get a request header. Header name is case-insensitive.
@@ -148,7 +148,7 @@ body = ActionT ask >>= (liftIO . getBody)
 -- | Get an IO action that reads body chunks
 --
 -- * This is incompatible with 'body' since 'body' consumes all chunks.
-bodyReader :: (ScottyError e, Monad m) => ActionT e m (IO B.ByteString)
+bodyReader :: Monad m => ActionT e m (IO B.ByteString)
 bodyReader = ActionT $ getBodyChunk `liftM` ask
 
 -- | Parse the request body as a JSON object and return it. Raises an exception if parse is unsuccessful.
@@ -172,7 +172,7 @@ param k = do
         Just v  -> either (const next) return $ parseParam v
 
 -- | Get all parameters from capture, form and query (in that order).
-params :: (ScottyError e, Monad m) => ActionT e m [Param]
+params :: Monad m => ActionT e m [Param]
 params = ActionT $ liftM getParams ask
 
 -- | Minimum implemention: 'parseParam'
@@ -227,11 +227,11 @@ readEither t = case [ x | (x,"") <- reads (T.unpack t) ] of
                 _   -> Left "readEither: ambiguous parse"
 
 -- | Set the HTTP response status. Default is 200.
-status :: (ScottyError e, Monad m) => Status -> ActionT e m ()
+status :: Monad m => Status -> ActionT e m ()
 status = ActionT . MS.modify . setStatus
 
 -- Not exported, but useful in the functions below.
-changeHeader :: (ScottyError e, Monad m)
+changeHeader :: Monad m
              => (CI.CI B.ByteString -> B.ByteString -> [(HeaderName, B.ByteString)] -> [(HeaderName, B.ByteString)])
              -> T.Text -> T.Text -> ActionT e m ()
 changeHeader f k = ActionT
@@ -241,12 +241,12 @@ changeHeader f k = ActionT
                  . lazyTextToStrictByteString
 
 -- | Add to the response headers. Header names are case-insensitive.
-addHeader :: (ScottyError e, Monad m) => T.Text -> T.Text -> ActionT e m ()
+addHeader :: Monad m => T.Text -> T.Text -> ActionT e m ()
 addHeader = changeHeader add
 
 -- | Set one of the response headers. Will override any previously set value for that header.
 -- Header names are case-insensitive.
-setHeader :: (ScottyError e, Monad m) => T.Text -> T.Text -> ActionT e m ()
+setHeader :: Monad m => T.Text -> T.Text -> ActionT e m ()
 setHeader = changeHeader replace
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
@@ -265,7 +265,7 @@ html t = do
 
 -- | Send a file as the response. Doesn't set the \"Content-Type\" header, so you probably
 -- want to do that on your own with 'setHeader'.
-file :: (ScottyError e, Monad m) => FilePath -> ActionT e m ()
+file :: Monad m => FilePath -> ActionT e m ()
 file = ActionT . MS.modify . setContent . ContentFile
 
 -- | Set the body of the response to the JSON encoding of the given value. Also sets \"Content-Type\"
@@ -278,11 +278,11 @@ json v = do
 -- | Set the body of the response to a Source. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your
 -- own with 'setHeader'.
-stream :: (ScottyError e, Monad m) => StreamingBody -> ActionT e m ()
+stream :: Monad m => StreamingBody -> ActionT e m ()
 stream = ActionT . MS.modify . setContent . ContentStream
 
 -- | Set the body of the response to the given 'BL.ByteString' value. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your
 -- own with 'setHeader'.
-raw :: (ScottyError e, Monad m) => BL.ByteString -> ActionT e m ()
+raw :: Monad m => BL.ByteString -> ActionT e m ()
 raw = ActionT . MS.modify . setContent . ContentBuilder . fromLazyByteString
