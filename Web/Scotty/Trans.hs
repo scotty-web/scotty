@@ -42,7 +42,7 @@ module Web.Scotty.Trans
 import Blaze.ByteString.Builder (fromByteString)
 
 import Control.Monad (when)
-import Control.Monad.State (execStateT, modify)
+import Control.Monad.State (execState, modify)
 import Control.Monad.IO.Class
 
 import Data.Default.Class (def)
@@ -62,7 +62,6 @@ import qualified Web.Scotty.Internal.Types as Scotty
 -- NB: scotty p === scottyT p id id
 scottyT :: (Monad m, MonadIO n)
         => Port
-        -> (forall a. m a -> n a)      -- ^ Run monad 'm' into monad 'n', called once at 'ScottyT' level.
         -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
         -> ScottyT e m ()
         -> n ()
@@ -72,14 +71,13 @@ scottyT p = scottyOptsT $ def { settings = setPort p (settings def) }
 -- NB: scottyOpts opts === scottyOptsT opts id id
 scottyOptsT :: (Monad m, MonadIO n)
             => Options
-            -> (forall a. m a -> n a)      -- ^ Run monad 'm' into monad 'n', called once at 'ScottyT' level.
             -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
             -> ScottyT e m ()
             -> n ()
-scottyOptsT opts runM runActionToIO s = do
+scottyOptsT opts runActionToIO s = do
     when (verbose opts > 0) $
         liftIO $ putStrLn $ "Setting phasers to stun... (port " ++ show (getPort (settings opts)) ++ ") (ctrl-c to quit)"
-    liftIO . runSettings (settings opts) =<< scottyAppT runM runActionToIO s
+    liftIO . runSettings (settings opts) =<< scottyAppT runActionToIO s
 
 -- | Run a scotty application using the warp server, passing extra options, and
 -- listening on the provided socket.
@@ -87,26 +85,24 @@ scottyOptsT opts runM runActionToIO s = do
 scottySocketT :: (Monad m, MonadIO n)
               => Options
               -> Socket
-              -> (forall a. m a -> n a)
               -> (m Response -> IO Response)
               -> ScottyT e m ()
               -> n ()
-scottySocketT opts sock runM runActionToIO s = do
+scottySocketT opts sock runActionToIO s = do
     when (verbose opts > 0) $ do
         d <- liftIO $ socketDescription sock
         liftIO $ putStrLn $ "Setting phasers to stun... (" ++ d ++ ") (ctrl-c to quit)"
-    liftIO . runSettingsSocket (settings opts) sock =<< scottyAppT runM runActionToIO s
+    liftIO . runSettingsSocket (settings opts) sock =<< scottyAppT runActionToIO s
 
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
 -- NB: scottyApp === scottyAppT id id
 scottyAppT :: (Monad m, Monad n)
-           => (forall a. m a -> n a)      -- ^ Run monad 'm' into monad 'n', called once at 'ScottyT' level.
-           -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
+           => (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
            -> ScottyT e m ()
            -> n Application
-scottyAppT runM runActionToIO defs = do
-    s <- runM $ execStateT (runS defs) def
+scottyAppT runActionToIO defs = do
+    s <- return $ execState (runS defs) def
     let rapp req callback = runActionToIO (foldl (flip ($)) notFoundApp (routes s) req) >>= callback
     return $ foldl (flip ($)) rapp (middlewares s)
 

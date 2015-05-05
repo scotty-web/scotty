@@ -66,11 +66,9 @@ addRoute r s@(ScottyState {routes = rs}) = s { routes = r:rs }
 addHandler :: ErrorHandler e m -> ScottyState e m -> ScottyState e m
 addHandler h s = s { handler = h }
 
-newtype ScottyT e m a = ScottyT { runS :: StateT (ScottyState e m) m a }
-    deriving ( Functor, Applicative, Monad, MonadIO )
+newtype ScottyT e m a = ScottyT { runS :: State (ScottyState e m) a }
+    deriving ( Functor, Applicative, Monad )
 
-instance MonadTrans (ScottyT e) where
-    lift = ScottyT . lift
 
 ------------------ Scotty Errors --------------------
 data ActionError e = Redirect Text
