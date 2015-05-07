@@ -57,12 +57,10 @@ modify f = ask >>= liftIO . atomically . flip modifyTVar' f
 main :: IO ()
 main = do
     sync <- newTVarIO def
-        -- Note that 'runM' is only called once, at startup.
-    let runM m = runReaderT (runWebM m) sync
         -- 'runActionToIO' is called once per action.
-        runActionToIO = runM
+    let runActionToIO m = runReaderT (runWebM m) sync
 
-    scottyT 3000 runM runActionToIO app
+    scottyT 3000 runActionToIO app
 
 -- This app doesn't use raise/rescue, so the exception
 -- type is ambiguous. We can fix it by putting a type
