@@ -1,4 +1,14 @@
-## next
+## 0.10.0
+
+* The monad parameters to `ScottyT` have been decoupled, causing the type
+  of the `ScottyT` constructor to change. As a result, `ScottyT` is no
+  longer a `MonadTrans` instance, and the type signatures of`scottyT`,
+  `scottyAppT`, and `scottyOptsT` have been simplified. [ehamberg]
+
+* `socketDescription` no longer uses the deprecated `PortNum` constructor.
+  Instead, it uses the `Show` instance for `PortNumber`. This changes the
+  bytes from host to network order, so the output of `socketDescription`
+  could change. [ehamberg]
 
 * `Alternative`, `MonadPlus` instances for `ActionT`
 
