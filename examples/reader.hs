@@ -29,12 +29,9 @@ application = do
     text $ pack $ show e
 
 main :: IO ()
-main = scottyOptsT def runM runIO application where
-  runM :: ConfigM a -> IO a
-  runM m = runReaderT (runConfigM m) config
-
+main = scottyOptsT def runIO application where
   runIO :: ConfigM a -> IO a
-  runIO = runM
+  runIO m = runReaderT (runConfigM m) config
 
   config :: Config
   config = Config

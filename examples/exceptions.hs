@@ -35,8 +35,8 @@ handleEx (NotFound i) = do
     html $ fromString $ "<h1>Can't find " ++ show i ++ ".</h1>"
 
 main :: IO ()
-main = scottyT 3000 id id $ do -- note, we aren't using any additional transformer layers
-                               -- so we can just use 'id' for the runners.
+main = scottyT 3000 id $ do -- note, we aren't using any additional transformer layers
+                            -- so we can just use 'id' for the runner.
     middleware logStdoutDev
 
     defaultHandler handleEx    -- define what to do with uncaught exceptions

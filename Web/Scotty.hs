@@ -53,23 +53,23 @@ type ActionM = ActionT Text IO
 
 -- | Run a scotty application using the warp server.
 scotty :: Port -> ScottyM () -> IO ()
-scotty p = Trans.scottyT p id id
+scotty p = Trans.scottyT p id
 
 -- | Run a scotty application using the warp server, passing extra options.
 scottyOpts :: Options -> ScottyM () -> IO ()
-scottyOpts opts = Trans.scottyOptsT opts id id
+scottyOpts opts = Trans.scottyOptsT opts id
 
 -- | Run a scotty application using the warp server, passing extra options,
 -- and listening on the provided socket. This allows the user to provide, for
 -- example, a Unix named socket, which can be used when reverse HTTP proxying
 -- into your application.
 scottySocket :: Options -> Socket -> ScottyM () -> IO ()
-scottySocket opts sock = Trans.scottySocketT opts sock id id
+scottySocket opts sock = Trans.scottySocketT opts sock id
 
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
 scottyApp :: ScottyM () -> IO Application
-scottyApp = Trans.scottyAppT id id
+scottyApp = Trans.scottyAppT id
 
 -- | Global handler for uncaught exceptions.
 --
