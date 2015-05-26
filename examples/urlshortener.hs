@@ -28,7 +28,7 @@ import Text.Blaze.Html.Renderer.Text (renderHtml)
 
 main :: IO ()
 main = do
-  m <- liftIO $ newMVar (0::Int,M.empty :: M.Map Int T.Text)
+  m <- newMVar (0::Int,M.empty :: M.Map Int T.Text)
   scotty 3000 $ do
     middleware logStdoutDev
     middleware static
