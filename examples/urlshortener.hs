@@ -27,11 +27,11 @@ import Text.Blaze.Html.Renderer.Text (renderHtml)
 -- Add links
 
 main :: IO ()
-main = scotty 3000 $ do
+main = do
+  m <- newMVar (0::Int,M.empty :: M.Map Int T.Text)
+  scotty 3000 $ do
     middleware logStdoutDev
     middleware static
-
-    m <- liftIO $ newMVar (0::Int,M.empty :: M.Map Int T.Text)
 
     get "/" $ do
         html $ renderHtml
