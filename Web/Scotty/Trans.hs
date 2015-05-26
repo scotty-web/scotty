@@ -59,7 +59,7 @@ import Web.Scotty.Util (socketDescription)
 import qualified Web.Scotty.Internal.Types as Scotty
 
 -- | Run a scotty application using the warp server.
--- NB: scotty p === scottyT p id id
+-- NB: scotty p === scottyT p id
 scottyT :: (Monad m, MonadIO n)
         => Port
         -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
@@ -68,7 +68,7 @@ scottyT :: (Monad m, MonadIO n)
 scottyT p = scottyOptsT $ def { settings = setPort p (settings def) }
 
 -- | Run a scotty application using the warp server, passing extra options.
--- NB: scottyOpts opts === scottyOptsT opts id id
+-- NB: scottyOpts opts === scottyOptsT opts id
 scottyOptsT :: (Monad m, MonadIO n)
             => Options
             -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
@@ -81,7 +81,7 @@ scottyOptsT opts runActionToIO s = do
 
 -- | Run a scotty application using the warp server, passing extra options, and
 -- listening on the provided socket.
--- NB: scottySocket opts sock === scottySocketT opts sock id id
+-- NB: scottySocket opts sock === scottySocketT opts sock id
 scottySocketT :: (Monad m, MonadIO n)
               => Options
               -> Socket
@@ -96,7 +96,7 @@ scottySocketT opts sock runActionToIO s = do
 
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
--- NB: scottyApp === scottyAppT id id
+-- NB: scottyApp === scottyAppT id
 scottyAppT :: (Monad m, Monad n)
            => (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
            -> ScottyT e m ()
