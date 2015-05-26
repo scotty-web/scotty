@@ -102,7 +102,7 @@ scottyAppT :: (Monad m, Monad n)
            -> ScottyT e m ()
            -> n Application
 scottyAppT runActionToIO defs = do
-    s <- return $ execState (runS defs) def
+    let s = execState (runS defs) def
     let rapp req callback = runActionToIO (foldl (flip ($)) notFoundApp (routes s) req) >>= callback
     return $ foldl (flip ($)) rapp (middlewares s)
 
