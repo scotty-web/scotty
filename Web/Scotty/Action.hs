@@ -43,6 +43,7 @@ import qualified Data.ByteString.Char8      as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive       as CI
 import           Data.Default.Class         (def)
+import           Data.Int
 #if !(MIN_VERSION_base(4,8,0))
 import           Data.Monoid                (mconcat)
 #endif
@@ -53,6 +54,8 @@ import           Data.Word
 
 import           Network.HTTP.Types
 import           Network.Wai
+
+import           Numeric.Natural
 
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util
@@ -215,7 +218,12 @@ instance Parsable Bool where
 
 instance Parsable Double where parseParam = readEither
 instance Parsable Float where parseParam = readEither
+
 instance Parsable Int where parseParam = readEither
+instance Parsable Int8 where parseParam = readEither
+instance Parsable Int16 where parseParam = readEither
+instance Parsable Int32 where parseParam = readEither
+instance Parsable Int64 where parseParam = readEither
 instance Parsable Integer where parseParam = readEither
 
 instance Parsable Word where parseParam = readEither
@@ -223,6 +231,7 @@ instance Parsable Word8 where parseParam = readEither
 instance Parsable Word16 where parseParam = readEither
 instance Parsable Word32 where parseParam = readEither
 instance Parsable Word64 where parseParam = readEither
+instance Parsable Natural where parseParam = readEither
 
 -- | Useful for creating 'Parsable' instances for things that already implement 'Read'. Ex:
 --

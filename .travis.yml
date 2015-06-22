@@ -26,9 +26,9 @@ install:
 script:
  - if [ -f configure.ac ]; then autoreconf -i; fi
  - cabal configure -v2 --enable-tests --enable-library-coverage --ghc-options=-Werror && cabal build -j1
- - run-cabal-test --show-details=always
+ - cabal exec -- run-cabal-test --show-details=always
  - cabal check
  - cabal sdist
 
 after_script:
- - hpc-coveralls --exclude-dir=test spec
+ - cabal exec -- hpc-coveralls --exclude-dir=test spec
