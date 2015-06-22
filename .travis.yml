@@ -1,8 +1,8 @@
 # NB: don't set `language: haskell` here
 
 env:
- - CABALVER=1.20 GHCVER=7.6.3
- - CABALVER=1.20 GHCVER=7.8.4
+ - CABALVER=1.18 GHCVER=7.6.3
+ - CABALVER=1.18 GHCVER=7.8.4
  - CABALVER=1.22 GHCVER=7.10.1
  - CABALVER=head GHCVER=head
 
@@ -22,13 +22,14 @@ install:
  - travis_retry cabal update
  - cabal install -j --only-dependencies --enable-tests
  - cabal install -j hpc-coveralls
+ - export PATH=$HOME/.cabal/bin:$PATH
 
 script:
  - if [ -f configure.ac ]; then autoreconf -i; fi
  - cabal configure -v2 --enable-tests --enable-library-coverage --ghc-options=-Werror && cabal build -j1
- - cabal exec -- run-cabal-test --show-details=always
+ - run-cabal-test --show-details=always
  - cabal check
  - cabal sdist
 
 after_script:
- - cabal exec -- hpc-coveralls --exclude-dir=test spec
+ - hpc-coveralls --exclude-dir=test spec

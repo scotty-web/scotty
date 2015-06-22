@@ -125,5 +125,5 @@ defaultHandler f = ScottyT $ modify $ addHandler $ Just (\e -> status status500 
 -- | Use given middleware. Middleware is nested such that the first declared
 -- is the outermost middleware (it has first dibs on the request and last action
 -- on the response). Every middleware is run on each request.
-middleware :: Monad m => Middleware -> ScottyT e m ()
+middleware :: Middleware -> ScottyT e m ()
 middleware = ScottyT . modify . addMiddleware
