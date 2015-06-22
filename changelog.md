@@ -2,6 +2,7 @@
 * `Parsable` instances for `Word`, `Word8`, `Word16`, `Word32`, `Word64`
    [adamflott]
 * `Parsable` instances for `Int8`, `Int16`, `Int32`, `Int64`, and `Natural`
+* Removed redundant `Monad` constraint on `middleware`
 
 ## 0.10.0
 
