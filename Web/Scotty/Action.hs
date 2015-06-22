@@ -49,6 +49,7 @@ import           Data.Monoid                (mconcat)
 import qualified Data.Text                  as ST
 import qualified Data.Text.Lazy             as T
 import           Data.Text.Lazy.Encoding    (encodeUtf8)
+import           Data.Word
 
 import           Network.HTTP.Types
 import           Network.Wai
@@ -216,6 +217,12 @@ instance Parsable Double where parseParam = readEither
 instance Parsable Float where parseParam = readEither
 instance Parsable Int where parseParam = readEither
 instance Parsable Integer where parseParam = readEither
+
+instance Parsable Word where parseParam = readEither
+instance Parsable Word8 where parseParam = readEither
+instance Parsable Word16 where parseParam = readEither
+instance Parsable Word32 where parseParam = readEither
+instance Parsable Word64 where parseParam = readEither
 
 -- | Useful for creating 'Parsable' instances for things that already implement 'Read'. Ex:
 --
