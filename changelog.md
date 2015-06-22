@@ -1,3 +1,8 @@
+## 0.10.1
+* `Parsable` instances for `Word`, `Word8`, `Word16`, `Word32`, `Word64`
+   [adamflott]
+* `Parsable` instances for `Int8`, `Int16`, `Int32`, `Int64`, and `Natural`
+
 ## 0.10.0
 
 * The monad parameters to `ScottyT` have been decoupled, causing the type
@@ -27,7 +32,7 @@
 
 * Added streaming uploads via the `bodyReader` function, which retrieves chunks
   of the request body. [edofic]
-  - `ActionEnv` had a `getBodyChunk` field added (in 
+  - `ActionEnv` had a `getBodyChunk` field added (in
     `Web.Scotty.Internal.Types`)
   - `RequestBodyState` and `BodyPartiallyStreamed` added to
     `Web.Scotty.Internal.Types`
