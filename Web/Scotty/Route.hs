@@ -171,8 +171,7 @@ mkEnv req captures = do
         shouldParseBody = isJust $ Parse.getRequestBodyType req
 
     (formparams, fs) <- if shouldParseBody
-      then liftIO $ do putStrLn "consuming body"
-                       wholeBody <- BL.toChunks `fmap` bs
+      then liftIO $ do wholeBody <- BL.toChunks `fmap` bs
                        parseRequestBody wholeBody Parse.lbsBackEnd req
       else return ([], [])
 
