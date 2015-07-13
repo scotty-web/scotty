@@ -1,3 +1,6 @@
+## 0.10.2
+* Removed debug statement from routes
+
 ## 0.10.1
 * `Parsable` instances for `Word`, `Word8`, `Word16`, `Word32`, `Word64`
    [adamflott]
