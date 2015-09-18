@@ -76,16 +76,16 @@ spec = do
             get "/" `shouldRespondWith` "<h1>404: File Not Found!</h1>" {matchStatus = 404}
 
     describe "defaultHandler" $ do
-      withApp (defaultHandler text >> Scotty.get "/" (liftIO $ E.throwIO E.DivideByZero)) $ do
+      withApp (defaultHandler text >> Scotty.get "/" (liftAndCatchIO $ E.throwIO E.DivideByZero)) $ do
         it "sets custom exception handler" $ do
           get "/" `shouldRespondWith` "divide by zero" {matchStatus = 500}
 
-      withApp (defaultHandler (\_ -> status status503) >> Scotty.get "/" (liftIO $ E.throwIO E.DivideByZero)) $ do
+      withApp (defaultHandler (\_ -> status status503) >> Scotty.get "/" (liftAndCatchIO $ E.throwIO E.DivideByZero)) $ do
         it "allows to customize the HTTP status code" $ do
           get "/" `shouldRespondWith` "" {matchStatus = 503}
 
       context "when not specified" $ do
-        withApp (Scotty.get "/" $ liftIO $ E.throwIO E.DivideByZero) $ do
+        withApp (Scotty.get "/" $ liftAndCatchIO $ E.throwIO E.DivideByZero) $ do
           it "returns 500 on exceptions" $ do
             get "/" `shouldRespondWith` "<h1>500 Internal Server Error</h1>divide by zero" {matchStatus = 500}
 
