@@ -26,7 +26,7 @@ module Web.Scotty
       -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json, stream, raw
       -- ** Exceptions
-    , raise, rescue, next, defaultHandler
+    , raise, rescue, next, defaultHandler, liftAndCatchIO
       -- * Parsing Parameters
     , Param, Trans.Parsable(..), Trans.readEither
       -- * Types
@@ -116,6 +116,10 @@ next = Trans.next
 -- > raise "just kidding" `rescue` (\msg -> text msg)
 rescue :: ActionM a -> (Text -> ActionM a) -> ActionM a
 rescue = Trans.rescue
+
+-- | Like 'liftIO', but catch any IO exceptions and turn them into Scotty exceptions.
+liftAndCatchIO :: IO a -> ActionM a
+liftAndCatchIO = Trans.liftAndCatchIO
 
 -- | Redirect to given URL. Like throwing an uncatchable exception. Any code after the call to redirect
 -- will not be run.

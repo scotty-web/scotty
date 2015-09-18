@@ -106,12 +106,6 @@ raise = throwError . ActionError
 next :: (ScottyError e, Monad m) => ActionT e m a
 next = throwError Next
 
--- | Like 'liftIO', but catch any exceptions throw by the IO computation and turn them into 'ScottyError's.
-liftAndCatchIO :: (ScottyError e, MonadIO m) => IO a -> ActionT e m a
-liftAndCatchIO io = ActionT $ do
-    r <- liftIO $ liftM Right io `E.catch` (\ e -> return $ Left $ stringError $ show (e :: E.SomeException))
-    either throwError return r
-
 -- | Catch an exception thrown by 'raise'.
 --
 -- > raise "just kidding" `rescue` (\msg -> text msg)
@@ -119,6 +113,12 @@ rescue :: (ScottyError e, Monad m) => ActionT e m a -> (e -> ActionT e m a) -> A
 rescue action h = catchError action $ \e -> case e of
     ActionError err -> h err            -- handle errors
     other           -> throwError other -- rethrow internal error types
+
+-- | Like 'liftIO', but catch any IO exceptions and turn them into 'ScottyError's.
+liftAndCatchIO :: (ScottyError e, MonadIO m) => IO a -> ActionT e m a
+liftAndCatchIO io = ActionT $ do
+    r <- liftIO $ liftM Right io `E.catch` (\ e -> return $ Left $ stringError $ show (e :: E.SomeException))
+    either throwError return r
 
 -- | Redirect to given URL. Like throwing an uncatchable exception. Any code after the call to redirect
 -- will not be run.
