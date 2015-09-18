@@ -15,7 +15,7 @@ addons:
   apt:
     sources:
     - hvr-ghc
-    packages
+    packages:
     - cabal-install-$CABALVER
     - ghc-$GHCVER
 
