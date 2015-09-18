@@ -1,31 +1,30 @@
 # NB: don't set `language: haskell` here
 
-env:
- - CABALVER=1.18 GHCVER=7.6.3
- - CABALVER=1.18 GHCVER=7.8.4
- - CABALVER=1.22 GHCVER=7.10.2
- - CABALVER=head GHCVER=head
+sudo: false
 
 matrix:
+  include:
+    - env: CABALVER=1.18 GHCVER=7.6.3
+      addons: {apt: {packages: [cabal-install-1.18,ghc-7.6.3], sources: [hvr-ghc]}}
+    - env: CABALVER=1.18 GHCVER=7.8.4
+      addons: {apt: {packages: [cabal-install-1.18,ghc-7.8.4], sources: [hvr-ghc]}}
+    - env: CABALVER=1.22 GHCVER=7.10.2
+      addons: {apt: {packages: [cabal-install-1.22,ghc-7.10.2],sources: [hvr-ghc]}}
+    - env: CABALVER=head GHCVER=head
+      addons: {apt: {packages: [cabal-install-head,ghc-head],  sources: [hvr-ghc]}}
+
   allow_failures:
    - env: CABALVER=head GHCVER=head
-
-sudo: false
-addons:
-  apt:
-    sources:
-    - hvr-ghc
-    packages:
-    - cabal-install-$CABALVER
-    - ghc-$GHCVER
 
 before_install:
  - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
 
+# sed out the jobs: $ncpus until GHC's #9221 is fixed
 install:
  - cabal --version
  - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
  - travis_retry cabal update
+ - sed -i 's/^jobs:/-- jobs:/' ${HOME}/.cabal/config
  - cabal install -j hpc-coveralls
  - cabal install -j --only-dependencies --enable-tests
  - export PATH=$HOME/.cabal/bin:$PATH
