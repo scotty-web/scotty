@@ -10,6 +10,7 @@ module Web.Scotty.Action
     , header
     , headers
     , html
+    , liftAndCatchIO
     , json
     , jsonData
     , next
@@ -33,6 +34,7 @@ module Web.Scotty.Action
 
 import           Blaze.ByteString.Builder   (fromLazyByteString)
 
+import qualified Control.Exception          as E
 import           Control.Monad.Error.Class
 import           Control.Monad.Reader
 import qualified Control.Monad.State        as MS
@@ -103,6 +105,12 @@ raise = throwError . ActionError
 -- >   text $ "You made a request to: " <> w
 next :: (ScottyError e, Monad m) => ActionT e m a
 next = throwError Next
+
+-- | Like 'liftIO', but catch any exceptions throw by the IO computation and turn them into 'ScottyError's.
+liftAndCatchIO :: (ScottyError e, MonadIO m) => IO a -> ActionT e m a
+liftAndCatchIO io = ActionT $ do
+    r <- liftIO $ liftM Right io `E.catch` (\ e -> return $ Left $ stringError $ show (e :: E.SomeException))
+    either throwError return r
 
 -- | Catch an exception thrown by 'raise'.
 --
