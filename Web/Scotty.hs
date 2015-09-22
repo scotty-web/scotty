@@ -48,7 +48,7 @@ import Network.Wai.Handler.Warp (Port)
 
 import Web.Scotty.Internal.Types (ScottyT, ActionT, Param, RoutePattern, Options, File)
 
-type ScottyM = ScottyT Text IO
+type ScottyM = ScottyT Text IO IO
 type ActionM = ActionT Text IO
 
 -- | Run a scotty application using the warp server.
