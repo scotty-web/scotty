@@ -26,7 +26,7 @@ module Web.Scotty
       -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json, stream, raw
       -- ** Exceptions
-    , raise, rescue, next, defaultHandler, liftAndCatchIO
+    , raise, rescue, next, finish, defaultHandler, liftAndCatchIO
       -- * Parsing Parameters
     , Param, Trans.Parsable(..), Trans.readEither
       -- * Types
@@ -110,6 +110,21 @@ raise = Trans.raise
 -- >   text $ "You made a request to: " <> w
 next :: ActionM a
 next = Trans.next
+
+-- | Abort execution of this action. Like an exception, any code after 'finish'
+-- is not executed.
+--
+-- As an example only requests to /foo/special will include in the response
+-- content the text message.
+--
+-- > get "/foo/:bar" $ do
+-- >   w :: Text <- param "bar"
+-- >   unless (w == "special") finish
+-- >   text "You made a request to /foo/special"
+--
+-- /Since: 0.10.3/
+finish :: ActionM a
+finish = Trans.finish
 
 -- | Catch an exception thrown by 'raise'.
 --

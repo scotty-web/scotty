@@ -144,6 +144,15 @@ spec = do
         it "doesn't override a previously set Content-Type header" $ do
           get "/scotty" `shouldRespondWith` 200 {matchHeaders = ["Content-Type" <:> "text/somethingweird"]}
 
+    describe "finish" $ do
+      withApp (Scotty.get "/scotty" $ finish) $ do
+        it "responds with 200 by default" $ do
+          get "/scotty" `shouldRespondWith` 200
+
+      withApp (Scotty.get "/scotty" $ status status400 >> finish >> status status200) $ do
+        it "stops the execution of an action" $ do
+          get "/scotty" `shouldRespondWith` 400
+
 -- Unix sockets not available on Windows
 #if !defined(mingw32_HOST_OS)
   describe "scottySocket" .
@@ -168,4 +177,3 @@ withServer actions inner = E.bracket
   (\sock -> close sock >> removeFile socketPath)
   (\sock -> withAsync (Scotty.scottySocket def sock actions) $ const inner)
 #endif
-
