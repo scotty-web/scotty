@@ -107,7 +107,7 @@ data ActionEnv = Env { getReq       :: Request
                      , getFiles     :: [File]
                      }
 
-data RequestBodyState = BodyUntouched 
+data RequestBodyState = BodyUntouched
                       | BodyCached ByteString [BS.ByteString] -- whole body, chunks left to stream
                       | BodyCorrupted
 
