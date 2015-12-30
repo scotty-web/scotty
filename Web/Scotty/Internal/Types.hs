@@ -73,6 +73,7 @@ newtype ScottyT e m a = ScottyT { runS :: State (ScottyState e m) a }
 ------------------ Scotty Errors --------------------
 data ActionError e = Redirect Text
                    | Next
+                   | Finish
                    | ActionError e
 
 -- | In order to use a custom exception type (aside from 'Text'), you must
@@ -89,6 +90,7 @@ instance ScottyError e => ScottyError (ActionError e) where
     stringError = ActionError . stringError
     showError (Redirect url)  = url
     showError Next            = pack "Next"
+    showError Finish          = pack "Finish"
     showError (ActionError e) = showError e
 
 type ErrorHandler e m = Maybe (e -> ActionT e m ())
@@ -105,7 +107,7 @@ data ActionEnv = Env { getReq       :: Request
                      , getFiles     :: [File]
                      }
 
-data RequestBodyState = BodyUntouched 
+data RequestBodyState = BodyUntouched
                       | BodyCached ByteString [BS.ByteString] -- whole body, chunks left to stream
                       | BodyCorrupted
 

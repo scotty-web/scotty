@@ -7,6 +7,7 @@ module Web.Scotty.Action
     , bodyReader
     , file
     , files
+    , finish
     , header
     , headers
     , html
@@ -83,6 +84,7 @@ defH Nothing    (ActionError e)   = do
     html $ mconcat ["<h1>500 Internal Server Error</h1>", showError e]
 defH h@(Just f) (ActionError e)   = f e `catchError` (defH h) -- so handlers can throw exceptions themselves
 defH _          Next              = next
+defH _          Finish            = return ()
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
@@ -130,6 +132,13 @@ liftAndCatchIO io = ActionT $ do
 -- > redirect "/foo/bar"
 redirect :: (ScottyError e, Monad m) => T.Text -> ActionT e m a
 redirect = throwError . Redirect
+
+-- | Finish the execution of the current action. Like throwing an uncatchable
+-- exception. Any code after the call to finish will not be run.
+--
+-- /Since: 0.10.3/
+finish :: (ScottyError e, Monad m) => ActionT e m a
+finish = throwError Finish
 
 -- | Get the 'Request' object.
 request :: Monad m => ActionT e m Request
