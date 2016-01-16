@@ -109,6 +109,9 @@ spec = do
           it "returns POST parameter with given name" $ do
             request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=haskell" `shouldRespondWith` "haskell"
 
+          it "replaces non UTF-8 bytes with Unicode replacement character" $ do
+            request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=\xe9" `shouldRespondWith` "\xfffd"
+
     describe "text" $ do
       let modernGreekText :: IsString a => a
           modernGreekText = "νέα ελληνικά"

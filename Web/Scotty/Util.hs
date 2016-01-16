@@ -20,6 +20,7 @@ import Network.HTTP.Types
 import qualified Data.ByteString as B
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Encoding as ES
+import qualified Data.Text.Encoding.Error as ES
 
 import Web.Scotty.Internal.Types
 
@@ -27,7 +28,7 @@ lazyTextToStrictByteString :: T.Text -> B.ByteString
 lazyTextToStrictByteString = ES.encodeUtf8 . T.toStrict
 
 strictByteStringToLazyText :: B.ByteString -> T.Text
-strictByteStringToLazyText = T.fromStrict . ES.decodeUtf8
+strictByteStringToLazyText = T.fromStrict . ES.decodeUtf8With ES.lenientDecode
 
 setContent :: Content -> ScottyResponse -> ScottyResponse
 setContent c sr = sr { srContent = c }
