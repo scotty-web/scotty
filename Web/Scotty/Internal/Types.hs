@@ -13,9 +13,7 @@ import           Control.Applicative
 import qualified Control.Exception as E
 import           Control.Monad.Base (MonadBase, liftBase, liftBaseDefault)
 import           Control.Monad.Error.Class
-#if MIN_VERSION_base(4,9,0)
-import           Control.Monad.Fail
-#endif
+import qualified Control.Monad.Fail as Fail
 import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Trans.Control (MonadBaseControl, StM, liftBaseWith, restoreM, ComposeSt, defaultLiftBaseWith, defaultRestoreM, MonadTransControl, StT, liftWith, restoreT)
@@ -144,10 +142,8 @@ instance (Monad m, ScottyError e) => Monad (ActionT e m) where
     ActionT m >>= k = ActionT (m >>= runAM . k)
     fail = ActionT . throwError . stringError
 
-#if MIN_VERSION_base(4,9,0)
-instance (Monad m, ScottyError e) => MonadFail (ActionT e m) where
+instance (Monad m, ScottyError e) => Fail.MonadFail (ActionT e m) where
     fail = ActionT . throwError . stringError
-#endif
 
 instance ( Monad m, ScottyError e
 #if !(MIN_VERSION_base(4,8,0))

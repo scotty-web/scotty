@@ -1,3 +1,6 @@
+## next
+* Added `MonadFail` instance for `ScottyT`
+
 ## 0.10.2
 * Removed debug statement from routes
 
