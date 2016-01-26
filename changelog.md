@@ -1,5 +1,10 @@
-## next
+## 0.11.0
+* IO exceptions are no longer automatically turned into ScottyErrors by
+  `liftIO`. Use `liftAndCatchIO` to get that behavior.
+* New `finish` function.
+* Text values are now leniently decoded from ByteStrings.
 * Added `MonadFail` instance for `ScottyT`
+* Lots of bound bumps on dependencies.
 
 ## 0.10.2
 * Removed debug statement from routes
