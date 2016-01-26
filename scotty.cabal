@@ -101,6 +101,7 @@ test-suite spec
                        base,
                        data-default-class,
                        directory,
+                       hpc-coveralls,
                        hspec == 2.*,
                        hspec-wai >= 0.6.3,
                        http-types,

@@ -8,8 +8,8 @@ matrix:
       addons: {apt: {packages: [cabal-install-1.18,ghc-7.6.3], sources: [hvr-ghc]}}
     - env: CABALVER=1.18 GHCVER=7.8.4
       addons: {apt: {packages: [cabal-install-1.18,ghc-7.8.4], sources: [hvr-ghc]}}
-    - env: CABALVER=1.22 GHCVER=7.10.2
-      addons: {apt: {packages: [cabal-install-1.22,ghc-7.10.2],sources: [hvr-ghc]}}
+    - env: CABALVER=1.22 GHCVER=7.10.3
+      addons: {apt: {packages: [cabal-install-1.22,ghc-7.10.3],sources: [hvr-ghc]}}
     - env: CABALVER=head GHCVER=head
       addons: {apt: {packages: [cabal-install-head,ghc-head],  sources: [hvr-ghc]}}
 
@@ -25,7 +25,6 @@ install:
  - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
  - travis_retry cabal update
  - sed -i 's/^jobs:/-- jobs:/' ${HOME}/.cabal/config
- - cabal install -j hpc-coveralls
  - cabal install -j --only-dependencies --enable-tests
  - export PATH=$HOME/.cabal/bin:$PATH
 
