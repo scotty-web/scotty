@@ -100,6 +100,7 @@ test-suite spec
   hs-source-dirs:      test
   build-depends:       async,
                        base,
+                       bytestring,
                        data-default-class,
                        directory,
                        hpc-coveralls,

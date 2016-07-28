@@ -18,9 +18,12 @@ import qualified Web.Scotty as Scotty
 
 #if !defined(mingw32_HOST_OS)
 import           Control.Concurrent.Async (withAsync)
+import qualified Data.ByteString as BS
+import           Data.ByteString (ByteString)
 import           Data.Default.Class (def)
 import           Network (listenOn, PortID(..))
-import           Network.Socket
+import           Network.Socket (Family(..), SockAddr(..), SocketType(..), close, connect, socket)
+import           Network.Socket.ByteString (send, recv)
 import           System.Directory (removeFile)
 #endif
 
@@ -167,8 +170,9 @@ spec = do
           r1 <- recv sock 1024
           _ <- send sock "GET /four-oh-four HTTP/1.1\r\n\n"
           r2 <- recv sock 1024
-          (take (length ok) r1, take (length no) r2) `shouldBe` (ok, no)
-  where ok = "HTTP/1.1 200 OK"
+          (BS.take (BS.length ok) r1, BS.take (BS.length no) r2) `shouldBe` (ok, no)
+  where ok, no :: ByteString
+        ok = "HTTP/1.1 200 OK"
         no = "HTTP/1.1 404 Not Found"
 
 socketPath :: FilePath
