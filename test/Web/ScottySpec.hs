@@ -60,9 +60,9 @@ spec = do
 
     describe "matchAny" $ do
       withApp (matchAny "/scotty" $ html "") $ do
-        forM_ availableMethods $ \method -> do
+        forM_ ("NONSTANDARD" : fmap renderStdMethod availableMethods) $ \method -> do
           it ("adds route that matches " ++ show method ++ " requests") $ do
-            request (renderStdMethod method) "/scotty" [] "" `shouldRespondWith` 200
+            request method "/scotty" [] "" `shouldRespondWith` 200
 
     describe "notFound" $ do
       withApp (notFound $ html "my custom not found page") $ do

@@ -57,7 +57,7 @@ options = addroute OPTIONS
 
 -- | Add a route that matches regardless of the HTTP verb.
 matchAny :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
-matchAny pattern action = mapM_ (\v -> addroute v pattern action) [minBound..maxBound]
+matchAny pattern action = ScottyT $ MS.modify $ \s -> addRoute (route (handler s) Nothing pattern action) s
 
 -- | Specify an action to take if nothing else is found. Note: this _always_ matches,
 -- so should generally be the last route specified.
@@ -79,12 +79,21 @@ notFound action = matchAny (Function (\req -> Just [("path", path req)])) (statu
 -- >>> curl http://localhost:3000/foo/something
 -- something
 addroute :: (ScottyError e, MonadIO m) => StdMethod -> RoutePattern -> ActionT e m () -> ScottyT e m ()
-addroute method pat action = ScottyT $ MS.modify $ \s -> addRoute (route (handler s) method pat action) s
+addroute method pat action = ScottyT $ MS.modify $ \s -> addRoute (route (handler s) (Just method) pat action) s
 
-route :: (ScottyError e, MonadIO m) => ErrorHandler e m -> StdMethod -> RoutePattern -> ActionT e m () -> Middleware m
+route :: (ScottyError e, MonadIO m) => ErrorHandler e m -> Maybe StdMethod -> RoutePattern -> ActionT e m () -> Middleware m
 route h method pat action app req =
     let tryNext = app req
-    in if Right method == parseMethod (requestMethod req)
+        {- |
+          We match all methods in the case where 'method' is 'Nothing'.
+          See https://github.com/scotty-web/scotty/issues/196
+        -}
+        methodMatches :: Bool
+        methodMatches =
+            case method of
+                Nothing -> True
+                Just m -> Right m == parseMethod (requestMethod req)
+    in if methodMatches
        then case matchRoute pat req of
             Just captures -> do
                 env <- mkEnv req captures
