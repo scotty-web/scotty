@@ -1,4 +1,4 @@
-# Scotty [![Build Status](https://travis-ci.org/scotty-web/scotty.svg)](https://travis-ci.org/scotty-web/scotty)[![Coverage Status](https://coveralls.io/repos/scotty-web/scotty/badge.png?branch=master)](https://coveralls.io/r/scotty-web/scotty?branch=master)
+# Scotty [![Build Status](https://travis-ci.org/scotty-web/scotty.svg)](https://travis-ci.org/scotty-web/scotty)[![Coverage Status](https://coveralls.io/repos/scotty-web/scotty/badge.svg?branch=master)](https://coveralls.io/r/scotty-web/scotty?branch=master)
 
 A Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp.
 
