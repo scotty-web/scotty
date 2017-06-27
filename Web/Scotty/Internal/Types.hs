@@ -34,7 +34,7 @@ import           Network.HTTP.Types
 
 import           Network.Wai hiding (Middleware, Application)
 import qualified Network.Wai as Wai
-import           Network.Wai.Handler.Warp (Settings, defaultSettings, setFdCacheDuration)
+import           Network.Wai.Handler.Warp (Settings, defaultSettings)
 import           Network.Wai.Parse (FileInfo)
 
 --------------------- Options -----------------------
@@ -49,7 +49,7 @@ data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
                        }
 
 instance Default Options where
-    def = Options 1 (setFdCacheDuration 0 defaultSettings)
+    def = Options 1 defaultSettings 
 
 ----- Transformer Aware Applications/Middleware -----
 type Middleware m = Application m -> Application m
