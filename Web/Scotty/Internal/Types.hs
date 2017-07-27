@@ -116,11 +116,11 @@ data ActionEnv = Env { getReq       :: Request
                      , getFiles     :: [File]
                      }
 
-data BodyReadProgress = BodyReadProgress { bodyReaderIndex :: Int
-                                         , hasFinishedReadingChunks :: Bool }
+data BodyChunkBuffer = BodyChunkBuffer { hasFinishedReadingChunks :: Bool
+                                       , chunksReadSoFar :: [BS.ByteString] }
 
-data BodyInfo = BodyInfo { bodyInfoReadProgress :: MVar BodyReadProgress
-                         , bodyInfoChunkBuffer :: MVar [BS.ByteString]
+data BodyInfo = BodyInfo { bodyInfoReadProgress :: MVar Int
+                         , bodyInfoChunkBuffer :: MVar BodyChunkBuffer
                          , bodyInfoDirectChunkRead :: IO BS.ByteString
                          }
 

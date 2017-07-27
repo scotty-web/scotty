@@ -2,8 +2,7 @@
              OverloadedStrings, RankNTypes, ScopedTypeVariables #-}
 module Web.Scotty.Route
     ( get, post, put, delete, patch, options, addroute, matchAny, notFound,
-      capture, regex, function, literal,
-      getBodyInfo, cloneBodyInfo
+      capture, regex, function, literal
     ) where
 
 import           Control.Arrow ((***))

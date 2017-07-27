@@ -1,6 +1,13 @@
 {-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, RecordWildCards,
              OverloadedStrings, RankNTypes, ScopedTypeVariables, MultiWayIf #-}
-module Web.Scotty.Body where
+module Web.Scotty.Body (
+  newBodyInfo,
+  cloneBodyInfo
+
+  , getFormParamsAndFilesAction
+  , getBodyAction
+  , getBodyChunkAction
+  ) where
 
 import           Control.Concurrent.MVar
 import           Control.Monad.IO.Class
@@ -15,18 +22,21 @@ import           Web.Scotty.Action
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util
 
-getBodyInfo :: forall m. (MonadIO m) => Request -> m BodyInfo
-getBodyInfo req = liftIO $ do
-  readProgress <- newMVar (BodyReadProgress 0 False)
-  chunkBuffer <- newMVar []
+-- | Make a new BodyInfo with readProgress at 0 and an empty BodyChunkBuffer.
+newBodyInfo :: forall m. (MonadIO m) => Request -> m BodyInfo
+newBodyInfo req = liftIO $ do
+  readProgress <- newMVar 0
+  chunkBuffer <- newMVar (BodyChunkBuffer False [])
   return $ BodyInfo readProgress chunkBuffer (requestBody req)
 
+-- | Make a copy of a BodyInfo, sharing the previous BodyChunkBuffer but with the
+-- readProgress MVar reset to 0.
 cloneBodyInfo :: forall m. (MonadIO m) => BodyInfo -> m BodyInfo
-cloneBodyInfo (BodyInfo readProgress chunkBuffer getChunk) = liftIO $ do
-  BodyReadProgress _index hasFinished <- readMVar readProgress
-  cleanProgress <- newMVar $ BodyReadProgress 0 hasFinished
-  return $ BodyInfo cleanProgress chunkBuffer getChunk
+cloneBodyInfo (BodyInfo _ chunkBufferVar getChunk) = liftIO $ do
+  cleanReadProgressVar <- newMVar 0
+  return $ BodyInfo cleanReadProgressVar chunkBufferVar getChunk
 
+-- | Get the form params and files from the request. Requires reading the whole body.
 getFormParamsAndFilesAction :: Request -> BodyInfo -> IO ([Param], [File])
 getFormParamsAndFilesAction req bodyInfo = do
   let shouldParseBody = isJust $ Parse.getRequestBodyType req
@@ -39,33 +49,35 @@ getFormParamsAndFilesAction req bodyInfo = do
          return (fmap convert formparams, [(strictByteStringToLazyText x, y) | (x, y) <- fs])
      | otherwise -> return ([], [])
 
-
+-- | Retrieve the entire body, using the cached chunks in the BodyInfo and reading any other
+-- chunks if they still exist.
+-- Mimic the previous behavior by throwing BodyPartiallyStreamed if the user has already
+-- started reading the body by chunks.
 getBodyAction :: BodyInfo -> IO (BL.ByteString)
 getBodyAction (BodyInfo readProgress chunkBufferVar getChunk) =
-  modifyMVar readProgress $ \brp@(BodyReadProgress index hasFinished) ->
-    if | index > 0 -> throw BodyPartiallyStreamed
-       | hasFinished -> do
-           chunks <- readMVar chunkBufferVar
-           return (brp, BL.fromChunks chunks)
-       | otherwise -> do
-           newChunks <- takeAll getChunk return
-           oldChunks <- modifyMVar chunkBufferVar $ \oldChunks -> return (oldChunks ++ newChunks, oldChunks)
-           return $ (brp { hasFinishedReadingChunks = True}, BL.fromChunks (oldChunks ++ newChunks))
+  modifyMVar readProgress $ \index ->
+    modifyMVar chunkBufferVar $ \bcb@(BodyChunkBuffer hasFinished chunks) -> do
+      if | index > 0 -> throw BodyPartiallyStreamed
+         | hasFinished -> return (bcb, (index, BL.fromChunks chunks))
+         | otherwise -> do
+             newChunks <- takeAll getChunk return
+             return $ (BodyChunkBuffer True (chunks ++ newChunks), (index, BL.fromChunks (chunks ++ newChunks)))
 
-
+-- | Retrieve a chunk from the body at the index stored in the readProgress MVar.
+-- Serve the chunk from the cached array if it's already present; otherwise read another
+-- chunk from WAI and advance the index.
 getBodyChunkAction :: BodyInfo -> IO BS.ByteString
 getBodyChunkAction (BodyInfo readProgress chunkBufferVar getChunk) =
-  modifyMVar readProgress $ \brp@(BodyReadProgress index hasFinished) ->
-    modifyMVar chunkBufferVar $ \chunkBuffer -> do
-      if | index < length chunkBuffer -> do
-             let chunk = chunkBuffer !! index
-             return (chunkBuffer, (brp { bodyReaderIndex = index + 1 }, chunk))
-         | hasFinished -> return (chunkBuffer, (brp, mempty))
+  modifyMVar readProgress $ \index ->
+    modifyMVar chunkBufferVar $ \bcb@(BodyChunkBuffer hasFinished chunks) -> do
+      if | index < length chunks -> return (bcb, (index + 1, chunks !! index))
+         | hasFinished -> return (bcb, (index, mempty))
          | otherwise -> do
              newChunk <- getChunk
-             return (chunkBuffer ++ [newChunk], (brp { bodyReaderIndex = index + 1
-                                                     , hasFinishedReadingChunks = newChunk == mempty }, newChunk))
+             return (BodyChunkBuffer (newChunk == mempty) (chunks ++ [newChunk]), (index + 1, newChunk))
 
+-- | Call getChunk repeatedly until it returns an empty chunk, and return a list of all the
+-- chunks read.
 takeAll :: (IO B.ByteString) -> ([B.ByteString] -> IO [B.ByteString]) -> IO [B.ByteString]
 takeAll getChunk prefix = getChunk >>= \b -> if B.null b then prefix [] else takeAll getChunk (prefix . (b:))
 

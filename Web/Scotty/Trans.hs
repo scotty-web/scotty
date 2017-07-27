@@ -53,6 +53,7 @@ import Network.Wai
 import Network.Wai.Handler.Warp (Port, runSettings, runSettingsSocket, setPort, getPort)
 
 import Web.Scotty.Action
+import Web.Scotty.Body
 import qualified Web.Scotty.Internal.Types as Scotty
 import Web.Scotty.Internal.Types hiding (Application, Middleware)
 import Web.Scotty.Route
@@ -104,7 +105,7 @@ scottyAppT :: (Monad m, Monad n)
 scottyAppT runActionToIO defs = do
     let s = execState (runS defs) def
     let rapp req callback = do
-          bodyInfo <- getBodyInfo req
+          bodyInfo <- newBodyInfo req
           runActionToIO (foldl (flip ($)) notFoundApp ([midd bodyInfo | midd <- routes s]) req) >>= callback
     return $ foldl (flip ($)) rapp (middlewares s)
 
