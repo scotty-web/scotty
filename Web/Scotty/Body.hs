@@ -65,50 +65,9 @@ getBodyChunkAction (BodyInfo readProgress chunkBufferVar getChunk) =
              newChunk <- getChunk
              return (chunkBuffer ++ [newChunk], (brp { bodyReaderIndex = index + 1 }, newChunk))
 
-
-
--- If they call body and they've already gotten access to the bodyReader, throw BodyPartiallyStreamed
--- Otherwise, do a series of calls to get all the chunks then a) cache all the chunks, and b) return the concatenated version
--- At this point, the user may get the bodyReader, which will read from the MVar containing the cached chunks
-
--- To summarize:
--- Calling bodyReader followed by body should throw BodyPartiallyStreamed (actually we can improve on this and just return the entire body. unless we care about using the additional memory?)
--- Calling body followed by bodyReader should work normally
-
-
 takeAll :: (IO B.ByteString) -> ([B.ByteString] -> IO [B.ByteString]) -> IO [B.ByteString]
 takeAll getChunk prefix = getChunk >>= \b -> if B.null b then prefix [] else takeAll getChunk (prefix . (b:))
 
-    --     safeBodyReader :: IO B.ByteString
-    --     safeBodyReader =  do
-    --       state <- takeMVar bodyState
-    --       let direct = putMVar bodyState BodyCorrupted >> (requestBody req)
-    --       case state of
-    --         s@(BodyCached _ []) -> (putMVar bodyState s) >> return B.empty
-    --         BodyCached b (chunk:rest) -> (putMVar bodyState $ BodyCached b rest) >> return chunk
-    --         BodyUntouched -> direct
-    --         BodyCorrupted -> direct
-
-    --     bs :: IO BL.ByteString
-    --     bs = do
-    --       state <- takeMVar bodyState
-    --       case state of
-    --         s@(BodyCached b _) -> (putMVar bodyState s) >> return b
-    --         BodyCorrupted -> throw BodyPartiallyStreamed
-    --         BodyUntouched ->
-    --           do chunks <- takeAll return
-    --              let b = BL.fromChunks chunks
-    --              putMVar bodyState $ BodyCached b chunks
-    --              return b
-
-    --     shouldParseBody = isJust $ Parse.getRequestBodyType req
-
-    -- (formparams, fs) <- if shouldParseBody
-    --   then liftIO $ do wholeBody <- BL.toChunks `fmap` bs
-    --                    parseRequestBody wholeBody Parse.lbsBackEnd req
-    --   else return ([], [])
-
-    -- return $ if shouldParseBody then Just (BodyInfo ) else Nothing
 
 -- Stolen from wai-extra's Network.Wai.Parse, modified to accept body as list of Bytestrings.
 -- Reason: WAI's requestBody is an IO action that returns the body as chunks. Once read,

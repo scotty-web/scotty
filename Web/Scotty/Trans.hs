@@ -104,8 +104,8 @@ scottyAppT :: (Monad m, Monad n)
 scottyAppT runActionToIO defs = do
     let s = execState (runS defs) def
     let rapp req callback = do
-          maybeBodyInfo <- getBodyInfo req
-          runActionToIO (foldl (flip ($)) notFoundApp ([midd maybeBodyInfo | midd <- routes s]) req) >>= callback
+          bodyInfo <- getBodyInfo req
+          runActionToIO (foldl (flip ($)) notFoundApp ([midd bodyInfo | midd <- routes s]) req) >>= callback
     return $ foldl (flip ($)) rapp (middlewares s)
 
 notFoundApp :: Monad m => Scotty.Application m

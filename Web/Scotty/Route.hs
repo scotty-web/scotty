@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, RecordWildCards,
+{-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances,
              OverloadedStrings, RankNTypes, ScopedTypeVariables #-}
 module Web.Scotty.Route
     ( get, post, put, delete, patch, options, addroute, matchAny, notFound,
