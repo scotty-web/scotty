@@ -1,8 +1,8 @@
-{-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances,
+{-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, RecordWildCards,
              OverloadedStrings, RankNTypes, ScopedTypeVariables #-}
 module Web.Scotty.Route
     ( get, post, put, delete, patch, options, addroute, matchAny, notFound,
-      capture, regex, function, literal
+      capture, regex, function, literal, getBodyInfo
     ) where
 
 import           Control.Arrow ((***))
@@ -81,22 +81,28 @@ notFound action = matchAny (Function (\req -> Just [("path", path req)])) (statu
 addroute :: (ScottyError e, MonadIO m) => StdMethod -> RoutePattern -> ActionT e m () -> ScottyT e m ()
 addroute method pat action = ScottyT $ MS.modify $ \s -> addRoute (route (handler s) (Just method) pat action) s
 
-route :: (ScottyError e, MonadIO m) => ErrorHandler e m -> Maybe StdMethod -> RoutePattern -> ActionT e m () -> Middleware m
-route h method pat action app req =
+route :: (ScottyError e, MonadIO m) => ErrorHandler e m -> Maybe StdMethod -> RoutePattern -> ActionT e m () -> Maybe BodyInfo -> Middleware m
+route h method pat action maybeBodyInfo app req =
     let tryNext = app req
         {- |
           We match all methods in the case where 'method' is 'Nothing'.
           See https://github.com/scotty-web/scotty/issues/196
         -}
         methodMatches :: Bool
-        methodMatches =
-            case method of
-                Nothing -> True
-                Just m -> Right m == parseMethod (requestMethod req)
+        methodMatches = maybe True (\x -> (Right x == parseMethod (requestMethod req))) method
+
     in if methodMatches
        then case matchRoute pat req of
             Just captures -> do
-                env <- mkEnv req captures
+                -- The user-facing API for "body" and "bodyReader" involve an IO action that
+                -- reads the body/chunks thereof only once, so we shouldn't pass in our BodyInfo
+                -- directly; otherwise, the body might get consumed and then it would be unavailable
+                -- if `next` is called and we try to match further routes.
+                -- Instead, make a "cloned" copy of the BodyInfo that allows the IO actions to be called
+                -- without messing up the state of the original BodyInfo.
+                clonedBodyInfo <- cloneBodyInfo maybeBodyInfo
+
+                env <- mkEnv clonedBodyInfo req captures
                 res <- runAction h env action
                 maybe tryNext return res
             Nothing -> tryNext
@@ -141,55 +147,17 @@ parseRequestBody bl s r =
                                                 (b:bs) -> return (bs, b)
             liftIO $ Parse.sinkRequestBody s rbt provider
 
-mkEnv :: forall m. MonadIO m => Request -> [Param] -> m ActionEnv
-mkEnv req captures = do
-    bodyState <- liftIO $ newMVar BodyUntouched
-    
-    let rbody = requestBody req
-        takeAll :: ([B.ByteString] -> IO [B.ByteString]) -> IO [B.ByteString]
-        takeAll prefix = rbody >>= \b -> if B.null b then prefix [] else takeAll (prefix . (b:))
+mkEnv :: forall m. MonadIO m => Maybe BodyInfo -> Request -> [Param] -> m ActionEnv
+mkEnv Nothing req captures = return $ Env req parameters (return mempty) (return mempty) [] where
+  queryparams = parseEncodedParams $ rawQueryString req
+  parameters = captures ++ queryparams
+mkEnv (Just (BodyInfo {..})) req captures = return $ Env req parameters bodyInfoGetBody bodyInfoGetBodyChunk files
+  where
+    convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
+    queryparams = parseEncodedParams $ rawQueryString req
+    parameters = captures ++ map convert bodyInfoFormParams ++ queryparams
+    files = [ (k, fi) | (k, fi) <- bodyInfoFiles ]
 
-        safeBodyReader :: IO B.ByteString
-        safeBodyReader =  do
-          state <- takeMVar bodyState
-          let direct = putMVar bodyState BodyCorrupted >> rbody
-          case state of 
-            s@(BodyCached _ []) -> 
-              do putMVar bodyState s 
-                 return B.empty
-            BodyCached b (chunk:rest) -> 
-              do putMVar bodyState $ BodyCached b rest
-                 return chunk
-            BodyUntouched -> direct
-            BodyCorrupted -> direct
-
-        bs :: IO BL.ByteString
-        bs = do
-          state <- takeMVar bodyState
-          case state of 
-            s@(BodyCached b _) -> 
-              do putMVar bodyState s
-                 return b
-            BodyCorrupted -> throw BodyPartiallyStreamed
-            BodyUntouched -> 
-              do chunks <- takeAll return
-                 let b = BL.fromChunks chunks
-                 putMVar bodyState $ BodyCached b chunks
-                 return b
-
-        shouldParseBody = isJust $ Parse.getRequestBodyType req
-
-    (formparams, fs) <- if shouldParseBody
-      then liftIO $ do wholeBody <- BL.toChunks `fmap` bs
-                       parseRequestBody wholeBody Parse.lbsBackEnd req
-      else return ([], [])
-
-    let 
-        convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
-        parameters =  captures ++ map convert formparams ++ queryparams
-        queryparams = parseEncodedParams $ rawQueryString req
-
-    return $ Env req parameters bs safeBodyReader [ (strictByteStringToLazyText k, fi) | (k,fi) <- fs ]
 
 parseEncodedParams :: B.ByteString -> [Param]
 parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]
@@ -245,3 +213,49 @@ function = Function
 -- | Build a route that requires the requested path match exactly, without captures.
 literal :: String -> RoutePattern
 literal = Literal . T.pack
+
+
+getBodyInfo :: forall m. (MonadIO m) => Request -> m (Maybe BodyInfo)
+getBodyInfo req = do
+    bodyState <- liftIO $ newMVar BodyUntouched
+
+    let rbody = requestBody req
+        takeAll :: ([B.ByteString] -> IO [B.ByteString]) -> IO [B.ByteString]
+        takeAll prefix = rbody >>= \b -> if B.null b then prefix [] else takeAll (prefix . (b:))
+
+        safeBodyReader :: IO B.ByteString
+        safeBodyReader =  do
+          state <- takeMVar bodyState
+          let direct = putMVar bodyState BodyCorrupted >> rbody
+          case state of
+            s@(BodyCached _ []) ->
+              do putMVar bodyState s
+                 return B.empty
+            BodyCached b (chunk:rest) ->
+              do putMVar bodyState $ BodyCached b rest
+                 return chunk
+            BodyUntouched -> direct
+            BodyCorrupted -> direct
+
+        bs :: IO BL.ByteString
+        bs = do
+          state <- takeMVar bodyState
+          case state of
+            s@(BodyCached b _) ->
+              do putMVar bodyState s
+                 return b
+            BodyCorrupted -> throw BodyPartiallyStreamed
+            BodyUntouched ->
+              do chunks <- takeAll return
+                 let b = BL.fromChunks chunks
+                 putMVar bodyState $ BodyCached b chunks
+                 return b
+
+        shouldParseBody = isJust $ Parse.getRequestBodyType req
+
+    (formparams, fs) <- if shouldParseBody
+      then liftIO $ do wholeBody <- BL.toChunks `fmap` bs
+                       parseRequestBody wholeBody Parse.lbsBackEnd req
+      else return ([], [])
+
+    return $ if shouldParseBody then Just (BodyInfo formparams bs safeBodyReader [ (strictByteStringToLazyText k, fi) | (k,fi) <- fs ]) else Nothing

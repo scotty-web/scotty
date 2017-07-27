@@ -42,8 +42,8 @@ module Web.Scotty.Trans
 import Blaze.ByteString.Builder (fromByteString)
 
 import Control.Monad (when)
-import Control.Monad.State (execState, modify)
 import Control.Monad.IO.Class
+import Control.Monad.State (execState, modify)
 
 import Data.Default.Class (def)
 
@@ -53,10 +53,10 @@ import Network.Wai
 import Network.Wai.Handler.Warp (Port, runSettings, runSettingsSocket, setPort, getPort)
 
 import Web.Scotty.Action
-import Web.Scotty.Route
-import Web.Scotty.Internal.Types hiding (Application, Middleware)
-import Web.Scotty.Util (socketDescription)
 import qualified Web.Scotty.Internal.Types as Scotty
+import Web.Scotty.Internal.Types hiding (Application, Middleware)
+import Web.Scotty.Route
+import Web.Scotty.Util (socketDescription)
 
 -- | Run a scotty application using the warp server.
 -- NB: scotty p === scottyT p id
@@ -103,7 +103,9 @@ scottyAppT :: (Monad m, Monad n)
            -> n Application
 scottyAppT runActionToIO defs = do
     let s = execState (runS defs) def
-    let rapp req callback = runActionToIO (foldl (flip ($)) notFoundApp (routes s) req) >>= callback
+    let rapp req callback = do
+          maybeBodyInfo <- getBodyInfo req
+          runActionToIO (foldl (flip ($)) notFoundApp ([midd maybeBodyInfo | midd <- routes s]) req) >>= callback
     return $ foldl (flip ($)) rapp (middlewares s)
 
 notFoundApp :: Monad m => Scotty.Application m

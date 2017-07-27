@@ -1,20 +1,20 @@
 {-# LANGUAGE OverloadedStrings, CPP #-}
 module Web.ScottySpec (main, spec) where
 
+import           Network.Wai (Application)
 import           Test.Hspec
 import           Test.Hspec.Wai
-import           Network.Wai (Application)
 
 import           Control.Applicative
+import qualified Control.Exception as E
+import qualified Control.Exception.Lifted as EL
 import           Control.Monad
 import           Data.Char
 import           Data.String
 import           Network.HTTP.Types
-import qualified Control.Exception.Lifted as EL
-import qualified Control.Exception as E
 
-import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request, options)
 import qualified Web.Scotty as Scotty
+import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request, options)
 
 #if !defined(mingw32_HOST_OS)
 import           Control.Concurrent.Async (withAsync)
@@ -114,6 +114,11 @@ spec = do
 
           it "replaces non UTF-8 bytes with Unicode replacement character" $ do
             request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=\xe9" `shouldRespondWith` "\xfffd"
+
+      withApp (do Scotty.matchAny "/search1" $ next
+                  Scotty.matchAny "/search2" $ param "query" >>= text) $ do
+        it "doesn't lose POST parameters when 'next' is called" $ do
+          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=haskell" `shouldRespondWith` "haskell"
 
     describe "text" $ do
       let modernGreekText :: IsString a => a

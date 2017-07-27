@@ -32,8 +32,8 @@ import           Data.Typeable (Typeable)
 
 import           Network.HTTP.Types
 
-import           Network.Wai hiding (Middleware, Application)
 import qualified Network.Wai as Wai
+import           Network.Wai hiding (Middleware, Application)
 import           Network.Wai.Handler.Warp (Settings, defaultSettings)
 import           Network.Wai.Parse (FileInfo)
 
@@ -49,7 +49,7 @@ data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
                        }
 
 instance Default Options where
-    def = Options 1 defaultSettings 
+    def = Options 1 defaultSettings
 
 ----- Transformer Aware Applications/Middleware -----
 type Middleware m = Application m -> Application m
@@ -58,7 +58,7 @@ type Application m = Request -> m Response
 --------------- Scotty Applications -----------------
 data ScottyState e m =
     ScottyState { middlewares :: [Wai.Middleware]
-                , routes :: [Middleware m]
+                , routes :: [(Maybe BodyInfo) -> Middleware m]
                 , handler :: ErrorHandler e m
                 }
 
@@ -68,7 +68,7 @@ instance Default (ScottyState e m) where
 addMiddleware :: Wai.Middleware -> ScottyState e m -> ScottyState e m
 addMiddleware m s@(ScottyState {middlewares = ms}) = s { middlewares = m:ms }
 
-addRoute :: Middleware m -> ScottyState e m -> ScottyState e m
+addRoute :: (Maybe BodyInfo -> Middleware m) -> ScottyState e m -> ScottyState e m
 addRoute r s@(ScottyState {routes = rs}) = s { routes = r:rs }
 
 addHandler :: ErrorHandler e m -> ScottyState e m -> ScottyState e m
@@ -114,6 +114,20 @@ data ActionEnv = Env { getReq       :: Request
                      , getBodyChunk :: IO BS.ByteString
                      , getFiles     :: [File]
                      }
+
+data BodyInfo = BodyInfo { bodyInfoFormParams :: [(BS.ByteString, BS.ByteString)]
+                         , bodyInfoGetBody :: IO ByteString
+                         , bodyInfoGetBodyChunk :: IO BS.ByteString
+                         , bodyInfoFiles :: [File]
+                         }
+
+cloneBodyInfo :: (MonadIO m) => Maybe BodyInfo -> m (Maybe BodyInfo)
+cloneBodyInfo Nothing = return Nothing
+cloneBodyInfo (Just (BodyInfo params getBody getBodyChunk files)) = do
+  let clonedGetBody = getBody
+  let clonedGetBodyChunk = getBodyChunk
+  return $ Just (BodyInfo params clonedGetBody clonedGetBodyChunk files)
+
 
 data RequestBodyState = BodyUntouched
                       | BodyCached ByteString [BS.ByteString] -- whole body, chunks left to stream
