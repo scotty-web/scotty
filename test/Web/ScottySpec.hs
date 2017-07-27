@@ -115,8 +115,8 @@ spec = do
           it "replaces non UTF-8 bytes with Unicode replacement character" $ do
             request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=\xe9" `shouldRespondWith` "\xfffd"
 
-      withApp (do Scotty.matchAny "/search1" $ next
-                  Scotty.matchAny "/search2" $ param "query" >>= text) $ do
+      withApp (do Scotty.matchAny "/search" $ next
+                  Scotty.matchAny "/search" $ param "query" >>= text) $ do
         it "doesn't lose POST parameters when 'next' is called" $ do
           request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=haskell" `shouldRespondWith` "haskell"
 

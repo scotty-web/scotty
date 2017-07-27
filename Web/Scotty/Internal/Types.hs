@@ -10,6 +10,7 @@ module Web.Scotty.Internal.Types where
 import           Blaze.ByteString.Builder (Builder)
 
 import           Control.Applicative
+import           Control.Concurrent.MVar
 import qualified Control.Exception as E
 import           Control.Monad.Base (MonadBase, liftBase, liftBaseDefault)
 import           Control.Monad.Catch (MonadCatch, catch, MonadThrow, throwM)
@@ -58,7 +59,7 @@ type Application m = Request -> m Response
 --------------- Scotty Applications -----------------
 data ScottyState e m =
     ScottyState { middlewares :: [Wai.Middleware]
-                , routes :: [(Maybe BodyInfo) -> Middleware m]
+                , routes :: [BodyInfo -> Middleware m]
                 , handler :: ErrorHandler e m
                 }
 
@@ -68,7 +69,7 @@ instance Default (ScottyState e m) where
 addMiddleware :: Wai.Middleware -> ScottyState e m -> ScottyState e m
 addMiddleware m s@(ScottyState {middlewares = ms}) = s { middlewares = m:ms }
 
-addRoute :: (Maybe BodyInfo -> Middleware m) -> ScottyState e m -> ScottyState e m
+addRoute :: (BodyInfo -> Middleware m) -> ScottyState e m -> ScottyState e m
 addRoute r s@(ScottyState {routes = rs}) = s { routes = r:rs }
 
 addHandler :: ErrorHandler e m -> ScottyState e m -> ScottyState e m
@@ -115,19 +116,13 @@ data ActionEnv = Env { getReq       :: Request
                      , getFiles     :: [File]
                      }
 
-data BodyInfo = BodyInfo { bodyInfoFormParams :: [(BS.ByteString, BS.ByteString)]
-                         , bodyInfoGetBody :: IO ByteString
-                         , bodyInfoGetBodyChunk :: IO BS.ByteString
-                         , bodyInfoFiles :: [File]
+data BodyReadProgress = BodyReadProgress { bodyReaderIndex :: Int
+                                         , hasFinishedReadingChunks :: Bool }
+
+data BodyInfo = BodyInfo { bodyInfoReadProgress :: MVar BodyReadProgress
+                         , bodyInfoChunkBuffer :: MVar [BS.ByteString]
+                         , bodyInfoDirectChunkRead :: IO BS.ByteString
                          }
-
-cloneBodyInfo :: (MonadIO m) => Maybe BodyInfo -> m (Maybe BodyInfo)
-cloneBodyInfo Nothing = return Nothing
-cloneBodyInfo (Just (BodyInfo params getBody getBodyChunk files)) = do
-  let clonedGetBody = getBody
-  let clonedGetBodyChunk = getBodyChunk
-  return $ Just (BodyInfo params clonedGetBody clonedGetBodyChunk files)
-
 
 data RequestBodyState = BodyUntouched
                       | BodyCached ByteString [BS.ByteString] -- whole body, chunks left to stream
