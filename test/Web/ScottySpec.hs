@@ -11,6 +11,7 @@ import qualified Control.Exception.Lifted as EL
 import           Control.Monad
 import           Data.Char
 import           Data.String
+import qualified Data.Text.Lazy.Encoding as T
 import           Network.HTTP.Types
 
 import qualified Web.Scotty as Scotty
@@ -119,6 +120,16 @@ spec = do
                   Scotty.matchAny "/search" $ param "query" >>= text) $ do
         it "doesn't lose POST parameters when 'next' is called" $ do
           request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=haskell" `shouldRespondWith` "haskell"
+
+    describe "body" $ do
+      withApp (Scotty.matchAny "/search" $ body >>= (text . T.decodeUtf8)) $ do
+        it "echoes back the body" $ do
+          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "lalala" `shouldRespondWith` "lalala"
+
+      withApp (do Scotty.matchAny "/search" $ next
+                  Scotty.matchAny "/search" $ body >>= (text . T.decodeUtf8)) $ do
+        it "doesn't lose the body when 'next' is called" $ do
+          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "lalala" `shouldRespondWith` "lalala"
 
     describe "text" $ do
       let modernGreekText :: IsString a => a
