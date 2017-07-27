@@ -63,7 +63,8 @@ getBodyChunkAction (BodyInfo readProgress chunkBufferVar getChunk) =
          | hasFinished -> return (chunkBuffer, (brp, mempty))
          | otherwise -> do
              newChunk <- getChunk
-             return (chunkBuffer ++ [newChunk], (brp { bodyReaderIndex = index + 1 }, newChunk))
+             return (chunkBuffer ++ [newChunk], (brp { bodyReaderIndex = index + 1
+                                                     , hasFinishedReadingChunks = newChunk == mempty }, newChunk))
 
 takeAll :: (IO B.ByteString) -> ([B.ByteString] -> IO [B.ByteString]) -> IO [B.ByteString]
 takeAll getChunk prefix = getChunk >>= \b -> if B.null b then prefix [] else takeAll getChunk (prefix . (b:))
