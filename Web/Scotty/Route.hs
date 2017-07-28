@@ -6,14 +6,11 @@ module Web.Scotty.Route
     ) where
 
 import           Control.Arrow ((***))
-import           Control.Concurrent.MVar
-import           Control.Exception (throw)
 import           Control.Monad.IO.Class
 import qualified Control.Monad.State as MS
 
 import qualified Data.ByteString.Char8 as B
-import qualified Data.ByteString.Lazy.Char8 as BL
-import           Data.Maybe (fromMaybe, isJust)
+import           Data.Maybe (fromMaybe)
 #if !(MIN_VERSION_base(4,8,0))
 import           Data.Monoid (mconcat)
 #endif
@@ -23,14 +20,12 @@ import qualified Data.Text as TS
 
 import           Network.HTTP.Types
 import           Network.Wai (Request(..))
-import qualified Network.Wai.Parse as Parse hiding (parseRequestBody)
 
 import qualified Text.Regex as Regex
 
 import           Web.Scotty.Action
 import           Web.Scotty.Body
 import           Web.Scotty.Internal.Types
-import           Web.Scotty.Util
 
 -- | get = 'addroute' 'GET'
 get :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
