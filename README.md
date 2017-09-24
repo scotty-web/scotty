@@ -41,4 +41,4 @@ https://github.com/scotty-web/scotty/wiki
 
 Open an issue on GitHub or join `#scotty` on Freenode.
 
-Copyright (c) 2012-2014 Andrew Farmer
+Copyright (c) 2012-2017 Andrew Farmer
