@@ -32,36 +32,36 @@ import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util
 
 -- | get = 'addroute' 'GET'
-get :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
+get :: (ScottyError e, MonadIO m, Monad n) => RoutePattern -> ActionT e m () -> ScottyT e m n ()
 get = addroute GET
 
 -- | post = 'addroute' 'POST'
-post :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
+post :: (ScottyError e, MonadIO m, Monad n) => RoutePattern -> ActionT e m () -> ScottyT e m n ()
 post = addroute POST
 
 -- | put = 'addroute' 'PUT'
-put :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
+put :: (ScottyError e, MonadIO m, Monad n) => RoutePattern -> ActionT e m () -> ScottyT e m n ()
 put = addroute PUT
 
 -- | delete = 'addroute' 'DELETE'
-delete :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
+delete :: (ScottyError e, MonadIO m, Monad n) => RoutePattern -> ActionT e m () -> ScottyT e m n ()
 delete = addroute DELETE
 
 -- | patch = 'addroute' 'PATCH'
-patch :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
+patch :: (ScottyError e, MonadIO m, Monad n) => RoutePattern -> ActionT e m () -> ScottyT e m n ()
 patch = addroute PATCH
 
 -- | options = 'addroute' 'OPTIONS'
-options :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
+options :: (ScottyError e, MonadIO m, Monad n) => RoutePattern -> ActionT e m () -> ScottyT e m n ()
 options = addroute OPTIONS
 
 -- | Add a route that matches regardless of the HTTP verb.
-matchAny :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
-matchAny pattern action = ScottyT $ MS.modify $ \s -> addRoute (route (handler s) Nothing pattern action) s
+matchAny :: (ScottyError e, MonadIO m, Monad n) => RoutePattern -> ActionT e m () -> ScottyT e m n ()
+matchAny pattern action = mapM_ (\v -> addroute v pattern action) [minBound..maxBound]
 
 -- | Specify an action to take if nothing else is found. Note: this _always_ matches,
 -- so should generally be the last route specified.
-notFound :: (ScottyError e, MonadIO m) => ActionT e m () -> ScottyT e m ()
+notFound :: (ScottyError e, MonadIO m, Monad n) => ActionT e m () -> ScottyT e m n ()
 notFound action = matchAny (Function (\req -> Just [("path", path req)])) (status status404 >> action)
 
 -- | Define a route with a 'StdMethod', 'T.Text' value representing the path spec,
@@ -78,7 +78,7 @@ notFound action = matchAny (Function (\req -> Just [("path", path req)])) (statu
 --
 -- >>> curl http://localhost:3000/foo/something
 -- something
-addroute :: (ScottyError e, MonadIO m) => StdMethod -> RoutePattern -> ActionT e m () -> ScottyT e m ()
+addroute :: (ScottyError e, MonadIO m, Monad n) => StdMethod -> RoutePattern -> ActionT e m () -> ScottyT e m n ()
 addroute method pat action = ScottyT $ MS.modify $ \s -> addRoute (route (handler s) (Just method) pat action) s
 
 route :: (ScottyError e, MonadIO m) => ErrorHandler e m -> Maybe StdMethod -> RoutePattern -> ActionT e m () -> Middleware m
@@ -144,7 +144,7 @@ parseRequestBody bl s r =
 mkEnv :: forall m. MonadIO m => Request -> [Param] -> m ActionEnv
 mkEnv req captures = do
     bodyState <- liftIO $ newMVar BodyUntouched
-    
+
     let rbody = requestBody req
         takeAll :: ([B.ByteString] -> IO [B.ByteString]) -> IO [B.ByteString]
         takeAll prefix = rbody >>= \b -> if B.null b then prefix [] else takeAll (prefix . (b:))
@@ -153,11 +153,11 @@ mkEnv req captures = do
         safeBodyReader =  do
           state <- takeMVar bodyState
           let direct = putMVar bodyState BodyCorrupted >> rbody
-          case state of 
-            s@(BodyCached _ []) -> 
-              do putMVar bodyState s 
+          case state of
+            s@(BodyCached _ []) ->
+              do putMVar bodyState s
                  return B.empty
-            BodyCached b (chunk:rest) -> 
+            BodyCached b (chunk:rest) ->
               do putMVar bodyState $ BodyCached b rest
                  return chunk
             BodyUntouched -> direct
@@ -166,12 +166,12 @@ mkEnv req captures = do
         bs :: IO BL.ByteString
         bs = do
           state <- takeMVar bodyState
-          case state of 
-            s@(BodyCached b _) -> 
+          case state of
+            s@(BodyCached b _) ->
               do putMVar bodyState s
                  return b
             BodyCorrupted -> throw BodyPartiallyStreamed
-            BodyUntouched -> 
+            BodyUntouched ->
               do chunks <- takeAll return
                  let b = BL.fromChunks chunks
                  putMVar bodyState $ BodyCached b chunks
@@ -184,7 +184,7 @@ mkEnv req captures = do
                        parseRequestBody wholeBody Parse.lbsBackEnd req
       else return ([], [])
 
-    let 
+    let
         convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
         parameters =  captures ++ map convert formparams ++ queryparams
         queryparams = parseEncodedParams $ rawQueryString req
