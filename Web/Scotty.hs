@@ -114,7 +114,7 @@ next = Trans.next
 -- | Abort execution of this action. Like an exception, any code after 'finish'
 -- is not executed.
 --
--- As an example only requests to /foo/special will include in the response
+-- As an example only requests to @/foo/special@ will include in the response
 -- content the text message.
 --
 -- > get "/foo/:bar" $ do
