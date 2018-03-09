@@ -130,6 +130,7 @@ script:
   # build & run tests, build benchmarks
   - cabal new-build -w ${HC} ${TEST} ${BENCH} all
   - if [ "x$TEST" = "x--enable-tests" ]; then cabal new-test -w ${HC} ${TEST} ${BENCH} all; fi
+  - cabal new-exec hpc-coveralls -- --exclude-dir=test spec
 
   # cabal check
   - (cd scotty-* && cabal check)
@@ -138,9 +139,6 @@ script:
   # haddock
   - rm -rf ./dist-newstyle
   - if $HADDOCK; then cabal new-haddock -w ${HC} ${TEST} ${BENCH} all; else echo "Skipping haddock generation";fi
-
-after_script:
-  - cabal new-exec hpc-coveralls -- --exclude-dir=test spec
 
 # REGENDATA ["-o",".travis.yml","--no-no-tests-no-bench","--no-installed","--local-ghc-options=-Werror","cabal.project"]
 # EOF
