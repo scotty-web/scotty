@@ -44,7 +44,13 @@ Description:
   [WAI] <http://hackage.haskell.org/package/wai>
   .
   [Warp] <http://hackage.haskell.org/package/warp>
-
+tested-with:         GHC == 7.6.3
+                   , GHC == 7.8.4
+                   , GHC == 7.10.3
+                   , GHC == 8.0.2
+                   , GHC == 8.2.2
+                   , GHC == 8.4.1
+                   , GHC == 8.5
 Extra-source-files:
     README.md
     changelog.md
@@ -103,7 +109,6 @@ test-suite spec
                        bytestring,
                        data-default-class,
                        directory,
-                       hpc-coveralls,
                        hspec == 2.*,
                        hspec-wai >= 0.6.3,
                        http-types,
@@ -112,6 +117,7 @@ test-suite spec
                        scotty,
                        text,
                        wai
+  build-tool-depends:  hpc-coveralls:hpc-coveralls
   GHC-options:         -Wall -threaded -fno-warn-orphans
 
 source-repository head
