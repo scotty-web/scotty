@@ -117,7 +117,8 @@ test-suite spec
                        scotty,
                        text,
                        wai
-  build-tool-depends:  hpc-coveralls:hpc-coveralls
+  build-tool-depends:  hpc-coveralls:hpc-coveralls,
+                       hspec-discover:hspec-discover == 2.*
   GHC-options:         -Wall -threaded -fno-warn-orphans
 
 source-repository head
