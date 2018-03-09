@@ -33,6 +33,9 @@ handleEx Forbidden    = do
 handleEx (NotFound i) = do
     status status404
     html $ fromString $ "<h1>Can't find " ++ show i ++ ".</h1>"
+handleEx (StringEx s) = do
+    status status500
+    html $ fromString $ "<h1>" ++ s ++ "</h1>"
 
 main :: IO ()
 main = scottyT 3000 id $ do -- note, we aren't using any additional transformer layers
