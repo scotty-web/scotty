@@ -18,8 +18,6 @@ tested-with:         GHC == 7.6.3
                    , GHC == 7.10.3
                    , GHC == 8.0.2
                    , GHC == 8.2.2
-                   , GHC == 8.4.1
-                   , GHC == 8.5
 
 executable scotty-basic
   main-is:             basic.hs
