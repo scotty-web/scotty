@@ -1,5 +1,6 @@
 ## next
 * Add `MonadThrow` and `MonadCatch` instances for `ActionT` [abhinav]
+* Add `formData` [mitchellwrosen]
 
 ## 0.11.0
 * IO exceptions are no longer automatically turned into ScottyErrors by

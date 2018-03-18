@@ -8,6 +8,7 @@ module Web.Scotty.Action
     , file
     , files
     , finish
+    , formData
     , header
     , headers
     , html
@@ -60,6 +61,7 @@ import           Network.Wai
 
 import           Numeric.Natural
 
+import qualified Web.FormUrlEncoded         as F
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util
 
@@ -176,7 +178,15 @@ bodyReader = ActionT $ getBodyChunk `liftM` ask
 jsonData :: (A.FromJSON a, ScottyError e, MonadIO m) => ActionT e m a
 jsonData = do
     b <- body
-    either (\e -> raise $ stringError $ "jsonData - no parse: " ++ e ++ ". Data was:" ++ BL.unpack b) return $ A.eitherDecode b
+    either (\e -> raise $ stringError $ "jsonData - no parse: " ++ e ++ ". Data was: " ++ BL.unpack b) return $ A.eitherDecode b
+
+-- | Parse the request body as @x-www-form-urlencoded@ data and return it. Raises an exception if parse is unsuccessful.
+--
+-- /Since: FIXME/
+formData :: (F.FromForm a, ScottyError e, MonadIO m) => ActionT e m a
+formData = do
+    b <- body
+    either (\e -> raise $ stringError $ "formData - no parse: " ++ ST.unpack e ++ ". Data was: " ++ BL.unpack b) return $ F.urlDecodeAsForm b
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --

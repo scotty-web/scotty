@@ -17,7 +17,7 @@ module Web.Scotty
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, header, headers, body, bodyReader, param, params, jsonData, files
+    , request, header, headers, body, bodyReader, param, params, jsonData, formData, files
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
       -- ** Setting Response Body
@@ -46,6 +46,7 @@ import Network.HTTP.Types (Status, StdMethod)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 
+import Web.FormUrlEncoded (FromForm)
 import Web.Scotty.Internal.Types (ScottyT, ActionT, Param, RoutePattern, Options, File)
 
 type ScottyM = ScottyT Text IO
@@ -176,6 +177,12 @@ bodyReader = Trans.bodyReader
 -- | Parse the request body as a JSON object and return it. Raises an exception if parse is unsuccessful.
 jsonData :: FromJSON a => ActionM a
 jsonData = Trans.jsonData
+
+-- | Parse the request body as @x-www-form-urlencoded@ data and return it. Raises an exception if parse is unsuccessful.
+--
+-- /Since: FIXME/
+formData :: FromForm a => ActionM a
+formData = Trans.formData
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
