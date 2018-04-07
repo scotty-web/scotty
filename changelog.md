@@ -1,4 +1,4 @@
-## next
+## 0.11.1 [2018.04.07]
 * Add `MonadThrow` and `MonadCatch` instances for `ActionT` [abhinav]
 * Fix `matchAny` so that all methods are matched, not just standard ones
   [taphu]
