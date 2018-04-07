@@ -31,7 +31,7 @@ matrix:
     - env: CABALVER=2.2 GHCVER=8.4.1 TEST=--disable-tests # https://github.com/guillaume-nargeot/hpc-coveralls/pull/73
       compiler: ": #GHC 8.4.1"
       addons: {apt: {packages: [cabal-install-2.2,ghc-8.4.1], sources: [hvr-ghc]}}
-    - env: CABALVER=head GHCVER=head
+    - env: CABALVER=head GHCVER=head TEST=--disable-tests
       compiler: ": #GHC head"
       addons: {apt: {packages: [cabal-install-head,ghc-head], sources: [hvr-ghc]}}
 
