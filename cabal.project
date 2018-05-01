@@ -1,2 +1,5 @@
 packages: .
           ./examples
+
+package scotty
+  flags: -hpc-coveralls
