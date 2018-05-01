@@ -12,7 +12,7 @@ module Web.Scotty.Util
     , socketDescription
     ) where
 
-import Network (Socket, PortID(..), socketPort)
+import Network.Socket (SockAddr(..), Socket, getSocketName, socketPort)
 import Network.Wai
 
 import Network.HTTP.Types
@@ -66,10 +66,8 @@ addIfNotPresent k v = go
 
 -- Assemble a description from the Socket's PortID.
 socketDescription :: Socket -> IO String
-socketDescription = fmap d . socketPort
-    where d p = case p of
-                    Service s -> "service " ++ s
-                    PortNumber n -> "port " ++ show n
-#if !defined(mingw32_HOST_OS)
-                    UnixSocket u -> "unix socket " ++ u
-#endif
+socketDescription sock = do
+  sockName <- getSocketName sock
+  case sockName of
+    SockAddrUnix u -> return $ "unix socket " ++ u
+    _              -> fmap (\port -> "port " ++ show port) $ socketPort sock

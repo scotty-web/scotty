@@ -47,8 +47,8 @@ import Control.Monad.IO.Class
 
 import Data.Default.Class (def)
 
-import Network (Socket)
 import Network.HTTP.Types (status404, status500)
+import Network.Socket (Socket)
 import Network.Wai
 import Network.Wai.Handler.Warp (Port, runSettings, runSettingsSocket, setPort, getPort)
 

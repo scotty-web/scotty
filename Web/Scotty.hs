@@ -41,8 +41,8 @@ import qualified Data.ByteString as BS
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Text.Lazy (Text)
 
-import Network (Socket)
 import Network.HTTP.Types (Status, StdMethod)
+import Network.Socket (Socket)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 

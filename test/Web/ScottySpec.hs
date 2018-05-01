@@ -18,11 +18,11 @@ import qualified Web.Scotty as Scotty
 
 #if !defined(mingw32_HOST_OS)
 import           Control.Concurrent.Async (withAsync)
+import           Control.Exception (bracketOnError)
 import qualified Data.ByteString as BS
 import           Data.ByteString (ByteString)
 import           Data.Default.Class (def)
-import           Network (listenOn, PortID(..))
-import           Network.Socket (Family(..), SockAddr(..), SocketType(..), close, connect, socket)
+import           Network.Socket (Family(..), SockAddr(..), Socket, SocketOption(..), SocketType(..), bind, close, connect, listen, maxListenQueue, setSocketOption, socket)
 import           Network.Socket.ByteString (send, recv)
 import           System.Directory (removeFile)
 #endif
@@ -180,7 +180,20 @@ socketPath = "/tmp/scotty-test.socket"
 
 withServer :: ScottyM () -> IO a -> IO a
 withServer actions inner = E.bracket
-  (listenOn $ UnixSocket socketPath)
+  (listenOn socketPath)
   (\sock -> close sock >> removeFile socketPath)
   (\sock -> withAsync (Scotty.scottySocket def sock actions) $ const inner)
+
+-- See https://github.com/haskell/network/issues/318
+listenOn :: String -> IO Socket
+listenOn path =
+  bracketOnError
+    (socket AF_UNIX Stream 0)
+    close
+    (\sock -> do
+      setSocketOption sock ReuseAddr 1
+      bind sock (SockAddrUnix path)
+      listen sock maxListenQueue
+      return sock
+    )
 #endif
