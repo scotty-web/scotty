@@ -28,9 +28,9 @@ matrix:
     - env: CABALVER=2.0 GHCVER=8.2.2
       compiler: ": #GHC 8.2.2"
       addons: {apt: {packages: [cabal-install-2.0,ghc-8.2.2], sources: [hvr-ghc]}}
-    - env: CABALVER=2.2 GHCVER=8.4.2 CABALFLAGS=-f-hpc-coveralls # https://github.com/guillaume-nargeot/hpc-coveralls/pull/73
-      compiler: ": #GHC 8.4.2"
-      addons: {apt: {packages: [cabal-install-2.2,ghc-8.4.2], sources: [hvr-ghc]}}
+    - env: CABALVER=2.2 GHCVER=8.4.3 CABALFLAGS=-f-hpc-coveralls # https://github.com/guillaume-nargeot/hpc-coveralls/pull/73
+      compiler: ": #GHC 8.4.3"
+      addons: {apt: {packages: [cabal-install-2.2,ghc-8.4.3], sources: [hvr-ghc]}}
     - env: CABALVER=head GHCVER=head CABALFLAGS=-f-hpc-coveralls
       compiler: ": #GHC head"
       addons: {apt: {packages: [cabal-install-head,ghc-head], sources: [hvr-ghc]}}
