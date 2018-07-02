@@ -1,4 +1,4 @@
-## next [????.??.??]
+## 0.11.2 [2018.07.02]
 * Migrate from `Network` to `Network.Socket` to avoid deprecation warnings.
 
 ## 0.11.1 [2018.04.07]
