@@ -66,11 +66,6 @@ Extra-source-files:
     examples/static/jquery.js
     examples/static/jquery-json.js
 
-flag hpc-coveralls
-  description: Build hpc-coveralls in the test suite.
-  default: True
-  manual: True
-
 Library
   Exposed-modules:     Web.Scotty
                        Web.Scotty.Trans
@@ -123,9 +118,6 @@ test-suite spec
                        text,
                        wai
   build-tool-depends:  hspec-discover:hspec-discover == 2.*
-  if flag(hpc-coveralls)
-   build-depends:      hpc-coveralls
-   build-tool-depends: hpc-coveralls:hpc-coveralls
   GHC-options:         -Wall -threaded -fno-warn-orphans
 
 source-repository head
