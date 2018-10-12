@@ -2,7 +2,7 @@
 #
 #   runghc make_travis_yml_2.hs '-o' '.travis.yml' '--ghc-head' '--no-no-tests-no-bench' '--no-unconstrained' '--local-ghc-options=-Werror' 'cabal.project'
 #
-# For more information, see https://github.com/hvr/multi-ghc-travis
+# For more information, see https://github.com/haskell-CI/haskell-ci
 #
 language: c
 sudo: false
@@ -29,33 +29,32 @@ before_cache:
 matrix:
   include:
     - compiler: "ghc-8.6.1"
-      env: GHCHEAD=true
-      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-head,ghc-8.6.1], sources: [hvr-ghc]}}
+    # env: TEST=--disable-tests BENCH=--disable-benchmarks
+      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.4,ghc-8.6.1], sources: [hvr-ghc]}}
     - compiler: "ghc-8.4.3"
     # env: TEST=--disable-tests BENCH=--disable-benchmarks
-      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.2,ghc-8.4.3], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.4,ghc-8.4.3], sources: [hvr-ghc]}}
     - compiler: "ghc-8.2.2"
     # env: TEST=--disable-tests BENCH=--disable-benchmarks
-      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.2,ghc-8.2.2], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.4,ghc-8.2.2], sources: [hvr-ghc]}}
     - compiler: "ghc-8.0.2"
     # env: TEST=--disable-tests BENCH=--disable-benchmarks
-      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.2,ghc-8.0.2], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.4,ghc-8.0.2], sources: [hvr-ghc]}}
     - compiler: "ghc-7.10.3"
     # env: TEST=--disable-tests BENCH=--disable-benchmarks
-      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.2,ghc-7.10.3], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.4,ghc-7.10.3], sources: [hvr-ghc]}}
     - compiler: "ghc-7.8.4"
     # env: TEST=--disable-tests BENCH=--disable-benchmarks
-      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.2,ghc-7.8.4], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.4,ghc-7.8.4], sources: [hvr-ghc]}}
     - compiler: "ghc-7.6.3"
     # env: TEST=--disable-tests BENCH=--disable-benchmarks
-      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.2,ghc-7.6.3], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.4,ghc-7.6.3], sources: [hvr-ghc]}}
     - compiler: "ghc-head"
       env: GHCHEAD=true
       addons: {apt: {packages: [ghc-ppa-tools,cabal-install-head,ghc-head], sources: [hvr-ghc]}}
 
   allow_failures:
     - compiler: "ghc-head"
-    - compiler: "ghc-8.6.1"
 
 before_install:
   - HC=${CC}
@@ -122,9 +121,8 @@ install:
 # any command which exits with a non-zero exit code causes the build to fail.
 script:
   # test that source-distributions can be generated
-  - (cd "." && cabal sdist)
-  - (cd "./examples" && cabal sdist)
-  - mv "."/dist/scotty-*.tar.gz "./examples"/dist/scotty-examples-*.tar.gz ${DISTDIR}/
+  - cabal new-sdist all
+  - mv dist-newstyle/sdist/*.tar.gz ${DISTDIR}/
   - cd ${DISTDIR} || false
   - find . -maxdepth 1 -name '*.tar.gz' -exec tar -xvf '{}' \;
   - "printf 'packages: scotty-*/*.cabal scotty-examples-*/*.cabal\\n' > cabal.project"
@@ -146,7 +144,6 @@ script:
   - (cd scotty-examples-* && cabal check)
 
   # haddock
-  - rm -rf ./dist-newstyle
   - if $HADDOCK; then cabal new-haddock -w ${HC} ${TEST} ${BENCH} all; else echo "Skipping haddock generation";fi
 
 # REGENDATA ["-o",".travis.yml","--ghc-head","--no-no-tests-no-bench","--no-unconstrained","--local-ghc-options=-Werror","cabal.project"]
