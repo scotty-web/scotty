@@ -1,3 +1,7 @@
+## 0.11.3 [2019.01.08]
+* Drop the test suite's dependency on `hpc-coveralls`, which is unmaintained
+  and does not build with GHC 8.4 or later.
+
 ## 0.11.2 [2018.07.02]
 * Migrate from `Network` to `Network.Socket` to avoid deprecation warnings.
 
