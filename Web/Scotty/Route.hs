@@ -250,6 +250,6 @@ literal :: String -> RoutePattern
 literal = Literal . T.pack
 
 #if !(MIN_VERSION_wai(3,2,2))
-getRequestBodyChunk :: Request -> IO ByteString
+getRequestBodyChunk :: Request -> IO B.ByteString
 getRequestBodyChunk = requestBody
 #endif
