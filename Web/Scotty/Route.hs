@@ -23,6 +23,9 @@ import qualified Data.Text as TS
 
 import           Network.HTTP.Types
 import           Network.Wai (Request(..))
+#if MIN_VERSION_wai(3,2,2)
+import           Network.Wai.Internal (getRequestBodyChunk)
+#endif
 import qualified Network.Wai.Parse as Parse hiding (parseRequestBody)
 
 import qualified Text.Regex as Regex
@@ -122,9 +125,9 @@ path :: Request -> T.Text
 path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo
 
 -- Stolen from wai-extra's Network.Wai.Parse, modified to accept body as list of Bytestrings.
--- Reason: WAI's requestBody is an IO action that returns the body as chunks. Once read,
--- they can't be read again. We read them into a lazy Bytestring, so Scotty user can get
--- the raw body, even if they also want to call wai-extra's parsing routines.
+-- Reason: WAI's getRequestBodyChunk is an IO action that returns the body as chunks.
+-- Once read, they can't be read again. We read them into a lazy Bytestring, so Scotty
+-- user can get the raw body, even if they also want to call wai-extra's parsing routines.
 parseRequestBody :: MonadIO m
                  => [B.ByteString]
                  -> Parse.BackEnd y
@@ -144,8 +147,8 @@ parseRequestBody bl s r =
 mkEnv :: forall m. MonadIO m => Request -> [Param] -> m ActionEnv
 mkEnv req captures = do
     bodyState <- liftIO $ newMVar BodyUntouched
-    
-    let rbody = requestBody req
+
+    let rbody = getRequestBodyChunk req
         takeAll :: ([B.ByteString] -> IO [B.ByteString]) -> IO [B.ByteString]
         takeAll prefix = rbody >>= \b -> if B.null b then prefix [] else takeAll (prefix . (b:))
 
@@ -153,11 +156,11 @@ mkEnv req captures = do
         safeBodyReader =  do
           state <- takeMVar bodyState
           let direct = putMVar bodyState BodyCorrupted >> rbody
-          case state of 
-            s@(BodyCached _ []) -> 
-              do putMVar bodyState s 
+          case state of
+            s@(BodyCached _ []) ->
+              do putMVar bodyState s
                  return B.empty
-            BodyCached b (chunk:rest) -> 
+            BodyCached b (chunk:rest) ->
               do putMVar bodyState $ BodyCached b rest
                  return chunk
             BodyUntouched -> direct
@@ -166,12 +169,12 @@ mkEnv req captures = do
         bs :: IO BL.ByteString
         bs = do
           state <- takeMVar bodyState
-          case state of 
-            s@(BodyCached b _) -> 
+          case state of
+            s@(BodyCached b _) ->
               do putMVar bodyState s
                  return b
             BodyCorrupted -> throw BodyPartiallyStreamed
-            BodyUntouched -> 
+            BodyUntouched ->
               do chunks <- takeAll return
                  let b = BL.fromChunks chunks
                  putMVar bodyState $ BodyCached b chunks
@@ -184,7 +187,7 @@ mkEnv req captures = do
                        parseRequestBody wholeBody Parse.lbsBackEnd req
       else return ([], [])
 
-    let 
+    let
         convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
         parameters =  captures ++ map convert formparams ++ queryparams
         queryparams = parseEncodedParams $ rawQueryString req
@@ -245,3 +248,8 @@ function = Function
 -- | Build a route that requires the requested path match exactly, without captures.
 literal :: String -> RoutePattern
 literal = Literal . T.pack
+
+#if !(MIN_VERSION_wai(3,2,2))
+getRequestBodyChunk :: Request -> IO ByteString
+getRequestBodyChunk = requestBody
+#endif
