@@ -16,10 +16,10 @@ main = scotty 3000 $
 
 Scotty is the cheap and cheerful way to write RESTful, declarative web applications.
 
-* A page is as simple as defining the verb, url pattern, and Text content.
+* A page is as simple as defining the verb, URL pattern, and Text content.
 * It is template-language agnostic. Anything that returns a Text value will do.
-* Conforms to WAI Application interface.
-* Uses very fast Warp webserver by default.
+* Conforms to the [web application interface (WAI)](https://github.com/yesodweb/wai/).
+* Uses the very fast Warp webserver by default.
 
 See examples/basic.hs to see Scotty in action. (basic.hs needs the wai-extra package)
 
@@ -33,12 +33,10 @@ As for the name: Sinatra + Warp = Scotty.
 
 ### More Information
 
-Tutorials and related projects can be found in the Scotty wiki:
-
-https://github.com/scotty-web/scotty/wiki
+Tutorials and related projects can be found in the [Scotty wiki](https://github.com/scotty-web/scotty/wiki).
 
 ### Development & Support
 
 Open an issue on GitHub or join `#scotty` on Freenode.
 
-Copyright (c) 2012-2017 Andrew Farmer
+Copyright (c) 2012-2019 Andrew Farmer
