@@ -141,7 +141,7 @@ newtype ActionT e m a = ActionT { runAM :: ExceptT (ActionError e) (ReaderT Acti
 instance (Monad m, ScottyError e) => Monad (ActionT e m) where
     return = ActionT . return
     ActionT m >>= k = ActionT (m >>= runAM . k)
-    fail = ActionT . throwError . stringError
+    fail = Fail.fail
 
 instance (Monad m, ScottyError e) => Fail.MonadFail (ActionT e m) where
     fail = ActionT . throwError . stringError
