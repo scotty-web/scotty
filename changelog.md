@@ -1,3 +1,6 @@
+## next [????.??.??]
+* Allow building with `base-4.13` (GHC 8.8).
+
 ## 0.11.3 [2019.01.08]
 * Drop the test suite's dependency on `hpc-coveralls`, which is unmaintained
   and does not build with GHC 8.4 or later.

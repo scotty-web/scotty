@@ -49,7 +49,7 @@ data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
                        }
 
 instance Default Options where
-    def = Options 1 defaultSettings 
+    def = Options 1 defaultSettings
 
 ----- Transformer Aware Applications/Middleware -----
 type Middleware m = Application m -> Application m
@@ -141,7 +141,9 @@ newtype ActionT e m a = ActionT { runAM :: ExceptT (ActionError e) (ReaderT Acti
 instance (Monad m, ScottyError e) => Monad (ActionT e m) where
     return = ActionT . return
     ActionT m >>= k = ActionT (m >>= runAM . k)
+#if !(MIN_VERSION_base(4,13,0))
     fail = Fail.fail
+#endif
 
 instance (Monad m, ScottyError e) => Fail.MonadFail (ActionT e m) where
     fail = ActionT . throwError . stringError

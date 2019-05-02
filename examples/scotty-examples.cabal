@@ -147,4 +147,5 @@ executable scotty-urlshortener
 
 source-repository head
   type:     git
-  location: git://github.com/scotty-web/scotty.git
+  location: https://github.com/scotty-web/scotty
+  subdir:   examples
