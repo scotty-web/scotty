@@ -95,7 +95,7 @@ Library
                        transformers-compat >= 0.4      && < 0.7,
                        wai                 >= 3.0.0    && < 3.3,
                        wai-extra           >= 3.0.0    && < 3.1,
-                       warp                >= 3.0.13   && < 3.3
+                       warp                >= 3.0.13   && < 3.4
 
   GHC-options: -Wall -fno-warn-orphans
 
