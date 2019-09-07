@@ -1,3 +1,6 @@
+## next [????.??.??]
+* Allow building the test suite with `hspec-wai-0.10`.
+
 ## 0.11.4 [2019.05.02]
 * Allow building with `base-4.13` (GHC 8.8).
 

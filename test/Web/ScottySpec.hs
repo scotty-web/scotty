@@ -3,7 +3,6 @@ module Web.ScottySpec (main, spec) where
 
 import           Test.Hspec
 import           Test.Hspec.Wai
-import           Network.Wai (Application)
 
 import           Control.Applicative
 import           Control.Monad
@@ -32,9 +31,6 @@ main = hspec spec
 
 availableMethods :: [StdMethod]
 availableMethods = [GET, POST, HEAD, PUT, PATCH, DELETE, OPTIONS]
-
-withApp :: ScottyM () -> SpecWith Application -> Spec
-withApp = with . scottyApp
 
 spec :: Spec
 spec = do
@@ -174,6 +170,8 @@ spec = do
   where ok, no :: ByteString
         ok = "HTTP/1.1 200 OK"
         no = "HTTP/1.1 404 Not Found"
+
+        withApp = with . scottyApp
 
 socketPath :: FilePath
 socketPath = "/tmp/scotty-test.socket"
