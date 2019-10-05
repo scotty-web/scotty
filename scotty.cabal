@@ -56,16 +56,11 @@ Extra-source-files:
     README.md
     changelog.md
     examples/404.html
-    examples/basic.hs
-    examples/cookies.hs
-    examples/exceptions.hs
-    examples/globalstate.hs
-    examples/gzip.hs
-    examples/options.hs
-    examples/upload.hs
-    examples/urlshortener.hs
+    examples/LICENSE
+    examples/*.hs
     examples/static/jquery.js
     examples/static/jquery-json.js
+    examples/uploads/.keep
 
 Library
   Exposed-modules:     Web.Scotty
