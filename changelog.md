@@ -1,3 +1,6 @@
+## 0.11.6 [2019.12.09]
+* Provide `MonadReader` and `MonadState` instances for `ActionT`.
+
 ## 0.11.5 [2019.09.07]
 * Allow building the test suite with `hspec-wai-0.10`.
 
