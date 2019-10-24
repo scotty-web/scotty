@@ -123,9 +123,10 @@ data BodyPartiallyStreamed = BodyPartiallyStreamed deriving (Show, Typeable)
 
 instance E.Exception BodyPartiallyStreamed
 
-data Content = ContentBuilder Builder
-             | ContentFile    FilePath
-             | ContentStream  StreamingBody
+data Content = ContentBuilder  Builder
+             | ContentFile     FilePath
+             | ContentStream   StreamingBody
+             | ContentResponse Response
 
 data ScottyResponse = SR { srStatus  :: Status
                          , srHeaders :: ResponseHeaders

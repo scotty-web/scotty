@@ -6,6 +6,7 @@ module Web.Scotty.Action
     , body
     , bodyReader
     , file
+    , rawResponse
     , files
     , finish
     , header
@@ -90,6 +91,7 @@ defH _          Finish            = return ()
 -- turn into HTTP 500 responses.
 raise :: (ScottyError e, Monad m) => e -> ActionT e m a
 raise = throwError . ActionError
+
 
 -- | Abort execution of this action and continue pattern matching routes.
 -- Like an exception, any code after 'next' is not executed.
@@ -300,6 +302,9 @@ html t = do
 -- want to do that on your own with 'setHeader'.
 file :: Monad m => FilePath -> ActionT e m ()
 file = ActionT . MS.modify . setContent . ContentFile
+
+rawResponse :: Monad m => Response -> ActionT e m ()
+rawResponse = ActionT . MS.modify . setContent . ContentResponse
 
 -- | Set the body of the response to the JSON encoding of the given value. Also sets \"Content-Type\"
 -- header to \"application/json; charset=utf-8\" if it has not already been set.

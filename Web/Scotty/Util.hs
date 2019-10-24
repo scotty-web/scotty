@@ -44,9 +44,10 @@ setStatus s sr = sr { srStatus = s }
 -- is incompatible with responseRaw responses.
 mkResponse :: ScottyResponse -> Response
 mkResponse sr = case srContent sr of
-                    ContentBuilder b  -> responseBuilder s h b
-                    ContentFile f     -> responseFile s h f Nothing
-                    ContentStream str -> responseStream s h str
+                    ContentBuilder  b   -> responseBuilder s h b
+                    ContentFile     f   -> responseFile s h f Nothing
+                    ContentStream   str -> responseStream s h str
+                    ContentResponse res -> res
     where s = srStatus sr
           h = srHeaders sr
 

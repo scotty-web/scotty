@@ -13,7 +13,7 @@ module Web.Scotty
       -- | 'Middleware' and routes are run in the order in which they
       -- are defined. All middleware is run first, followed by the first
       -- route that matches. If no route matches, a 404 response is given.
-    , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound
+    , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound, nested
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
@@ -40,13 +40,17 @@ import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString as BS
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Text.Lazy (Text)
+import Control.Concurrent.MVar
+import Control.Monad.IO.Class
 
 import Network.HTTP.Types (Status, StdMethod)
 import Network.Socket (Socket)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
+import Network.Wai.Internal (ResponseReceived(..))
 
 import Web.Scotty.Internal.Types (ScottyT, ActionT, Param, RoutePattern, Options, File)
+import Web.Scotty.Action (rawResponse)
 
 type ScottyM = ScottyT Text IO
 type ActionM = ActionT Text IO
@@ -88,6 +92,22 @@ defaultHandler = Trans.defaultHandler
 -- on the response). Every middleware is run on each request.
 middleware :: Middleware -> ScottyM ()
 middleware = Trans.middleware
+
+-- | Nest a whole WAI application inside a Scotty handler.
+-- Note: You will want to ensure that this route fully handles the response,
+-- as there is no easy delegation as per normal Scotty actions.
+-- Also, you will have to carefully ensure that you are expecting the correct routes,
+-- this could require stripping the current prefix, or adding the prefix to your
+-- application's handlers if it depends on them. One potential use-case for this
+-- is hosting a web-socket handler under a specific route.
+nested :: Application -> ActionM ()
+nested app = do
+  -- Is MVar really the best choice here? Not sure.
+  r <- request
+  ref <- liftIO $ newEmptyMVar
+  _ <- liftAndCatchIO $ app r (\res -> liftIO (putMVar ref res) >> return ResponseReceived)
+  res <- liftIO $ readMVar ref
+  rawResponse res
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
