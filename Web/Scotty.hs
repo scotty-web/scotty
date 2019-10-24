@@ -40,17 +40,13 @@ import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString as BS
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Text.Lazy (Text)
-import Control.Concurrent.MVar
-import Control.Monad.IO.Class
 
 import Network.HTTP.Types (Status, StdMethod)
 import Network.Socket (Socket)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
-import Network.Wai.Internal (ResponseReceived(..))
 
 import Web.Scotty.Internal.Types (ScottyT, ActionT, Param, RoutePattern, Options, File)
-import Web.Scotty.Action (rawResponse)
 
 type ScottyM = ScottyT Text IO
 type ActionM = ActionT Text IO
@@ -100,14 +96,13 @@ middleware = Trans.middleware
 -- this could require stripping the current prefix, or adding the prefix to your
 -- application's handlers if it depends on them. One potential use-case for this
 -- is hosting a web-socket handler under a specific route.
+-- nested :: Application -> ActionM ()
+-- nested :: (Monad m, MonadIO m) => Application -> ActionT Text m ()
 nested :: Application -> ActionM ()
-nested app = do
-  -- Is MVar really the best choice here? Not sure.
-  r <- request
-  ref <- liftIO $ newEmptyMVar
-  _ <- liftAndCatchIO $ app r (\res -> liftIO (putMVar ref res) >> return ResponseReceived)
-  res <- liftIO $ readMVar ref
-  rawResponse res
+nested = Trans.nested
+
+group :: ScottyM () -> ActionM ()
+group = undefined
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
@@ -128,7 +123,7 @@ raise = Trans.raise
 -- > get "/foo/:baz" $ do
 -- >   w <- param "baz"
 -- >   text $ "You made a request to: " <> w
-next :: ActionM a
+next :: ActionM ()
 next = Trans.next
 
 -- | Abort execution of this action. Like an exception, any code after 'finish'

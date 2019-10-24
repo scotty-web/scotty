@@ -22,11 +22,16 @@ scottApp = scottyApp $ do
     get "/" $ do
         html $ mconcat ["<h1>Scotty, bean me up!</h1>"]
 
+    get "/other/test/:word" $ do
+        beam <- param "word"
+        html $ mconcat ["<h1>Scotty, ", beam, " me up!</h1>"]
+
     get "/test/:word" $ do
         beam <- param "word"
         html $ mconcat ["<h1>Scotty, ", beam, " me up!</h1>"]
 
-    get "/nested" $ nested simpleApp
+    get "/nested"       $ nested simpleApp
+    get "/other/nested" $ nested simpleApp
 
     notFound $ do
       r <- request

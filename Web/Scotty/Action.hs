@@ -20,6 +20,7 @@ module Web.Scotty.Action
     , params
     , raise
     , raw
+    , nested
     , readEither
     , redirect
     , request
@@ -41,6 +42,7 @@ import           Control.Monad.Error.Class
 import           Control.Monad.Reader
 import qualified Control.Monad.State        as MS
 import           Control.Monad.Trans.Except
+import           Control.Concurrent.MVar
 
 import qualified Data.Aeson                 as A
 import qualified Data.ByteString.Char8      as B
@@ -63,6 +65,8 @@ import           Numeric.Natural
 
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util
+
+import Network.Wai.Internal (ResponseReceived(..))
 
 -- Nothing indicates route failed (due to Next) and pattern matching should continue.
 -- Just indicates a successful response.
@@ -324,3 +328,14 @@ stream = ActionT . MS.modify . setContent . ContentStream
 -- own with 'setHeader'.
 raw :: Monad m => BL.ByteString -> ActionT e m ()
 raw = ActionT . MS.modify . setContent . ContentBuilder . fromLazyByteString
+
+-- | Nest a whole WAI application inside a Scotty handler.
+-- See Web.Scotty for further documentation
+nested :: (ScottyError e, MonadIO m) => Network.Wai.Application -> ActionT e m ()
+nested app = do
+  -- Is MVar really the best choice here? Not sure.
+  r <- request
+  ref <- liftIO $ newEmptyMVar
+  _ <- liftAndCatchIO $ app r (\res -> putMVar ref res >> return ResponseReceived)
+  res <- liftAndCatchIO $ readMVar ref
+  rawResponse res
