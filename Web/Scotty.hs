@@ -101,9 +101,6 @@ middleware = Trans.middleware
 nested :: Application -> ActionM ()
 nested = Trans.nested
 
-group :: ScottyM () -> ActionM ()
-group = undefined
-
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
 raise :: Text -> ActionM a
