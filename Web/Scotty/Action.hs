@@ -50,7 +50,7 @@ import           Data.Int
 import qualified Data.Text                  as ST
 import qualified Data.Text.Encoding         as STE
 import qualified Data.Text.Lazy             as T
-import           Data.Text.Lazy.Encoding    (encodeUtf8)
+import           Data.Text.Lazy.Encoding    (encodeUtf8, decodeUtf8)
 import           Data.Word
 
 import           Network.HTTP.Types
@@ -179,11 +179,32 @@ body = ActionT ask >>= (liftIO . getBody)
 bodyReader :: Monad m => ActionT e m (IO B.ByteString)
 bodyReader = ActionT $ getBodyChunk `liftM` ask
 
--- | Parse the request body as a JSON object and return it. Raises an exception if parse is unsuccessful.
+-- | Parse the request body as a JSON object and return it.
+--
+--   If the JSON object is malformed, this sets the status to
+--   400 Bad Request, and throws an exception.
+--
+--   If the JSON fails to parse, this sets the status to
+--   422 Unprocessable Entity.
+--
+--   These status codes are as per https://www.restapitutorial.com/httpstatuscodes.html.
 jsonData :: (A.FromJSON a, ScottyError e, MonadIO m) => ActionT e m a
 jsonData = do
     b <- body
-    either (\e -> raise $ stringError $ "jsonData - no parse: " ++ e ++ ". Data was:" ++ BL.unpack b) return $ A.eitherDecode b
+    case A.eitherDecode b of
+      Left err -> do
+        let htmlError = "jsonData - malformed."
+              `mappend` " Data was: " `mappend` BL.unpack b
+              `mappend` " Error was: " `mappend` err
+        raiseStatus status400 $ stringError htmlError
+      Right value -> case A.fromJSON value of
+        A.Error err -> do
+          let htmlError = "jsonData - failed parse."
+                `mappend` " Data was: " `mappend` BL.unpack b `mappend` "."
+                `mappend` " Error was: " `mappend` err
+          raiseStatus status422 $ stringError htmlError
+        A.Success a -> do
+          return a
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
