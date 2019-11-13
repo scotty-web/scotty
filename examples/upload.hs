@@ -4,7 +4,6 @@ module Main (main) where
 import Web.Scotty
 
 import Control.Monad.IO.Class
-import Data.Monoid
 
 import Network.Wai.Middleware.RequestLogger
 import Network.Wai.Middleware.Static
@@ -17,7 +16,8 @@ import Text.Blaze.Html.Renderer.Text (renderHtml)
 import qualified Data.ByteString.Lazy as B
 import qualified Data.ByteString.Char8 as BS
 import System.FilePath ((</>))
-import Prelude
+import Prelude ()
+import Prelude.Compat
 
 main :: IO ()
 main = scotty 3000 $ do

@@ -9,7 +9,6 @@
 -- embedded into any MonadIO monad.
 module Main (main) where
 
-import Control.Applicative
 import Control.Concurrent.STM
 import Control.Monad.Reader
 
@@ -19,7 +18,8 @@ import Data.Text.Lazy (Text)
 
 import Network.Wai.Middleware.RequestLogger
 
-import Prelude
+import Prelude ()
+import Prelude.Compat
 
 import Web.Scotty.Trans
 

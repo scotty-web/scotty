@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 module Web.Scotty.Util
     ( lazyTextToStrictByteString
     , strictByteStringToLazyText
