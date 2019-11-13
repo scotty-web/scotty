@@ -7,11 +7,11 @@
 -}
 module Main where
 
-import Control.Applicative
 import Control.Monad.Reader (MonadIO, MonadReader, ReaderT, asks, lift, runReaderT)
 import Data.Default.Class (def)
 import Data.Text.Lazy (Text, pack)
-import Prelude
+import Prelude ()
+import Prelude.Compat
 import Web.Scotty.Trans (ScottyT, get, scottyOptsT, text)
 
 data Config = Config

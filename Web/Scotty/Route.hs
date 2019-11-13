@@ -14,9 +14,6 @@ import qualified Control.Monad.State as MS
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import           Data.Maybe (fromMaybe, isJust)
-#if !(MIN_VERSION_base(4,8,0))
-import           Data.Monoid (mconcat)
-#endif
 import           Data.String (fromString)
 import qualified Data.Text.Lazy as T
 import qualified Data.Text as TS
@@ -27,6 +24,9 @@ import           Network.Wai (Request(..))
 import           Network.Wai.Internal (getRequestBodyChunk)
 #endif
 import qualified Network.Wai.Parse as Parse hiding (parseRequestBody)
+
+import           Prelude ()
+import           Prelude.Compat
 
 import qualified Text.Regex as Regex
 

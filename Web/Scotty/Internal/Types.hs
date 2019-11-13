@@ -23,9 +23,6 @@ import           Control.Monad.Trans.Except
 import qualified Data.ByteString as BS
 import           Data.ByteString.Lazy.Char8 (ByteString)
 import           Data.Default.Class (Default, def)
-#if !(MIN_VERSION_base(4,8,0))
-import           Data.Monoid (mempty)
-#endif
 import           Data.String (IsString(..))
 import           Data.Text.Lazy (Text, pack)
 import           Data.Typeable (Typeable)
@@ -36,6 +33,9 @@ import           Network.Wai hiding (Middleware, Application)
 import qualified Network.Wai as Wai
 import           Network.Wai.Handler.Warp (Settings, defaultSettings)
 import           Network.Wai.Parse (FileInfo)
+
+import           Prelude ()
+import           Prelude.Compat
 
 --------------------- Options -----------------------
 data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner

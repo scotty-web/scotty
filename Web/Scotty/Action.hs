@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 module Web.Scotty.Action
@@ -37,7 +36,7 @@ import           Blaze.ByteString.Builder   (fromLazyByteString)
 
 import qualified Control.Exception          as E
 import           Control.Monad.Error.Class
-import           Control.Monad.Reader
+import           Control.Monad.Reader       hiding (mapM)
 import qualified Control.Monad.State        as MS
 import           Control.Monad.Trans.Except
 
@@ -47,9 +46,6 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive       as CI
 import           Data.Default.Class         (def)
 import           Data.Int
-#if !(MIN_VERSION_base(4,8,0))
-import           Data.Monoid                (mconcat)
-#endif
 import qualified Data.Text                  as ST
 import qualified Data.Text.Lazy             as T
 import           Data.Text.Lazy.Encoding    (encodeUtf8)
@@ -59,6 +55,9 @@ import           Network.HTTP.Types
 import           Network.Wai
 
 import           Numeric.Natural
+
+import           Prelude ()
+import           Prelude.Compat
 
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util
