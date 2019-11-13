@@ -23,6 +23,7 @@ import           Control.Monad.Trans.Except
 import qualified Data.ByteString as BS
 import           Data.ByteString.Lazy.Char8 (ByteString)
 import           Data.Default.Class (Default, def)
+import qualified Data.Semigroup as Sem
 import           Data.String (IsString(..))
 import           Data.Text.Lazy (Text, pack)
 import           Data.Typeable (Typeable)
@@ -209,6 +210,46 @@ instance (MonadState s m, ScottyError e) => MonadState s (ActionT e m) where
     get = lift get
     {-# INLINE put #-}
     put = lift . put
+
+instance (Sem.Semigroup a) => Sem.Semigroup (ScottyT e m a) where
+  x <> y = (<>) <$> x <*> y
+
+instance
+  ( Monoid a
+#if !(MIN_VERSION_base(4,11,0))
+  , Semigroup a
+#endif
+#if !(MIN_VERSION_base(4,8,0))
+  , Functor m
+#endif
+  ) => Monoid (ScottyT e m a) where
+  mempty = return mempty
+#if !(MIN_VERSION_base(4,11,0))
+  mappend = (<>)
+#endif
+
+instance
+  ( Monad m
+#if !(MIN_VERSION_base(4,8,0))
+  , Functor m
+#endif
+  , Semigroup a
+  ) => Sem.Semigroup (ActionT e m a) where
+  x <> y = (<>) <$> x <*> y
+
+instance
+  ( Monad m, ScottyError e, Monoid a
+#if !(MIN_VERSION_base(4,11,0))
+  , Semigroup a
+#endif
+#if !(MIN_VERSION_base(4,8,0))
+  , Functor m
+#endif
+  ) => Monoid (ActionT e m a) where
+  mempty = return mempty
+#if !(MIN_VERSION_base(4,11,0))
+  mappend = (<>)
+#endif
 
 ------------------ Scotty Routes --------------------
 data RoutePattern = Capture   Text

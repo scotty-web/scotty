@@ -6,6 +6,7 @@
   avoids the strange defaulting to HTTP 500. This will make internal
   functions easier to implement with the right status codes 'thrown',
   such as `jsonData`.
+* Add `Semigroup` and `Monoid` instances for `ActionT` and `ScottyT`
 
 ## 0.11.5 [2019.09.07]
 * Allow building the test suite with `hspec-wai-0.10`.
