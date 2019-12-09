@@ -197,6 +197,18 @@ instance (ScottyError e, MonadBaseControl b m) => MonadBaseControl b (ActionT e 
     liftBaseWith = defaultLiftBaseWith
     restoreM     = defaultRestoreM
 
+instance (MonadReader r m, ScottyError e) => MonadReader r (ActionT e m) where
+    {-# INLINE ask #-}
+    ask = lift ask
+    {-# INLINE local #-}
+    local f = ActionT . mapExceptT (mapReaderT (mapStateT $ local f)) . runAM
+
+instance (MonadState s m, ScottyError e) => MonadState s (ActionT e m) where
+    {-# INLINE get #-}
+    get = lift get
+    {-# INLINE put #-}
+    put = lift . put
+
 ------------------ Scotty Routes --------------------
 data RoutePattern = Capture   Text
                   | Literal   Text
