@@ -192,7 +192,6 @@ jsonData :: (A.FromJSON a, ScottyError e, MonadIO m) => ActionT e m a
 jsonData = do
     b <- body
     case A.eitherDecode b of
-      -- should we show the error here?
       Left err -> do
         let htmlError = "jsonData - malformed."
               `mappend` " Data was: " `mappend` BL.unpack b
