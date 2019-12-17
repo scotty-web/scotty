@@ -1,5 +1,10 @@
 ## 0.11.6 [2019.12.09]
 * Provide `MonadReader` and `MonadState` instances for `ActionT`.
+* Add HTTP Status code as a field to `ActionError`. This makes
+  throwing a specific error code and exiting much cleaner, and
+  avoids the strange defaulting to HTTP 500. This will make internal
+  functions easier to implement with the right status codes 'thrown',
+  such as `jsonData`.
 
 ## 0.11.5 [2019.09.07]
 * Allow building the test suite with `hspec-wai-0.10`.
