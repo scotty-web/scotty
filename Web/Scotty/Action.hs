@@ -204,7 +204,7 @@ jsonData = do
                 `mappend` " Error was: " `mappend` err
           raiseStatus status422 $ stringError htmlError
         A.Success a -> do
-          pure a
+          return a
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
