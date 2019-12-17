@@ -1,6 +1,7 @@
 ## 0.11.6 [2019.12.09]
 * Provide `MonadReader` and `MonadState` instances for `ActionT`.
-* Add HTTP Status code as a field to `ActionError`. This makes
+* Add HTTP Status code as a field to `ActionError`, and add
+  a sister function to `raise`, `raiseStatus`. This makes
   throwing a specific error code and exiting much cleaner, and
   avoids the strange defaulting to HTTP 500. This will make internal
   functions easier to implement with the right status codes 'thrown',
