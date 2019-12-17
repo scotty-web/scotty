@@ -79,10 +79,11 @@ newtype ScottyT e m a = ScottyT { runS :: State (ScottyState e m) a }
 
 
 ------------------ Scotty Errors --------------------
-data ActionError e = Redirect Text
-                   | Next
-                   | Finish
-                   | ActionError e
+data ActionError e
+  = Redirect Text
+  | Next
+  | Finish
+  | ActionError Status e
 
 -- | In order to use a custom exception type (aside from 'Text'), you must
 -- define an instance of 'ScottyError' for that type.
@@ -95,11 +96,11 @@ instance ScottyError Text where
     showError = id
 
 instance ScottyError e => ScottyError (ActionError e) where
-    stringError = ActionError . stringError
+    stringError = ActionError status500 . stringError
     showError (Redirect url)  = url
     showError Next            = pack "Next"
     showError Finish          = pack "Finish"
-    showError (ActionError e) = showError e
+    showError (ActionError _ e) = showError e
 
 type ErrorHandler e m = Maybe (e -> ActionT e m ())
 
