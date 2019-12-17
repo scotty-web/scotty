@@ -17,6 +17,7 @@ module Web.Scotty.Action
     , param
     , params
     , raise
+    , raiseStatus
     , raw
     , readEither
     , redirect
@@ -47,6 +48,7 @@ import qualified Data.CaseInsensitive       as CI
 import           Data.Default.Class         (def)
 import           Data.Int
 import qualified Data.Text                  as ST
+import qualified Data.Text.Encoding         as STE
 import qualified Data.Text.Lazy             as T
 import           Data.Text.Lazy.Encoding    (encodeUtf8)
 import           Data.Word
@@ -78,17 +80,23 @@ defH :: (ScottyError e, Monad m) => ErrorHandler e m -> ActionError e -> ActionT
 defH _          (Redirect url)    = do
     status status302
     setHeader "Location" url
-defH Nothing    (ActionError e)   = do
-    status status500
-    html $ mconcat ["<h1>500 Internal Server Error</h1>", showError e]
-defH h@(Just f) (ActionError e)   = f e `catchError` (defH h) -- so handlers can throw exceptions themselves
+defH Nothing    (ActionError s e)   = do
+    status s
+    let code = T.pack $ show $ statusCode s
+    let msg = T.fromStrict $ STE.decodeUtf8 $ statusMessage s
+    html $ mconcat ["<h1>", code, " ", msg, "</h1>", showError e]
+defH h@(Just f) (ActionError _ e)   = f e `catchError` (defH h) -- so handlers can throw exceptions themselves
 defH _          Next              = next
 defH _          Finish            = return ()
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
 raise :: (ScottyError e, Monad m) => e -> ActionT e m a
-raise = throwError . ActionError
+raise = raiseStatus status500
+
+-- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions turn into HTTP responses corresponding to the given status.
+raiseStatus :: (ScottyError e, Monad m) => Status -> e -> ActionT e m a
+raiseStatus s = throwError . ActionError s
 
 -- | Abort execution of this action and continue pattern matching routes.
 -- Like an exception, any code after 'next' is not executed.
@@ -112,8 +120,8 @@ next = throwError Next
 -- > raise "just kidding" `rescue` (\msg -> text msg)
 rescue :: (ScottyError e, Monad m) => ActionT e m a -> (e -> ActionT e m a) -> ActionT e m a
 rescue action h = catchError action $ \e -> case e of
-    ActionError err -> h err            -- handle errors
-    other           -> throwError other -- rethrow internal error types
+    ActionError _ err -> h err            -- handle errors
+    other             -> throwError other -- rethrow internal error types
 
 -- | Like 'liftIO', but catch any IO exceptions and turn them into 'ScottyError's.
 liftAndCatchIO :: (ScottyError e, MonadIO m) => IO a -> ActionT e m a
