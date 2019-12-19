@@ -7,6 +7,7 @@
   functions easier to implement with the right status codes 'thrown',
   such as `jsonData`.
 * Add `Semigroup` and `Monoid` instances for `ActionT` and `ScottyT`
+* ScottyT: Use strict StateT instead of lazy
 
 ## 0.11.5 [2019.09.07]
 * Allow building the test suite with `hspec-wai-0.10`.

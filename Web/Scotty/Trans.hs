@@ -42,7 +42,7 @@ module Web.Scotty.Trans
 import Blaze.ByteString.Builder (fromByteString)
 
 import Control.Monad (when)
-import Control.Monad.State (execState, modify)
+import Control.Monad.State.Strict (execState, modify)
 import Control.Monad.IO.Class
 
 import Data.Default.Class (def)
