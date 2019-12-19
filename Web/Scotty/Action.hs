@@ -50,7 +50,7 @@ import           Data.Int
 import qualified Data.Text                  as ST
 import qualified Data.Text.Encoding         as STE
 import qualified Data.Text.Lazy             as T
-import           Data.Text.Lazy.Encoding    (encodeUtf8, decodeUtf8)
+import           Data.Text.Lazy.Encoding    (encodeUtf8)
 import           Data.Word
 
 import           Network.HTTP.Types
