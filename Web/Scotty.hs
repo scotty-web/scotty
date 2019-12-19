@@ -26,7 +26,7 @@ module Web.Scotty
       -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json, stream, raw
       -- ** Exceptions
-    , raise, rescue, next, finish, defaultHandler, liftAndCatchIO
+    , raise, raiseStatus, rescue, next, finish, defaultHandler, liftAndCatchIO
       -- * Parsing Parameters
     , Param, Trans.Parsable(..), Trans.readEither
       -- * Types
@@ -93,6 +93,10 @@ middleware = Trans.middleware
 -- turn into HTTP 500 responses.
 raise :: Text -> ActionM a
 raise = Trans.raise
+
+-- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions turn into HTTP responses corresponding to the given status.
+raiseStatus :: Status -> Text -> ActionM a
+raiseStatus = Trans.raiseStatus
 
 -- | Abort execution of this action and continue pattern matching routes.
 -- Like an exception, any code after 'next' is not executed.

@@ -79,7 +79,7 @@ Library
                        data-default-class    >= 0.0.1    && < 0.2,
                        exceptions            >= 0.7      && < 0.11,
                        fail,
-                       http-types            >= 0.8.2    && < 0.13,
+                       http-types            >= 0.9.1    && < 0.13,
                        monad-control         >= 1.0.0.3  && < 1.1,
                        mtl                   >= 2.1.2    && < 2.3,
                        nats                  >= 0.1      && < 2,

@@ -30,7 +30,7 @@ module Web.Scotty.Trans
       -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json, stream, raw
       -- ** Exceptions
-    , raise, rescue, next, finish, defaultHandler, ScottyError(..), liftAndCatchIO
+    , raise, raiseStatus, rescue, next, finish, defaultHandler, ScottyError(..), liftAndCatchIO
       -- * Parsing Parameters
     , Param, Parsable(..), readEither
       -- * Types
