@@ -196,6 +196,9 @@ bodyReader = ActionT $ getBodyChunk `liftM` ask
 jsonData :: (A.FromJSON a, ScottyError e, MonadIO m) => ActionT e m a
 jsonData = do
     b <- body
+    when (b == "") $ do
+      let htmlError = "jsonData - No data was provided."
+      raiseStatus status400 $ stringError htmlError
     case A.eitherDecode b of
       Left err -> do
         let htmlError = "jsonData - malformed."
