@@ -39,7 +39,7 @@ import           Blaze.ByteString.Builder   (fromLazyByteString)
 import qualified Control.Exception          as E
 import           Control.Monad.Error.Class
 import           Control.Monad.Reader       hiding (mapM)
-import qualified Control.Monad.State        as MS
+import qualified Control.Monad.State.Strict as MS
 import           Control.Monad.Trans.Except
 
 import qualified Data.Aeson                 as A

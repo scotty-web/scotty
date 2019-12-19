@@ -4,10 +4,11 @@
 #
 # For more information, see https://github.com/haskell-CI/haskell-ci
 #
-# version: 0.4
+# version: 0.3.20190814
 #
 language: c
 dist: xenial
+sudo: required
 git:
   # whether to recursively clone submodules
   submodules: false
@@ -29,19 +30,19 @@ matrix:
     - compiler: ghc-8.8.1
       addons: {"apt":{"sources":["hvr-ghc"],"packages":["ghc-8.8.1","cabal-install-3.0"]}}
     - compiler: ghc-8.6.5
-      addons: {"apt":{"sources":["hvr-ghc"],"packages":["ghc-8.6.5","cabal-install-3.0"]}}
+      addons: {"apt":{"sources":["hvr-ghc"],"packages":["ghc-8.6.5","cabal-install-2.4"]}}
     - compiler: ghc-8.4.4
-      addons: {"apt":{"sources":["hvr-ghc"],"packages":["ghc-8.4.4","cabal-install-3.0"]}}
+      addons: {"apt":{"sources":["hvr-ghc"],"packages":["ghc-8.4.4","cabal-install-2.4"]}}
     - compiler: ghc-8.2.2
-      addons: {"apt":{"sources":["hvr-ghc"],"packages":["ghc-8.2.2","cabal-install-3.0"]}}
+      addons: {"apt":{"sources":["hvr-ghc"],"packages":["ghc-8.2.2","cabal-install-2.4"]}}
     - compiler: ghc-8.0.2
-      addons: {"apt":{"sources":["hvr-ghc"],"packages":["ghc-8.0.2","cabal-install-3.0"]}}
+      addons: {"apt":{"sources":["hvr-ghc"],"packages":["ghc-8.0.2","cabal-install-2.4"]}}
     - compiler: ghc-7.10.3
-      addons: {"apt":{"sources":["hvr-ghc"],"packages":["ghc-7.10.3","cabal-install-3.0"]}}
+      addons: {"apt":{"sources":["hvr-ghc"],"packages":["ghc-7.10.3","cabal-install-2.4"]}}
     - compiler: ghc-7.8.4
-      addons: {"apt":{"sources":["hvr-ghc"],"packages":["ghc-7.8.4","cabal-install-3.0"]}}
+      addons: {"apt":{"sources":["hvr-ghc"],"packages":["ghc-7.8.4","cabal-install-2.4"]}}
     - compiler: ghc-7.6.3
-      addons: {"apt":{"sources":["hvr-ghc"],"packages":["ghc-7.6.3","cabal-install-3.0"]}}
+      addons: {"apt":{"sources":["hvr-ghc"],"packages":["ghc-7.6.3","cabal-install-2.4"]}}
     - compiler: ghc-head
       addons: {"apt":{"sources":["hvr-ghc"],"packages":["ghc-head","cabal-install-head"]}}
   allow_failures:
@@ -82,6 +83,7 @@ install:
   - echo "$(${HC} --version) [$(${HC} --print-project-git-commit-id 2> /dev/null || echo '?')]"
   - TEST=--enable-tests
   - BENCH=--enable-benchmarks
+  - if [ $HCNUMVER -lt 80200 ] ; then BENCH=--disable-benchmarks ; fi
   - HEADHACKAGE=false
   - if [ $HCNUMVER -gt 80801 ] ; then HEADHACKAGE=true ; fi
   - rm -f $CABALHOME/config
