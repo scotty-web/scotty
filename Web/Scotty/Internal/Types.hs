@@ -23,7 +23,6 @@ import           Control.Monad.Trans.Except
 import qualified Data.ByteString as BS
 import           Data.ByteString.Lazy.Char8 (ByteString)
 import           Data.Default.Class (Default, def)
-import qualified Data.Semigroup as Sem
 import           Data.String (IsString(..))
 import           Data.Text.Lazy (Text, pack)
 import           Data.Typeable (Typeable)
@@ -211,7 +210,7 @@ instance (MonadState s m, ScottyError e) => MonadState s (ActionT e m) where
     {-# INLINE put #-}
     put = lift . put
 
-instance (Sem.Semigroup a) => Sem.Semigroup (ScottyT e m a) where
+instance (Semigroup a) => Semigroup (ScottyT e m a) where
   x <> y = (<>) <$> x <*> y
 
 instance
@@ -234,7 +233,7 @@ instance
   , Functor m
 #endif
   , Semigroup a
-  ) => Sem.Semigroup (ActionT e m a) where
+  ) => Semigroup (ActionT e m a) where
   x <> y = (<>) <$> x <*> y
 
 instance
