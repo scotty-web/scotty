@@ -16,7 +16,7 @@ import           Control.Monad.Catch (MonadCatch, catch, MonadThrow, throwM)
 import           Control.Monad.Error.Class
 import qualified Control.Monad.Fail as Fail
 import           Control.Monad.Reader
-import           Control.Monad.State
+import           Control.Monad.State.Strict
 import           Control.Monad.Trans.Control (MonadBaseControl, StM, liftBaseWith, restoreM, ComposeSt, defaultLiftBaseWith, defaultRestoreM, MonadTransControl, StT, liftWith, restoreT)
 import           Control.Monad.Trans.Except
 

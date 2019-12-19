@@ -24,10 +24,10 @@ main = do
   mainWith $ do
     setColumns [Case,Allocated,GCs,Live,Check,Max,MaxOS]
     setFormat Markdown
-    io "ScottyM Lazy" BL.putStr
-      (SL.evalState (runS $ renderBST htmlScotty) def)
     io "ScottyM Strict" BL.putStr
-      (SS.evalState (runScottyStrict $ renderBST htmlScottyStrict) def)
+      (SS.evalState (runS $ renderBST htmlScotty) def)
+    io "ScottyM Lazy" BL.putStr
+      (SL.evalState (runScottyLazy $ renderBST htmlScottyLazy) def)
     io "Identity" BL.putStr
       (runIdentity $ renderBST htmlIdentity)
 
@@ -44,11 +44,11 @@ htmlScotty :: HtmlT ScottyM ()
 htmlScotty = htmlTest
 {-# noinline htmlScotty #-}
 
-htmlScottyStrict :: HtmlT ScottyStrict ()
-htmlScottyStrict = htmlTest
-{-# noinline htmlScottyStrict #-}
+htmlScottyLazy :: HtmlT ScottyLazy ()
+htmlScottyLazy = htmlTest
+{-# noinline htmlScottyLazy #-}
 
-newtype ScottyStrict a = ScottyStrict
-  { runScottyStrict :: SS.State (ScottyState Text IO) a }
+newtype ScottyLazy a = ScottyLazy
+  { runScottyLazy:: SL.State (ScottyState Text IO) a }
   deriving (Functor,Applicative,Monad)
 
