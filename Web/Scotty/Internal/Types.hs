@@ -210,6 +210,46 @@ instance (MonadState s m, ScottyError e) => MonadState s (ActionT e m) where
     {-# INLINE put #-}
     put = lift . put
 
+instance (Semigroup a) => Semigroup (ScottyT e m a) where
+  x <> y = (<>) <$> x <*> y
+
+instance
+  ( Monoid a
+#if !(MIN_VERSION_base(4,11,0))
+  , Semigroup a
+#endif
+#if !(MIN_VERSION_base(4,8,0))
+  , Functor m
+#endif
+  ) => Monoid (ScottyT e m a) where
+  mempty = return mempty
+#if !(MIN_VERSION_base(4,11,0))
+  mappend = (<>)
+#endif
+
+instance
+  ( Monad m
+#if !(MIN_VERSION_base(4,8,0))
+  , Functor m
+#endif
+  , Semigroup a
+  ) => Semigroup (ActionT e m a) where
+  x <> y = (<>) <$> x <*> y
+
+instance
+  ( Monad m, ScottyError e, Monoid a
+#if !(MIN_VERSION_base(4,11,0))
+  , Semigroup a
+#endif
+#if !(MIN_VERSION_base(4,8,0))
+  , Functor m
+#endif
+  ) => Monoid (ActionT e m a) where
+  mempty = return mempty
+#if !(MIN_VERSION_base(4,11,0))
+  mappend = (<>)
+#endif
+
 ------------------ Scotty Routes --------------------
 data RoutePattern = Capture   Text
                   | Literal   Text
