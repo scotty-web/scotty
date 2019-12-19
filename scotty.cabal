@@ -131,7 +131,7 @@ benchmark weigh
                        transformers,
                        data-default-class,
                        weigh == 0.0.16
-  GHC-options:         -Wall -threaded
+  GHC-options:         -Wall -O2 -threaded
 
 source-repository head
   type:     git
