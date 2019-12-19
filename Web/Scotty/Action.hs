@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 module Web.Scotty.Action
@@ -54,6 +55,10 @@ import           Data.Text.Lazy.Encoding    (encodeUtf8)
 import           Data.Word
 
 import           Network.HTTP.Types
+-- not re-exported until version 0.11
+#if !MIN_VERSION_http_types(0,11,0)
+import           Network.HTTP.Types.Status
+#endif
 import           Network.Wai
 
 import           Numeric.Natural
