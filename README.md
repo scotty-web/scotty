@@ -37,6 +37,6 @@ Tutorials and related projects can be found in the [Scotty wiki](https://github.
 
 ### Development & Support
 
-Open an issue on GitHub or join `#scotty` on Freenode.
+Open an issue on GitHub.
 
 Copyright (c) 2012-2019 Andrew Farmer
