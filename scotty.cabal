@@ -130,7 +130,7 @@ benchmark weigh
                        text,
                        transformers,
                        data-default-class,
-                       weigh
+                       weigh == 0.0.16
   GHC-options:         -Wall -threaded
 
 source-repository head
