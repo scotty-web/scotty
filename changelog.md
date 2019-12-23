@@ -1,3 +1,6 @@
+## ?.?.? [????.??.??]
+* Handle adjacent slashes in the request path as one
+
 ## 0.11.6 [2019.12.09]
 * Provide `MonadReader` and `MonadState` instances for `ActionT`.
 * Add HTTP Status code as a field to `ActionError`, and add
