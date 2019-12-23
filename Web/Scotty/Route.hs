@@ -109,7 +109,7 @@ matchRoute :: RoutePattern -> Request -> Maybe [Param]
 matchRoute (Literal pat)  req | pat == path req = Just []
                               | otherwise       = Nothing
 matchRoute (Function fun) req = fun req
-matchRoute (Capture pat)  req = go (T.split (=='/') pat) (T.split (=='/') $ path req) []
+matchRoute (Capture pat)  req = go (T.split (=='/') pat) (compress $ T.split (=='/') $ path req) []
     where go [] [] prs = Just prs -- request string and pattern match!
           go [] r  prs | T.null (mconcat r)  = Just prs -- in case request has trailing slashes
                        | otherwise           = Nothing  -- request string is longer than pattern
@@ -119,6 +119,9 @@ matchRoute (Capture pat)  req = go (T.split (=='/') pat) (T.split (=='/') $ path
                                | T.null p        = Nothing      -- p is null, but r is not, fail
                                | T.head p == ':' = go ps rs $ (T.tail p, r) : prs -- p is a capture, add to params
                                | otherwise       = Nothing      -- both literals, but unequal, fail
+          compress ("":rest@("":_)) = compress rest
+          compress (x:xs) = x : compress xs
+          compress [] = []
 
 -- Pretend we are at the top level.
 path :: Request -> T.Text
