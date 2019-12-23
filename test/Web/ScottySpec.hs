@@ -48,6 +48,10 @@ spec = do
           it ("adds route for " ++ method ++ " requests") $ do
             makeRequest "/scotty" `shouldRespondWith` 200
 
+        withApp (route "/scotty" $ html "") $ do
+          it ("properly handles extra slash routes for " ++ method ++ " requests") $ do
+            makeRequest "//scotty" `shouldRespondWith` 200
+
     describe "addroute" $ do
       forM_ availableMethods $ \method -> do
         withApp (addroute method "/scotty" $ html "") $ do
