@@ -1,7 +1,4 @@
-## ?.?.? [????.??.??]
-* Handle adjacent slashes in the request path as one
-
-## 0.11.6 [2019.12.09]
+## 0.12 [2020.05.16]
 * Provide `MonadReader` and `MonadState` instances for `ActionT`.
 * Add HTTP Status code as a field to `ActionError`, and add
   a sister function to `raise`, `raiseStatus`. This makes
@@ -9,8 +6,11 @@
   avoids the strange defaulting to HTTP 500. This will make internal
   functions easier to implement with the right status codes 'thrown',
   such as `jsonData`.
+* Correct http statuses returned by `jsonData` (#228).
+* Better error message when no data is provided to `jsonData` (#226).
 * Add `Semigroup` and `Monoid` instances for `ActionT` and `ScottyT`
 * ScottyT: Use strict StateT instead of lazy
+* Handle adjacent slashes in the request path as one (thanks @SkyWriter)
 
 ## 0.11.5 [2019.09.07]
 * Allow building the test suite with `hspec-wai-0.10`.
