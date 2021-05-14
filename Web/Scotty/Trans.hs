@@ -42,7 +42,7 @@ module Web.Scotty.Trans
 import Blaze.ByteString.Builder (fromByteString)
 
 import Control.Monad (when)
-import Control.Monad.State.Strict (execState, modify)
+import Control.Monad.State.Strict (execStateT, modify)
 import Control.Monad.IO.Class
 
 import Data.Default.Class (def)
@@ -63,7 +63,7 @@ import qualified Web.Scotty.Internal.Types as Scotty
 scottyT :: (Monad m, MonadIO n)
         => Port
         -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
-        -> ScottyT e m ()
+        -> ScottyT' e m n ()
         -> n ()
 scottyT p = scottyOptsT $ def { settings = setPort p (settings def) }
 
@@ -72,7 +72,7 @@ scottyT p = scottyOptsT $ def { settings = setPort p (settings def) }
 scottyOptsT :: (Monad m, MonadIO n)
             => Options
             -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
-            -> ScottyT e m ()
+            -> ScottyT' e m n ()
             -> n ()
 scottyOptsT opts runActionToIO s = do
     when (verbose opts > 0) $
@@ -86,7 +86,7 @@ scottySocketT :: (Monad m, MonadIO n)
               => Options
               -> Socket
               -> (m Response -> IO Response)
-              -> ScottyT e m ()
+              -> ScottyT' e m n ()
               -> n ()
 scottySocketT opts sock runActionToIO s = do
     when (verbose opts > 0) $ do
@@ -99,10 +99,10 @@ scottySocketT opts sock runActionToIO s = do
 -- NB: scottyApp === scottyAppT id
 scottyAppT :: (Monad m, Monad n)
            => (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
-           -> ScottyT e m ()
+           -> ScottyT' e m n ()
            -> n Application
 scottyAppT runActionToIO defs = do
-    let s = execState (runS defs) def
+    s <- execStateT (runS defs) def
     let rapp req callback = runActionToIO (foldl (flip ($)) notFoundApp (routes s) req) >>= callback
     return $ foldl (flip ($)) rapp (middlewares s)
 
@@ -125,5 +125,5 @@ defaultHandler f = ScottyT $ modify $ addHandler $ Just (\e -> status status500 
 -- | Use given middleware. Middleware is nested such that the first declared
 -- is the outermost middleware (it has first dibs on the request and last action
 -- on the response). Every middleware is run on each request.
-middleware :: Middleware -> ScottyT e m ()
+middleware :: Monad m => Middleware -> ScottyT e m ()
 middleware = ScottyT . modify . addMiddleware
