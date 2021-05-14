@@ -74,6 +74,9 @@ addRoute r s@(ScottyState {routes = rs}) = s { routes = r:rs }
 addHandler :: ErrorHandler e m -> ScottyState e m -> ScottyState e m
 addHandler h s = s { handler = h }
 
+-- | The Scotty monad transformer is a DSL for writing routes.
+-- The type parameter @m@ indicates the underlying monad of `ActionM`,
+-- and @n@ is the underlying monad of `ScottyT` itself.
 newtype ScottyT' e m n a = ScottyT { runS :: StateT (ScottyState e m) n a }
     deriving ( Functor, Applicative, Monad, MonadTrans )
 

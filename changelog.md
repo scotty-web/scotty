@@ -1,3 +1,9 @@
+## Unreleased
+
+* Added `ScottyT'`, which is a transformer
+* (Breaking) `ScottyT` is now a type synonym of `ScottyT'`
+* `middleware` now requires a `Monad` constraint
+
 ## 0.12 [2020.05.16]
 * Provide `MonadReader` and `MonadState` instances for `ActionT`.
 * Add HTTP Status code as a field to `ActionError`, and add
