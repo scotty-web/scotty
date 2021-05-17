@@ -333,7 +333,8 @@ html t = do
     raw $ encodeUtf8 t
 
 -- | Send a file as the response. Doesn't set the \"Content-Type\" header, so you probably
--- want to do that on your own with 'setHeader'.
+-- want to do that on your own with 'setHeader'. Setting a status code will have no effect
+-- because Warp will overwrite that to 200 (see 'Network.Wai.Handler.Warp.Internal.sendResponse').
 file :: Monad m => FilePath -> ActionT e m ()
 file = ActionT . MS.modify . setContent . ContentFile
 
