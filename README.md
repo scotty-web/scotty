@@ -40,3 +40,20 @@ Tutorials and related projects can be found in the [Scotty wiki](https://github.
 Open an issue on GitHub.
 
 Copyright (c) 2012-2019 Andrew Farmer
+
+### FAQ
+
+* Fails to compile regex-posix on Windows
+    * If you are using stack, add the following parameters to `stack.yaml`:
+        * ```yaml
+            extra-deps:
+            - regex-posix-clib-2.7
+            flags:
+              regex-posix:
+                _regex-posix-clib: true
+          ```
+    * If you are using cabal, update the `constraints` section of `cabal.project.local` as follows:
+        * ```
+          constraints:
+            regex-posix +_regex-posix-clib 
+          ```
