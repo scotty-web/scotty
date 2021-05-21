@@ -8,6 +8,8 @@ import           Control.Applicative
 import           Control.Monad
 import           Data.Char
 import           Data.String
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Encoding as TLE
 import           Network.HTTP.Types
 import qualified Control.Exception.Lifted as EL
 import qualified Control.Exception as E
@@ -114,6 +116,15 @@ spec = do
 
           it "replaces non UTF-8 bytes with Unicode replacement character" $ do
             request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=\xe9" `shouldRespondWith` "\xfffd"
+
+
+    describe "requestLimit" $ do
+      withApp (Scotty.setMaxRequestBodySize 1 >> Scotty.matchAny "/upload" (do status status200)) $ do
+        it "upload endpoint for max-size requests, status 413 if request is too big, 200 otherwise" $ do
+          request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
+            (TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..1500]::[Integer])]) `shouldRespondWith` 413
+          request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
+            (TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..50]::[Integer])]) `shouldRespondWith` 200
 
     describe "text" $ do
       let modernGreekText :: IsString a => a

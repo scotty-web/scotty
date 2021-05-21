@@ -5,11 +5,14 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-module Web.Scotty.Internal.Types where
+{-# LANGUAGE RecordWildCards #-}
 
+module Web.Scotty.Internal.Types where      
+      
 import           Blaze.ByteString.Builder (Builder)
 
 import           Control.Applicative
+import           Control.Exception (Exception)
 import qualified Control.Exception as E
 import           Control.Monad.Base (MonadBase, liftBase, liftBaseDefault)
 import           Control.Monad.Catch (MonadCatch, catch, MonadThrow, throwM)
@@ -51,6 +54,13 @@ data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
 instance Default Options where
     def = Options 1 defaultSettings
 
+newtype RouteOptions = RouteOptions { maxRequestBodySize :: Maybe Kilobytes -- max allowed request size in KB
+                                    }
+
+instance Default RouteOptions where
+    def = RouteOptions Nothing
+
+type Kilobytes = Int
 ----- Transformer Aware Applications/Middleware -----
 type Middleware m = Application m -> Application m
 type Application m = Request -> m Response
@@ -60,10 +70,11 @@ data ScottyState e m =
     ScottyState { middlewares :: [Wai.Middleware]
                 , routes :: [Middleware m]
                 , handler :: ErrorHandler e m
+                , routeOptions :: RouteOptions
                 }
 
 instance Default (ScottyState e m) where
-    def = ScottyState [] [] Nothing
+    def = ScottyState [] [] Nothing def
 
 addMiddleware :: Wai.Middleware -> ScottyState e m -> ScottyState e m
 addMiddleware m s@(ScottyState {middlewares = ms}) = s { middlewares = m:ms }
@@ -73,6 +84,11 @@ addRoute r s@(ScottyState {routes = rs}) = s { routes = r:rs }
 
 addHandler :: ErrorHandler e m -> ScottyState e m -> ScottyState e m
 addHandler h s = s { handler = h }
+
+updateMaxRequestBodySize :: RouteOptions -> ScottyState e m -> ScottyState e m
+updateMaxRequestBodySize RouteOptions { .. } s@ScottyState { routeOptions = ro } = 
+    let ro' = ro { maxRequestBodySize = maxRequestBodySize } 
+    in s { routeOptions = ro' }
 
 newtype ScottyT e m a = ScottyT { runS :: State (ScottyState e m) a }
     deriving ( Functor, Applicative, Monad )
@@ -103,6 +119,10 @@ instance ScottyError e => ScottyError (ActionError e) where
     showError (ActionError _ e) = showError e
 
 type ErrorHandler e m = Maybe (e -> ActionT e m ())
+
+data ScottyException = RequestException BS.ByteString Status deriving (Show, Typeable)
+
+instance Exception ScottyException
 
 ------------------ Scotty Actions -------------------
 type Param = (Text, Text)
