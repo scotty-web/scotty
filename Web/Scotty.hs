@@ -13,7 +13,7 @@ module Web.Scotty
       -- | 'Middleware' and routes are run in the order in which they
       -- are defined. All middleware is run first, followed by the first
       -- route that matches. If no route matches, a 404 response is given.
-    , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound
+    , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound, setMaxRequestBodySize
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
@@ -30,7 +30,7 @@ module Web.Scotty
       -- * Parsing Parameters
     , Param, Trans.Parsable(..), Trans.readEither
       -- * Types
-    , ScottyM, ActionM, RoutePattern, File
+    , ScottyM, ActionM, RoutePattern, File, Kilobytes
     ) where
 
 -- With the exception of this, everything else better just import types.
@@ -46,7 +46,7 @@ import Network.Socket (Socket)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 
-import Web.Scotty.Internal.Types (ScottyT, ActionT, Param, RoutePattern, Options, File)
+import Web.Scotty.Internal.Types (ScottyT, ActionT, Param, RoutePattern, Options, File, Kilobytes)
 
 type ScottyM = ScottyT Text IO
 type ActionM = ActionT Text IO
@@ -88,6 +88,12 @@ defaultHandler = Trans.defaultHandler
 -- on the response). Every middleware is run on each request.
 middleware :: Middleware -> ScottyM ()
 middleware = Trans.middleware
+
+-- | Set global size limit for the request body. Requests with body size exceeding the limit will not be
+-- processed and an HTTP response 413 will be returned to the client. Size limit needs to be greater than 0, 
+-- otherwise the application will terminate on start. 
+setMaxRequestBodySize :: Kilobytes -> ScottyM ()
+setMaxRequestBodySize = Trans.setMaxRequestBodySize
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
