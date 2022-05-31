@@ -7,19 +7,23 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Web.Scotty.Internal.Types where      
-      
+module Web.Scotty.Internal.Types where
+
 import           Blaze.ByteString.Builder (Builder)
 
 import           Control.Applicative
 import           Control.Exception (Exception)
 import qualified Control.Exception as E
+import qualified Control.Monad as Monad
+import           Control.Monad (MonadPlus(..))
 import           Control.Monad.Base (MonadBase, liftBase, liftBaseDefault)
 import           Control.Monad.Catch (MonadCatch, catch, MonadThrow, throwM)
 import           Control.Monad.Error.Class
 import qualified Control.Monad.Fail as Fail
-import           Control.Monad.Reader
-import           Control.Monad.State.Strict
+import           Control.Monad.IO.Class (MonadIO)
+import           Control.Monad.Reader (MonadReader(..), ReaderT, mapReaderT)
+import           Control.Monad.State.Strict (MonadState(..), State, StateT, mapStateT)
+import           Control.Monad.Trans.Class (MonadTrans(..))
 import           Control.Monad.Trans.Control (MonadBaseControl, StM, liftBaseWith, restoreM, ComposeSt, defaultLiftBaseWith, defaultRestoreM, MonadTransControl, StT, liftWith, restoreT)
 import           Control.Monad.Trans.Except
 
@@ -86,8 +90,8 @@ addHandler :: ErrorHandler e m -> ScottyState e m -> ScottyState e m
 addHandler h s = s { handler = h }
 
 updateMaxRequestBodySize :: RouteOptions -> ScottyState e m -> ScottyState e m
-updateMaxRequestBodySize RouteOptions { .. } s@ScottyState { routeOptions = ro } = 
-    let ro' = ro { maxRequestBodySize = maxRequestBodySize } 
+updateMaxRequestBodySize RouteOptions { .. } s@ScottyState { routeOptions = ro } =
+    let ro' = ro { maxRequestBodySize = maxRequestBodySize }
     in s { routeOptions = ro' }
 
 newtype ScottyT e m a = ScottyT { runS :: State (ScottyState e m) a }
@@ -159,7 +163,7 @@ instance Default ScottyResponse where
 newtype ActionT e m a = ActionT { runAM :: ExceptT (ActionError e) (ReaderT ActionEnv (StateT ScottyResponse m)) a }
     deriving ( Functor, Applicative, MonadIO )
 
-instance (Monad m, ScottyError e) => Monad (ActionT e m) where
+instance (Monad m, ScottyError e) => Monad.Monad (ActionT e m) where
     return = ActionT . return
     ActionT m >>= k = ActionT (m >>= runAM . k)
 #if !(MIN_VERSION_base(4,13,0))
@@ -185,7 +189,7 @@ instance (Monad m, ScottyError e) => MonadPlus (ActionT e m) where
             Left  _ -> runExceptT n
             Right r -> return $ Right r
 
-instance MonadTrans (ActionT e) where
+instance ScottyError e => MonadTrans (ActionT e) where
     lift = ActionT . lift . lift . lift
 
 instance (ScottyError e, Monad m) => MonadError (ActionError e) (ActionT e m) where
@@ -204,7 +208,7 @@ instance (MonadThrow m, ScottyError e) => MonadThrow (ActionT e m) where
 instance (MonadCatch m, ScottyError e) => MonadCatch (ActionT e m) where
     catch (ActionT m) f = ActionT (m `catch` (runAM . f))
 
-instance MonadTransControl (ActionT e) where
+instance ScottyError e => MonadTransControl (ActionT e) where
      type StT (ActionT e) a = StT (StateT ScottyResponse) (StT (ReaderT ActionEnv) (StT (ExceptT (ActionError e)) a))
      liftWith = \f ->
         ActionT $  liftWith $ \run  ->
