@@ -1,3 +1,10 @@
+## next [????.??.??]
+* Allow building with `transformers-0.6.*` and `mtl-2.3.*`. Because the
+  `MonadTrans t` class gained a `forall m. Monad m => Monad (t m)` superclass
+  in `transformers-0.6.0.0`, the `MonadTrans` and `MonadTransControl` instances
+  for `ActionT e` now have a `ScottyError e` instance context to match the
+  `Monad` instance.
+
 ## 0.12 [2020.05.16]
 * Provide `MonadReader` and `MonadState` instances for `ActionT`.
 * Add HTTP Status code as a field to `ActionError`, and add

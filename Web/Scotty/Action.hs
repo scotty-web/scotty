@@ -37,8 +37,10 @@ module Web.Scotty.Action
 import           Blaze.ByteString.Builder   (fromLazyByteString)
 
 import qualified Control.Exception          as E
+import           Control.Monad              (liftM, when)
 import           Control.Monad.Error.Class
-import           Control.Monad.Reader       hiding (mapM)
+import           Control.Monad.IO.Class     (MonadIO(..))
+import           Control.Monad.Reader       (MonadReader(..), ReaderT(..))
 import qualified Control.Monad.State.Strict as MS
 import           Control.Monad.Trans.Except
 
