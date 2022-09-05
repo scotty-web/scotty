@@ -122,7 +122,7 @@ spec = do
       withApp (Scotty.setMaxRequestBodySize 1 >> Scotty.matchAny "/upload" (do status status200)) $ do
         it "upload endpoint for max-size requests, status 413 if request is too big, 200 otherwise" $ do
           request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
-            (TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..1500]::[Integer])]) `shouldRespondWith` 413
+            (TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..4500]::[Integer])]) `shouldRespondWith` 413
           request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
             (TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..50]::[Integer])]) `shouldRespondWith` 200
 
