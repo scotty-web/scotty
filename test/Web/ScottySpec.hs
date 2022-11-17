@@ -36,6 +36,7 @@ availableMethods = [GET, POST, HEAD, PUT, PATCH, DELETE, OPTIONS]
 
 spec :: Spec
 spec = do
+  let withApp = with . scottyApp
   describe "ScottyM" $ do
     forM_ [
         ("GET", Scotty.get, get)
@@ -185,8 +186,6 @@ spec = do
   where ok, no :: ByteString
         ok = "HTTP/1.1 200 OK"
         no = "HTTP/1.1 404 Not Found"
-
-        withApp = with . scottyApp
 
 socketPath :: FilePath
 socketPath = "/tmp/scotty-test.socket"

@@ -1,4 +1,7 @@
 ## next [????.??.??]
+
+## 0.12.1 [2022.11.17]
+* Fix CPP bug that prevented tests from building on Windows.
 * Allow building with `transformers-0.6.*` and `mtl-2.3.*`. Because the
   `MonadTrans t` class gained a `forall m. Monad m => Monad (t m)` superclass
   in `transformers-0.6.0.0`, the `MonadTrans` and `MonadTransControl` instances
