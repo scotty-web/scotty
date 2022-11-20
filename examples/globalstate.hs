@@ -1,4 +1,6 @@
-{-# LANGUAGE OverloadedStrings, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 -- An example of embedding a custom monad into
 -- Scotty's transformer stack, using ReaderT to provide access
 -- to a TVar containing global state.
@@ -18,12 +20,12 @@ import Data.Text.Lazy (Text)
 
 import Network.Wai.Middleware.RequestLogger
 
-import Prelude ()
 import Prelude.Compat
+import Prelude ()
 
 import Web.Scotty.Trans
 
-newtype AppState = AppState { tickCount :: Int }
+newtype AppState = AppState {tickCount :: Int}
 
 instance Default AppState where
     def = AppState 0
@@ -38,7 +40,7 @@ instance Default AppState where
 --
 -- Also note: your monad must be an instance of 'MonadIO' for
 -- Scotty to use it.
-newtype WebM a = WebM { runWebM :: ReaderT (TVar AppState) IO a }
+newtype WebM a = WebM {runWebM :: ReaderT (TVar AppState) IO a}
     deriving (Applicative, Functor, Monad, MonadIO, MonadReader (TVar AppState))
 
 -- Scotty's monads are layered on top of our custom monad.
@@ -57,7 +59,7 @@ modify f = ask >>= liftIO . atomically . flip modifyTVar' f
 main :: IO ()
 main = do
     sync <- newTVarIO def
-        -- 'runActionToIO' is called once per action.
+    -- 'runActionToIO' is called once per action.
     let runActionToIO m = runReaderT (runWebM m) sync
 
     scottyT 3000 runActionToIO app
@@ -74,9 +76,9 @@ app = do
         text $ fromString $ show c
 
     get "/plusone" $ do
-        webM $ modify $ \ st -> st { tickCount = tickCount st + 1 }
+        webM $ modify $ \st -> st{tickCount = tickCount st + 1}
         redirect "/"
 
     get "/plustwo" $ do
-        webM $ modify $ \ st -> st { tickCount = tickCount st + 2 }
+        webM $ modify $ \st -> st{tickCount = tickCount st + 2}
         redirect "/"

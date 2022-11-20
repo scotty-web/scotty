@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module Main (main) where
 
 import Web.Scotty
@@ -10,9 +11,11 @@ import Network.Wai.Handler.Warp (setPort)
 
 -- Set some Scotty settings
 opts :: Options
-opts = def { verbose = 0
-           , settings = setPort 4000 $ settings def
-           }
+opts =
+    def
+        { verbose = 0
+        , settings = setPort 4000 $ settings def
+        }
 
 -- This won't display anything at startup, and will listen on localhost:4000
 main :: IO ()

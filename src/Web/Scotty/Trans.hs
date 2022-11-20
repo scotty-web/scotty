@@ -1,4 +1,5 @@
-{-# LANGUAGE OverloadedStrings, RankNTypes #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 -- | It should be noted that most of the code snippets below depend on the
 -- OverloadedStrings language pragma.
 --
@@ -11,84 +12,145 @@
 -- the comments on each of these functions for more information.
 module Web.Scotty.Trans
     ( -- * scotty-to-WAI
-      scottyT, scottyAppT, scottyOptsT, scottySocketT, Options(..)
+      scottyT
+    , scottyAppT
+    , scottyOptsT
+    , scottySocketT
+    , Options (..)
+
       -- * Defining Middleware and Routes
-      --
+
       -- | 'Middleware' and routes are run in the order in which they
       -- are defined. All middleware is run first, followed by the first
       -- route that matches. If no route matches, a 404 response is given.
-    , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound, setMaxRequestBodySize
+    , middleware
+    , get
+    , post
+    , put
+    , delete
+    , patch
+    , options
+    , addroute
+    , matchAny
+    , notFound
+    , setMaxRequestBodySize
+
       -- ** Route Patterns
-    , capture, regex, function, literal
+    , capture
+    , regex
+    , function
+    , literal
+
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, header, headers, body, bodyReader, param, params, jsonData, files
+    , request
+    , header
+    , headers
+    , body
+    , bodyReader
+    , param
+    , params
+    , jsonData
+    , files
+
       -- ** Modifying the Response and Redirecting
-    , status, addHeader, setHeader, redirect
+    , status
+    , addHeader
+    , setHeader
+    , redirect
+
       -- ** Setting Response Body
-      --
+
       -- | Note: only one of these should be present in any given route
       -- definition, as they completely replace the current 'Response' body.
-    , text, html, file, json, stream, raw
+    , text
+    , html
+    , file
+    , json
+    , stream
+    , raw
+
       -- ** Exceptions
-    , raise, raiseStatus, rescue, next, finish, defaultHandler, ScottyError(..), liftAndCatchIO
+    , raise
+    , raiseStatus
+    , rescue
+    , next
+    , finish
+    , defaultHandler
+    , ScottyError (..)
+    , liftAndCatchIO
+
       -- * Parsing Parameters
-    , Param, Parsable(..), readEither
+    , Param
+    , Parsable (..)
+    , readEither
+
       -- * Types
-    , RoutePattern, File, Kilobytes
+    , RoutePattern
+    , File
+    , Kilobytes
+
       -- * Monad Transformers
-    , ScottyT, ActionT
+    , ScottyT
+    , ActionT
     ) where
 
-import Blaze.ByteString.Builder (fromByteString)
+import Control.Monad.IO.Class
+import Network.Wai
 
+import Blaze.ByteString.Builder (fromByteString)
 import Control.Exception (assert)
 import Control.Monad (when)
 import Control.Monad.State.Strict (execState, modify)
-import Control.Monad.IO.Class
-
 import Data.Default.Class (def)
-
 import Network.HTTP.Types (status404, status500)
 import Network.Socket (Socket)
-import Network.Wai
-import Network.Wai.Handler.Warp (Port, runSettings, runSettingsSocket, setPort, getPort)
+import Network.Wai.Handler.Warp (Port, getPort, runSettings, runSettingsSocket, setPort)
 
 import Web.Scotty.Action
-import Web.Scotty.Route
 import Web.Scotty.Internal.Types hiding (Application, Middleware)
+import Web.Scotty.Route
+
 import Web.Scotty.Util (socketDescription)
+
 import qualified Web.Scotty.Internal.Types as Scotty
 
 -- | Run a scotty application using the warp server.
 -- NB: scotty p === scottyT p id
-scottyT :: (Monad m, MonadIO n)
-        => Port
-        -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
-        -> ScottyT e m ()
-        -> n ()
-scottyT p = scottyOptsT $ def { settings = setPort p (settings def) }
+scottyT ::
+    (Monad m, MonadIO n) =>
+    Port ->
+    -- | Run monad 'm' into 'IO', called at each action.
+    (m Response -> IO Response) ->
+    ScottyT e m () ->
+    n ()
+scottyT p = scottyOptsT $ def{settings = setPort p (settings def)}
 
 -- | Run a scotty application using the warp server, passing extra options.
 -- NB: scottyOpts opts === scottyOptsT opts id
-scottyOptsT :: (Monad m, MonadIO n)
-            => Options
-            -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
-            -> ScottyT e m ()
-            -> n ()
+scottyOptsT ::
+    (Monad m, MonadIO n) =>
+    Options ->
+    -- | Run monad 'm' into 'IO', called at each action.
+    (m Response -> IO Response) ->
+    ScottyT e m () ->
+    n ()
 scottyOptsT opts runActionToIO s = do
     when (verbose opts > 0) $
-        liftIO $ putStrLn $ "Setting phasers to stun... (port " ++ show (getPort (settings opts)) ++ ") (ctrl-c to quit)"
+        liftIO $
+            putStrLn $
+                "Setting phasers to stun... (port " ++ show (getPort (settings opts)) ++ ") (ctrl-c to quit)"
     liftIO . runSettings (settings opts) =<< scottyAppT runActionToIO s
 
 -- | Run a scotty application using the warp server, passing extra options, and
 -- listening on the provided socket.
 -- NB: scottySocket opts sock === scottySocketT opts sock id
-scottySocketT :: (Monad m, MonadIO n)
-              => Options
-              -> Socket
-              -> (m Response -> IO Response)
-              -> ScottyT e m ()
-              -> n ()
+scottySocketT ::
+    (Monad m, MonadIO n) =>
+    Options ->
+    Socket ->
+    (m Response -> IO Response) ->
+    ScottyT e m () ->
+    n ()
 scottySocketT opts sock runActionToIO s = do
     when (verbose opts > 0) $ do
         d <- liftIO $ socketDescription sock
@@ -98,18 +160,22 @@ scottySocketT opts sock runActionToIO s = do
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
 -- NB: scottyApp === scottyAppT id
-scottyAppT :: (Monad m, Monad n)
-           => (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
-           -> ScottyT e m ()
-           -> n Application
+scottyAppT ::
+    (Monad m, Monad n) =>
+    -- | Run monad 'm' into 'IO', called at each action.
+    (m Response -> IO Response) ->
+    ScottyT e m () ->
+    n Application
 scottyAppT runActionToIO defs = do
     let s = execState (runS defs) def
     let rapp req callback = runActionToIO (foldl (flip ($)) notFoundApp (routes s) req) >>= callback
     return $ foldl (flip ($)) rapp (middlewares s)
 
 notFoundApp :: Monad m => Scotty.Application m
-notFoundApp _ = return $ responseBuilder status404 [("Content-Type","text/html")]
-                       $ fromByteString "<h1>404: File Not Found!</h1>"
+notFoundApp _ =
+    return $
+        responseBuilder status404 [("Content-Type", "text/html")] $
+            fromByteString "<h1>404: File Not Found!</h1>"
 
 -- | Global handler for uncaught exceptions.
 --
@@ -130,7 +196,7 @@ middleware :: Middleware -> ScottyT e m ()
 middleware = ScottyT . modify . addMiddleware
 
 -- | Set global size limit for the request body. Requests with body size exceeding the limit will not be
--- processed and an HTTP response 413 will be returned to the client. Size limit needs to be greater than 0, 
--- otherwise the application will terminate on start. 
+-- processed and an HTTP response 413 will be returned to the client. Size limit needs to be greater than 0,
+-- otherwise the application will terminate on start.
 setMaxRequestBodySize :: Kilobytes -> ScottyT e m ()
-setMaxRequestBodySize i = assert (i > 0) $ ScottyT . modify . updateMaxRequestBodySize $ def { maxRequestBodySize = Just i } 
+setMaxRequestBodySize i = assert (i > 0) $ ScottyT . modify . updateMaxRequestBodySize $ def{maxRequestBodySize = Just i}

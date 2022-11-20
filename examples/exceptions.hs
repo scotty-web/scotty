@@ -1,4 +1,7 @@
-{-# LANGUAGE OverloadedStrings, GeneralizedNewtypeDeriving, ScopedTypeVariables #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Main (main) where
 
 import Control.Monad.IO.Class
@@ -8,8 +11,8 @@ import Data.String (fromString)
 import Network.HTTP.Types
 import Network.Wai.Middleware.RequestLogger
 
-import Prelude ()
 import Prelude.Compat
+import Prelude ()
 
 import System.Random
 
@@ -27,7 +30,7 @@ instance ScottyError Except where
 
 -- Handler for uncaught exceptions.
 handleEx :: Monad m => Except -> ActionT Except m ()
-handleEx Forbidden    = do
+handleEx Forbidden = do
     status status403
     html "<h1>Scotty Says No</h1>"
 handleEx (NotFound i) = do
@@ -38,19 +41,21 @@ handleEx (StringEx s) = do
     html $ fromString $ "<h1>" ++ s ++ "</h1>"
 
 main :: IO ()
-main = scottyT 3000 id $ do -- note, we aren't using any additional transformer layers
-                            -- so we can just use 'id' for the runner.
+main = scottyT 3000 id $ do
+    -- note, we aren't using any additional transformer layers
+    -- so we can just use 'id' for the runner.
     middleware logStdoutDev
 
-    defaultHandler handleEx    -- define what to do with uncaught exceptions
-
+    defaultHandler handleEx -- define what to do with uncaught exceptions
     get "/" $ do
-        html $ mconcat ["<a href=\"/switch/1\">Option 1 (Not Found)</a>"
-                       ,"<br/>"
-                       ,"<a href=\"/switch/2\">Option 2 (Forbidden)</a>"
-                       ,"<br/>"
-                       ,"<a href=\"/random\">Option 3 (Random)</a>"
-                       ]
+        html $
+            mconcat
+                [ "<a href=\"/switch/1\">Option 1 (Not Found)</a>"
+                , "<br/>"
+                , "<a href=\"/switch/2\">Option 2 (Forbidden)</a>"
+                , "<br/>"
+                , "<a href=\"/random\">Option 3 (Random)</a>"
+                ]
 
     get "/switch/:val" $ do
         v <- param "val"
@@ -61,5 +66,5 @@ main = scottyT 3000 id $ do -- note, we aren't using any additional transformer 
         rBool <- liftIO randomIO
         i <- liftIO randomIO
         let catchOne Forbidden = html "<h1>Forbidden was randomly thrown, but we caught it."
-            catchOne other     = raise other
+            catchOne other = raise other
         raise (if rBool then Forbidden else NotFound i) `rescue` catchOne

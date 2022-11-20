@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module Main (main) where
 
 import Web.Scotty
@@ -11,19 +12,19 @@ import System.Random (newStdGen, randomRs)
 
 import Network.HTTP.Types (status302)
 
-import Data.Text.Lazy.Encoding (decodeUtf8)
 import Data.String (fromString)
-import Prelude ()
+import Data.Text.Lazy.Encoding (decodeUtf8)
 import Prelude.Compat
+import Prelude ()
 
 main :: IO ()
 main = scotty 3000 $ do
     -- Add any WAI middleware, they are run top-down.
     middleware logStdoutDev
 
---    get (function $ \req -> Just [("version", T.pack $ show $ httpVersion req)]) $ do
---        v <- param "version"
---        text v
+    --    get (function $ \req -> Just [("version", T.pack $ show $ httpVersion req)]) $ do
+    --        v <- param "version"
+    --        text v
 
     -- To demonstrate that routes are matched top-down.
     get "/" $ text "foobar"
@@ -42,7 +43,7 @@ main = scotty 3000 $ do
     get "/redirect-custom" $ do
         status status302
         setHeader "Location" "http://www.google.com"
-        -- note first arg to header is NOT case-sensitive
+    -- note first arg to header is NOT case-sensitive
 
     -- redirects preempt execution
     get "/redirect" $ do
@@ -50,9 +51,10 @@ main = scotty 3000 $ do
         raise "this error is never reached"
 
     -- Of course you can catch your own errors.
-    get "/rescue" $ do
-        (do void $ raise "a rescued error"; redirect "http://www.we-never-go-here.com")
-        `rescue` (\m -> text $ "we recovered from " `mappend` m)
+    get "/rescue" $
+        do
+            (do void $ raise "a rescued error"; redirect "http://www.we-never-go-here.com")
+            `rescue` (\m -> text $ "we recovered from " `mappend` m)
 
     -- Parts of the URL that start with a colon match
     -- any string, and capture that value as a parameter.
@@ -72,18 +74,20 @@ main = scotty 3000 $ do
     -- You can do IO with liftIO, and you can return JSON content.
     get "/random" $ do
         g <- liftIO newStdGen
-        json $ take 20 $ randomRs (1::Int,100) g
+        json $ take 20 $ randomRs (1 :: Int, 100) g
 
     get "/ints/:is" $ do
         is <- param "is"
-        json $ [(1::Int)..10] ++ is
+        json $ [(1 :: Int) .. 10] ++ is
 
     get "/setbody" $ do
-        html $ mconcat ["<form method=POST action=\"readbody\">"
-                       ,"<input type=text name=something>"
-                       ,"<input type=submit>"
-                       ,"</form>"
-                       ]
+        html $
+            mconcat
+                [ "<form method=POST action=\"readbody\">"
+                , "<input type=text name=something>"
+                , "<input type=submit>"
+                , "</form>"
+                ]
 
     post "/readbody" $ do
         b <- body
@@ -111,4 +115,3 @@ main = do
 
     run myApp
 -}
-

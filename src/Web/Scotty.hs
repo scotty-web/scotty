@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings, RankNTypes #-}
 -- | It should be noted that most of the code snippets below depend on the
 -- OverloadedStrings language pragma.
 --
@@ -7,46 +6,99 @@
 -- the comments on each of these functions for more information.
 module Web.Scotty
     ( -- * scotty-to-WAI
-      scotty, scottyApp, scottyOpts, scottySocket, Options(..)
+      scotty
+    , scottyApp
+    , scottyOpts
+    , scottySocket
+    , Options (..)
+
       -- * Defining Middleware and Routes
-      --
+
       -- | 'Middleware' and routes are run in the order in which they
       -- are defined. All middleware is run first, followed by the first
       -- route that matches. If no route matches, a 404 response is given.
-    , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound, setMaxRequestBodySize
+    , middleware
+    , get
+    , post
+    , put
+    , delete
+    , patch
+    , options
+    , addroute
+    , matchAny
+    , notFound
+    , setMaxRequestBodySize
+
       -- ** Route Patterns
-    , capture, regex, function, literal
+    , capture
+    , regex
+    , function
+    , literal
+
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, header, headers, body, bodyReader, param, params, jsonData, files
+    , request
+    , header
+    , headers
+    , body
+    , bodyReader
+    , param
+    , params
+    , jsonData
+    , files
+
       -- ** Modifying the Response and Redirecting
-    , status, addHeader, setHeader, redirect
+    , status
+    , addHeader
+    , setHeader
+    , redirect
+
       -- ** Setting Response Body
-      --
+
       -- | Note: only one of these should be present in any given route
       -- definition, as they completely replace the current 'Response' body.
-    , text, html, file, json, stream, raw
+    , text
+    , html
+    , file
+    , json
+    , stream
+    , raw
+
       -- ** Exceptions
-    , raise, raiseStatus, rescue, next, finish, defaultHandler, liftAndCatchIO
+    , raise
+    , raiseStatus
+    , rescue
+    , next
+    , finish
+    , defaultHandler
+    , liftAndCatchIO
+
       -- * Parsing Parameters
-    , Param, Trans.Parsable(..), Trans.readEither
+    , Param
+    , Trans.Parsable (..)
+    , Trans.readEither
+
       -- * Types
-    , ScottyM, ActionM, RoutePattern, File, Kilobytes
+    , ScottyM
+    , ActionM
+    , RoutePattern
+    , File
+    , Kilobytes
     ) where
 
--- With the exception of this, everything else better just import types.
-import qualified Web.Scotty.Trans as Trans
-
 import Data.Aeson (FromJSON, ToJSON)
-import qualified Data.ByteString as BS
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Text.Lazy (Text)
-
 import Network.HTTP.Types (Status, StdMethod)
 import Network.Socket (Socket)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 
-import Web.Scotty.Internal.Types (ScottyT, ActionT, Param, RoutePattern, Options, File, Kilobytes)
+import qualified Data.ByteString as BS
+
+import Web.Scotty.Internal.Types (ActionT, File, Kilobytes, Options, Param, RoutePattern, ScottyT)
+
+-- With the exception of this, everything else better just import types.
+import qualified Web.Scotty.Trans as Trans
 
 type ScottyM = ScottyT Text IO
 type ActionM = ActionT Text IO
@@ -90,8 +142,8 @@ middleware :: Middleware -> ScottyM ()
 middleware = Trans.middleware
 
 -- | Set global size limit for the request body. Requests with body size exceeding the limit will not be
--- processed and an HTTP response 413 will be returned to the client. Size limit needs to be greater than 0, 
--- otherwise the application will terminate on start. 
+-- processed and an HTTP response 413 will be returned to the client. Size limit needs to be greater than 0,
+-- otherwise the application will terminate on start.
 setMaxRequestBodySize :: Kilobytes -> ScottyM ()
 setMaxRequestBodySize = Trans.setMaxRequestBodySize
 
@@ -306,7 +358,6 @@ addroute = Trans.addroute
 -- >>> curl http://localhost:3000/foo/bar
 -- Path: /foo/bar
 -- Capture: oo/ba
---
 regex :: String -> RoutePattern
 regex = Trans.regex
 
@@ -317,7 +368,7 @@ regex = Trans.regex
 --
 --   and
 --
--- > {-# LANGUAGE OverloadedStrings #-}
+-- > {\-# LANGUAGE OverloadedStrings #-\}
 -- > ...
 -- > get "/foo/:bar" $ ...
 --
@@ -336,7 +387,6 @@ capture = Trans.capture
 --
 -- >>> curl http://localhost:3000/
 -- HTTP/1.1
---
 function :: (Request -> Maybe [Param]) -> RoutePattern
 function = Trans.function
 

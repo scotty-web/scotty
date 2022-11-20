@@ -1,6 +1,6 @@
-{-# LANGUAGE CPP               #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes        #-}
+
 module Web.Scotty.Action
     ( addHeader
     , body
@@ -29,72 +29,65 @@ module Web.Scotty.Action
     , stream
     , text
     , Param
-    , Parsable(..)
-      -- private to Scotty
+    , Parsable (..)
+    -- private to Scotty
     , runAction
     ) where
 
-import           Blaze.ByteString.Builder   (fromLazyByteString)
+import Control.Monad.Error.Class
+import Control.Monad.Trans.Except
+import Data.Int
+import Data.Word
+import Network.HTTP.Types
+import Network.Wai
+import Numeric.Natural
+import Prelude.Compat
 
-import qualified Control.Exception          as E
-import           Control.Monad              (liftM, when)
-import           Control.Monad.Error.Class
-import           Control.Monad.IO.Class     (MonadIO(..))
-import           Control.Monad.Reader       (MonadReader(..), ReaderT(..))
+import Blaze.ByteString.Builder (fromLazyByteString)
+import Control.Monad (when)
+import Control.Monad.Reader (MonadIO (..), MonadReader (..), ReaderT (..), asks)
+import Data.Default.Class (def)
+import Data.Text.Lazy.Encoding (encodeUtf8)
+import Prelude ()
+
+import qualified Control.Exception as E
 import qualified Control.Monad.State.Strict as MS
-import           Control.Monad.Trans.Except
-
-import qualified Data.Aeson                 as A
-import qualified Data.ByteString.Char8      as B
+import qualified Data.Aeson as A
+import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
-import qualified Data.CaseInsensitive       as CI
-import           Data.Default.Class         (def)
-import           Data.Int
-import qualified Data.Text                  as ST
-import qualified Data.Text.Encoding         as STE
-import qualified Data.Text.Lazy             as T
-import           Data.Text.Lazy.Encoding    (encodeUtf8)
-import           Data.Word
+import qualified Data.CaseInsensitive as CI
+import qualified Data.Text as ST
+import qualified Data.Text.Encoding as STE
+import qualified Data.Text.Lazy as T
 
-import           Network.HTTP.Types
--- not re-exported until version 0.11
-#if !MIN_VERSION_http_types(0,11,0)
-import           Network.HTTP.Types.Status
-#endif
-import           Network.Wai
-
-import           Numeric.Natural
-
-import           Prelude ()
-import           Prelude.Compat
-
-import           Web.Scotty.Internal.Types
-import           Web.Scotty.Util
+import Web.Scotty.Internal.Types
+import Web.Scotty.Util
 
 -- Nothing indicates route failed (due to Next) and pattern matching should continue.
 -- Just indicates a successful response.
 runAction :: (ScottyError e, Monad m) => ErrorHandler e m -> ActionEnv -> ActionT e m () -> m (Maybe Response)
 runAction h env action = do
-    (e,r) <- flip MS.runStateT def
-           $ flip runReaderT env
-           $ runExceptT
-           $ runAM
-           $ action `catchError` (defH h)
+    (e, r) <-
+        flip MS.runStateT def $
+            flip runReaderT env $
+                runExceptT $
+                    runAM $
+                        action `catchError` defH h
     return $ either (const Nothing) (const $ Just $ mkResponse r) e
 
 -- | Default error handler for all actions.
 defH :: (ScottyError e, Monad m) => ErrorHandler e m -> ActionError e -> ActionT e m ()
-defH _          (Redirect url)    = do
+defH _ (Redirect url) = do
     status status302
     setHeader "Location" url
-defH Nothing    (ActionError s e)   = do
+defH Nothing (ActionError s e) = do
     status s
     let code = T.pack $ show $ statusCode s
     let msg = T.fromStrict $ STE.decodeUtf8 $ statusMessage s
     html $ mconcat ["<h1>", code, " ", msg, "</h1>", showError e]
-defH h@(Just f) (ActionError _ e)   = f e `catchError` (defH h) -- so handlers can throw exceptions themselves
-defH _          Next              = next
-defH _          Finish            = return ()
+defH h@(Just f) (ActionError _ e) = f e `catchError` defH h -- so handlers can throw exceptions themselves
+defH _ Next = next
+defH _ Finish = return ()
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
@@ -126,14 +119,14 @@ next = throwError Next
 --
 -- > raise "just kidding" `rescue` (\msg -> text msg)
 rescue :: (ScottyError e, Monad m) => ActionT e m a -> (e -> ActionT e m a) -> ActionT e m a
-rescue action h = catchError action $ \e -> case e of
-    ActionError _ err -> h err            -- handle errors
-    other             -> throwError other -- rethrow internal error types
+rescue action h = catchError action $ \case
+    ActionError _ err -> h err -- handle errors
+    other -> throwError other -- rethrow internal error types
 
 -- | Like 'liftIO', but catch any IO exceptions and turn them into 'ScottyError's.
 liftAndCatchIO :: (ScottyError e, MonadIO m) => IO a -> ActionT e m a
 liftAndCatchIO io = ActionT $ do
-    r <- liftIO $ liftM Right io `E.catch` (\ e -> return $ Left $ stringError $ show (e :: E.SomeException))
+    r <- liftIO $ fmap Right io `E.catch` (\e -> return $ Left $ stringError $ show (e :: E.SomeException))
     either throwError return r
 
 -- | Redirect to given URL. Like throwing an uncatchable exception. Any code after the call to redirect
@@ -156,35 +149,38 @@ finish = throwError Finish
 
 -- | Get the 'Request' object.
 request :: Monad m => ActionT e m Request
-request = ActionT $ liftM getReq ask
+request = ActionT $ asks getReq
 
 -- | Get list of uploaded files.
 files :: Monad m => ActionT e m [File]
-files = ActionT $ liftM getFiles ask
+files = ActionT $ asks getFiles
 
 -- | Get a request header. Header name is case-insensitive.
 header :: (ScottyError e, Monad m) => T.Text -> ActionT e m (Maybe T.Text)
 header k = do
-    hs <- liftM requestHeaders request
+    hs <- fmap requestHeaders request
     return $ fmap strictByteStringToLazyText $ lookup (CI.mk (lazyTextToStrictByteString k)) hs
 
 -- | Get all the request headers. Header names are case-insensitive.
 headers :: (ScottyError e, Monad m) => ActionT e m [(T.Text, T.Text)]
 headers = do
-    hs <- liftM requestHeaders request
-    return [ ( strictByteStringToLazyText (CI.original k)
-             , strictByteStringToLazyText v)
-           | (k,v) <- hs ]
+    hs <- fmap requestHeaders request
+    return
+        [ ( strictByteStringToLazyText (CI.original k)
+          , strictByteStringToLazyText v
+          )
+        | (k, v) <- hs
+        ]
 
 -- | Get the request body.
-body :: (ScottyError e,  MonadIO m) => ActionT e m BL.ByteString
+body :: (ScottyError e, MonadIO m) => ActionT e m BL.ByteString
 body = ActionT ask >>= (liftIO . getBody)
 
 -- | Get an IO action that reads body chunks
 --
 -- * This is incompatible with 'body' since 'body' consumes all chunks.
 bodyReader :: Monad m => ActionT e m (IO B.ByteString)
-bodyReader = ActionT $ getBodyChunk `liftM` ask
+bodyReader = ActionT $ asks getBodyChunk
 
 -- | Parse the request body as a JSON object and return it.
 --
@@ -199,22 +195,29 @@ jsonData :: (A.FromJSON a, ScottyError e, MonadIO m) => ActionT e m a
 jsonData = do
     b <- body
     when (b == "") $ do
-      let htmlError = "jsonData - No data was provided."
-      raiseStatus status400 $ stringError htmlError
-    case A.eitherDecode b of
-      Left err -> do
-        let htmlError = "jsonData - malformed."
-              `mappend` " Data was: " `mappend` BL.unpack b
-              `mappend` " Error was: " `mappend` err
+        let htmlError = "jsonData - No data was provided."
         raiseStatus status400 $ stringError htmlError
-      Right value -> case A.fromJSON value of
-        A.Error err -> do
-          let htmlError = "jsonData - failed parse."
-                `mappend` " Data was: " `mappend` BL.unpack b `mappend` "."
-                `mappend` " Error was: " `mappend` err
-          raiseStatus status422 $ stringError htmlError
-        A.Success a -> do
-          return a
+    case A.eitherDecode b of
+        Left err -> do
+            let htmlError =
+                    "jsonData - malformed."
+                        `mappend` " Data was: "
+                        `mappend` BL.unpack b
+                        `mappend` " Error was: "
+                        `mappend` err
+            raiseStatus status400 $ stringError htmlError
+        Right value -> case A.fromJSON value of
+            A.Error err -> do
+                let htmlError =
+                        "jsonData - failed parse."
+                            `mappend` " Data was: "
+                            `mappend` BL.unpack b
+                            `mappend` "."
+                            `mappend` " Error was: "
+                            `mappend` err
+                raiseStatus status422 $ stringError htmlError
+            A.Success a -> do
+                return a
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
@@ -225,14 +228,14 @@ jsonData = do
 --   capture cannot be parsed.
 param :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
 param k = do
-    val <- ActionT $ liftM (lookup k . getParams) ask
+    val <- ActionT $ asks (lookup k . getParams)
     case val of
         Nothing -> raise $ stringError $ "Param: " ++ T.unpack k ++ " not found!"
-        Just v  -> either (const next) return $ parseParam v
+        Just v -> either (const next) return $ parseParam v
 
 -- | Get all parameters from capture, form and query (in that order).
 params :: Monad m => ActionT e m [Param]
-params = ActionT $ liftM getParams ask
+params = ActionT $ asks getParams
 
 -- | Minimum implemention: 'parseParam'
 class Parsable a where
@@ -250,12 +253,14 @@ instance Parsable T.Text where parseParam = Right
 instance Parsable ST.Text where parseParam = Right . T.toStrict
 instance Parsable B.ByteString where parseParam = Right . lazyTextToStrictByteString
 instance Parsable BL.ByteString where parseParam = Right . encodeUtf8
+
 -- | Overrides default 'parseParamList' to parse String.
 instance Parsable Char where
     parseParam t = case T.unpack t of
-                    [c] -> Right c
-                    _   -> Left "parseParam Char: no parse"
+        [c] -> Right c
+        _ -> Left "parseParam Char: no parse"
     parseParamList = Right . T.unpack -- String
+
 -- | Checks if parameter is present and is null-valued, not a literal '()'.
 -- If the URI requested is: '/foo?bar=()&baz' then 'baz' will parse as (), where 'bar' will not.
 instance Parsable () where
@@ -264,12 +269,14 @@ instance Parsable () where
 instance (Parsable a) => Parsable [a] where parseParam = parseParamList
 
 instance Parsable Bool where
-    parseParam t = if t' == T.toCaseFold "true"
-                   then Right True
-                   else if t' == T.toCaseFold "false"
-                        then Right False
-                        else Left "parseParam Bool: no parse"
-        where t' = T.toCaseFold t
+    parseParam t
+        | t' == true = Right True
+        | t' == false = Right False
+        | otherwise = Left "parseParam Bool: no parse"
+        where
+            t' = T.toCaseFold t
+            true = T.toCaseFold "true"
+            false = T.toCaseFold "false"
 
 instance Parsable Double where parseParam = readEither
 instance Parsable Float where parseParam = readEither
@@ -292,24 +299,28 @@ instance Parsable Natural where parseParam = readEither
 --
 -- > instance Parsable Int where parseParam = readEither
 readEither :: Read a => T.Text -> Either T.Text a
-readEither t = case [ x | (x,"") <- reads (T.unpack t) ] of
-                [x] -> Right x
-                []  -> Left "readEither: no parse"
-                _   -> Left "readEither: ambiguous parse"
+readEither t = case [x | (x, "") <- reads (T.unpack t)] of
+    [x] -> Right x
+    [] -> Left "readEither: no parse"
+    _ -> Left "readEither: ambiguous parse"
 
 -- | Set the HTTP response status. Default is 200.
 status :: Monad m => Status -> ActionT e m ()
 status = ActionT . MS.modify . setStatus
 
 -- Not exported, but useful in the functions below.
-changeHeader :: Monad m
-             => (CI.CI B.ByteString -> B.ByteString -> [(HeaderName, B.ByteString)] -> [(HeaderName, B.ByteString)])
-             -> T.Text -> T.Text -> ActionT e m ()
-changeHeader f k = ActionT
-                 . MS.modify
-                 . setHeaderWith
-                 . f (CI.mk $ lazyTextToStrictByteString k)
-                 . lazyTextToStrictByteString
+changeHeader ::
+    Monad m =>
+    (CI.CI B.ByteString -> B.ByteString -> [(HeaderName, B.ByteString)] -> [(HeaderName, B.ByteString)]) ->
+    T.Text ->
+    T.Text ->
+    ActionT e m ()
+changeHeader f k =
+    ActionT
+        . MS.modify
+        . setHeaderWith
+        . f (CI.mk $ lazyTextToStrictByteString k)
+        . lazyTextToStrictByteString
 
 -- | Add to the response headers. Header names are case-insensitive.
 addHeader :: Monad m => T.Text -> T.Text -> ActionT e m ()

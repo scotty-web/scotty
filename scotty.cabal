@@ -1,60 +1,59 @@
-Name:                scotty
-Version:             0.12.1
-Synopsis:            Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp
-Homepage:            https://github.com/scotty-web/scotty
-Bug-reports:         https://github.com/scotty-web/scotty/issues
-License:             BSD3
-License-file:        LICENSE
-Author:              Andrew Farmer <xichekolas@gmail.com>
-Maintainer:          Andrew Farmer <xichekolas@gmail.com>
-Copyright:           (c) 2012-Present Andrew Farmer
-Category:            Web
-Stability:           experimental
-Build-type:          Simple
-Cabal-version:       >= 1.10
-Description:
-  A Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp.
-  .
-  @
-    &#123;-&#35; LANGUAGE OverloadedStrings &#35;-&#125;
+cabal-version: 3.0
+
+name: scotty
+version: 0.13
+synopsis: Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp
+homepage: https://github.com/scotty-web/scotty
+bug-reports: https://github.com/scotty-web/scotty/issues
+license: BSD-3-Clause
+license-file: LICENSE
+author: Andrew Farmer <xichekolas@gmail.com>
+maintainer: Daniel Brice <danielbrice@gmail.com>
+copyright: (c) 2012-Present Andrew Farmer
+category: Web
+stability: experimental
+build-type: Simple
+
+description:
+    A Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp.
     .
-    import Web.Scotty
+    @
+      &#123;-&#35; LANGUAGE OverloadedStrings &#35;-&#125;
+      .
+      import Web.Scotty
+      .
+      import Data.Monoid (mconcat)
+      .
+      main = scotty 3000 $
+      &#32;&#32;get &#34;/:word&#34; $ do
+      &#32;&#32;&#32;&#32;beam <- param &#34;word&#34;
+      &#32;&#32;&#32;&#32;html $ mconcat [&#34;&#60;h1&#62;Scotty, &#34;, beam, &#34; me up!&#60;/h1&#62;&#34;]
+    @
     .
-    import Data.Monoid (mconcat)
     .
-    main = scotty 3000 $
-    &#32;&#32;get &#34;/:word&#34; $ do
-    &#32;&#32;&#32;&#32;beam <- param &#34;word&#34;
-    &#32;&#32;&#32;&#32;html $ mconcat [&#34;&#60;h1&#62;Scotty, &#34;, beam, &#34; me up!&#60;/h1&#62;&#34;]
-  @
-  .
-  .
-  Scotty is the cheap and cheerful way to write RESTful, declarative web applications.
-  .
-    * A page is as simple as defining the verb, url pattern, and Text content.
-  .
-    * It is template-language agnostic. Anything that returns a Text value will do.
-  .
-    * Conforms to WAI Application interface.
-  .
-    * Uses very fast Warp webserver by default.
-  .
-  As for the name: Sinatra + Warp = Scotty.
-  .
-  [WAI] <http://hackage.haskell.org/package/wai>
-  .
-  [Warp] <http://hackage.haskell.org/package/warp>
-tested-with:         GHC == 7.6.3
-                   , GHC == 7.8.4
-                   , GHC == 7.10.3
-                   , GHC == 8.0.2
-                   , GHC == 8.2.2
-                   , GHC == 8.4.4
-                   , GHC == 8.6.5
-                   , GHC == 8.8.4
-                   , GHC == 8.10.4
-                   , GHC == 9.0.1
-Extra-source-files:
+    Scotty is the cheap and cheerful way to write RESTful, declarative web applications.
+    .
+      * A page is as simple as defining the verb, url pattern, and Text content.
+    .
+      * It is template-language agnostic. Anything that returns a Text value will do.
+    .
+      * Conforms to WAI Application interface.
+    .
+      * Uses very fast Warp webserver by default.
+    .
+    As for the name: Sinatra + Warp = Scotty.
+    .
+    [WAI] <http://hackage.haskell.org/package/wai>
+    .
+    [Warp] <http://hackage.haskell.org/package/warp>
+
+tested-with:
+      GHC == 9.4.2
+    , GHC == 9.2.4
+    , GHC == 9.0.2
+    , GHC == 8.10.7
+
+extra-source-files:
     README.md
     changelog.md
     examples/404.html
@@ -64,81 +63,87 @@ Extra-source-files:
     examples/static/jquery-json.js
     examples/uploads/.keep
 
-Library
-  Exposed-modules:     Web.Scotty
-                       Web.Scotty.Trans
-                       Web.Scotty.Internal.Types
-  other-modules:       Web.Scotty.Action
-                       Web.Scotty.Route
-                       Web.Scotty.Util
-  default-language:    Haskell2010
-  build-depends:       aeson                 >= 0.6.2.1  && < 2.2,
-                       base                  >= 4.6      && < 5,
-                       base-compat-batteries >= 0.10     && < 0.13,
-                       blaze-builder         >= 0.3.3.0  && < 0.5,
-                       bytestring            >= 0.10.0.2 && < 0.12,
-                       case-insensitive      >= 1.0.0.1  && < 1.3,
-                       data-default-class    >= 0.0.1    && < 0.2,
-                       exceptions            >= 0.7      && < 0.11,
-                       http-types            >= 0.9.1    && < 0.13,
-                       monad-control         >= 1.0.0.3  && < 1.1,
-                       mtl                   >= 2.1.2    && < 2.4,
-                       network               >= 2.6.0.2  && < 3.2,
-                       regex-compat          >= 0.95.1   && < 0.96,
-                       text                  >= 0.11.3.1 && < 2.1,
-                       transformers          >= 0.3.0.0  && < 0.7,
-                       transformers-base     >= 0.4.1    && < 0.5,
-                       transformers-compat   >= 0.4      && < 0.8,
-                       wai                   >= 3.0.0    && < 3.3,
-                       wai-extra             >= 3.0.0    && < 3.2,
-                       warp                  >= 3.0.13   && < 3.4
+source-repository head
+    type:     git
+    location: git://github.com/scotty-web/scotty.git
 
-  if impl(ghc < 8.0)
-    build-depends:     fail
+library
+    hs-source-dirs: src
+    default-language: Haskell2010
+    ghc-options: -Wall -fno-warn-orphans
 
-  if impl(ghc < 7.10)
-    build-depends:     nats                  >= 0.1      && < 2
+    exposed-modules:
+        Web.Scotty
+        Web.Scotty.Trans
+        Web.Scotty.Internal.Types
 
-  GHC-options: -Wall -fno-warn-orphans
+    other-modules:
+        Web.Scotty.Action
+        Web.Scotty.Route
+        Web.Scotty.Util
+
+    build-depends:
+          base
+        , aeson
+        , base-compat-batteries
+        , blaze-builder
+        , bytestring
+        , case-insensitive
+        , data-default-class
+        , exceptions
+        , http-types
+        , monad-control
+        , mtl
+        , network
+        , regex-compat
+        , text
+        , transformers
+        , transformers-base
+        , transformers-compat
+        , wai
+        , wai-extra
+        , warp
 
 test-suite spec
-  main-is:             Spec.hs
-  other-modules:       Web.ScottySpec
-  type:                exitcode-stdio-1.0
-  default-language:    Haskell2010
-  hs-source-dirs:      test
-  build-depends:       async,
-                       base,
-                       bytestring,
-                       data-default-class,
-                       directory,
-                       hspec == 2.*,
-                       hspec-wai >= 0.6.3,
-                       http-types,
-                       lifted-base,
-                       network,
-                       scotty,
-                       text,
-                       wai
-  build-tool-depends:  hspec-discover:hspec-discover == 2.*
-  GHC-options:         -Wall -threaded -fno-warn-orphans
+    type: exitcode-stdio-1.0
+    hs-source-dirs: test
+    main-is: Spec.hs
+    other-modules: Web.ScottySpec
+    default-language: Haskell2010
+    ghc-options: -Wall -threaded -fno-warn-orphans
+
+    build-depends:
+          base
+        , async
+        , bytestring
+        , data-default-class
+        , directory
+        , hspec
+        , hspec-wai
+        , http-types
+        , lifted-base
+        , network
+        , scotty
+        , text
+        , wai
+
+    build-tool-depends:
+        hspec-discover:hspec-discover
 
 benchmark weigh
-  main-is:             Main.hs
-  type:                exitcode-stdio-1.0
-  default-language:    Haskell2010
-  hs-source-dirs:      bench
-  build-depends:       base,
-                       scotty,
-                       lucid,
-                       bytestring,
-                       mtl,
-                       text,
-                       transformers,
-                       data-default-class,
-                       weigh == 0.0.16
-  GHC-options:         -Wall -O2 -threaded
+    type: exitcode-stdio-1.0
+    hs-source-dirs: bench
+    main-is: Main.hs
+    default-language: Haskell2010
+    ghc-options: -Wall -O2 -threaded
 
-source-repository head
-  type:     git
-  location: git://github.com/scotty-web/scotty.git
+    build-depends:
+          base
+        , scotty
+        , lucid
+        , bytestring
+        , mtl
+        , text
+        , transformers
+        , data-default-class
+        , weigh

@@ -1,0 +1,3 @@
+- ignore: {name: "Use <$>"}
+- ignore: {name: "Alternative law, left identity"}
+- ignore: {name: "Alternative law, right identity"}

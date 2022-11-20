@@ -1,4 +1,5 @@
 ## next [????.??.??]
+* Drop support for GHC<8.10
 
 ## 0.12.1 [2022.11.17]
 * Fix CPP bug that prevented tests from building on Windows.
