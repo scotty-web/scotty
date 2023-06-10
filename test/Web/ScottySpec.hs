@@ -16,6 +16,7 @@ import qualified Control.Exception as E
 
 import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request, options)
 import qualified Web.Scotty as Scotty
+import qualified Web.Scotty.Cookie as SC (getCookie, setSimpleCookie, deleteCookie)
 
 #if !defined(mingw32_HOST_OS)
 import           Control.Concurrent.Async (withAsync)
@@ -170,6 +171,25 @@ spec = do
       withApp (Scotty.get "/scotty" $ status status400 >> finish >> status status200) $ do
         it "stops the execution of an action" $ do
           get "/scotty" `shouldRespondWith` 400
+
+    describe "setSimpleCookie" $ do
+      withApp (Scotty.get "/scotty" $ SC.setSimpleCookie "foo" "bar") $ do
+        it "responds with a Set-Cookie header" $ do
+          get "/scotty" `shouldRespondWith` 200 {matchHeaders = ["Set-Cookie" <:> "foo=bar"]}
+
+    describe "getCookie" $ do
+      withApp (Scotty.get "/scotty" $ do
+                 mt <- SC.getCookie "foo"
+                 case mt of
+                   Just "bar" -> Scotty.status status200
+                   _ -> Scotty.status status400 ) $ do
+        it "finds the right cookie in the request headers" $ do
+          request "GET" "/scotty" [("Cookie", "foo=bar")] "" `shouldRespondWith` 200
+
+    describe "deleteCookie" $ do
+      withApp (Scotty.get "/scotty" $ SC.deleteCookie "foo") $ do
+        it "responds with a Set-Cookie header with expiry date Jan 1, 1970" $ do
+          get "/scotty" `shouldRespondWith` 200 {matchHeaders = ["Set-Cookie" <:> "foo=; Expires=Thu, 01-Jan-1970 00:00:00 GMT"]}
 
 -- Unix sockets not available on Windows
 #if !defined(mingw32_HOST_OS)
