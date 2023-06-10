@@ -69,7 +69,6 @@ module Web.Scotty.Cookie (
 import Control.Arrow (first, (***))
 import Control.Monad ( liftM )
 import Data.Char (toLower, isDigit)
--- import Data.Monoid (mempty, mappend, mconcat)
 import Data.Word (Word8)
 import Data.Ratio (numerator, denominator)
 import Data.Maybe (isJust)
