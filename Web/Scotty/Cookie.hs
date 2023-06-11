@@ -118,7 +118,7 @@ getCookies :: (Monad m, ScottyError e)
 getCookies = (maybe [] parse) <$> header "Cookie"
     where parse = parseCookiesText . BSL.toStrict . TL.encodeUtf8
 
--- | Browsers don't directly delete a cookie, but setting its expiry to a past date (e.g. the UNIX epoch) and it value to the empty string ensures that the cookie will be invalidated (when it will be actually deleted by the browser seems to be implementation-dependent).
+-- | Browsers don't directly delete a cookie, but setting its expiry to a past date (e.g. the UNIX epoch) ensures that the cookie will be invalidated (whether and when it will be actually deleted by the browser seems to be browser-dependent).
 deleteCookie :: (Monad m, ScottyError e)
              => Text -- ^ name
              -> ActionT e m ()
