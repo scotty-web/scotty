@@ -55,6 +55,7 @@ module Web.Scotty.Cookie (
     , makeSimpleCookie
     -- ** cookie configuration
     , SetCookie
+    , defaultSetCookie
     , setCookieName
     , setCookieValue
     , setCookiePath
@@ -68,18 +69,13 @@ module Web.Scotty.Cookie (
     , sameSiteNone
     , sameSiteLax
     , sameSiteStrict
-    , defaultSetCookie
-    -- ** parsing and rendering
-    , parseSetCookie
-    , renderCookies
-    , renderCookiesText
     ) where
 
 -- bytestring
 import Data.ByteString.Builder (toLazyByteString)
 import qualified Data.ByteString.Lazy as BSL (toStrict)
 -- cookie
-import Web.Cookie (SetCookie, setCookieName , setCookieValue, setCookiePath, setCookieExpires, setCookieMaxAge, setCookieDomain, setCookieHttpOnly, setCookieSecure, setCookieSameSite, parseSetCookie, renderCookies, renderCookiesText, renderSetCookie, defaultSetCookie, CookiesText, parseCookiesText, SameSiteOption, sameSiteStrict, sameSiteNone, sameSiteLax)
+import Web.Cookie (SetCookie, setCookieName , setCookieValue, setCookiePath, setCookieExpires, setCookieMaxAge, setCookieDomain, setCookieHttpOnly, setCookieSecure, setCookieSameSite, renderSetCookie, defaultSetCookie, CookiesText, parseCookiesText, SameSiteOption, sameSiteStrict, sameSiteNone, sameSiteLax)
 -- scotty
 import Web.Scotty.Trans (ActionT, ScottyError(..), addHeader, header)
 -- time
