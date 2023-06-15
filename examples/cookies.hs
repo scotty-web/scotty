@@ -3,11 +3,6 @@
 module Main (main) where
 
 import Control.Monad (forM_)
-import Data.Text.Lazy (Text)
-import qualified Data.Text.Lazy.Encoding as T
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
-import qualified Blaze.ByteString.Builder as B
 
 import qualified Text.Blaze.Html5 as H
 import Text.Blaze.Html5.Attributes
