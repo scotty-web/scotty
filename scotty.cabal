@@ -88,7 +88,7 @@ Library
                        network               >= 2.6.0.2  && < 3.2,
                        regex-compat          >= 0.95.1   && < 0.96,
                        text                  >= 0.11.3.1 && < 2.1,
-                       time                  >= 1.11,
+                       time                  >= 1.8,
                        transformers          >= 0.3.0.0  && < 0.7,
                        transformers-base     >= 0.4.1    && < 0.5,
                        transformers-compat   >= 0.4      && < 0.8,
