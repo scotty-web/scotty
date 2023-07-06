@@ -164,7 +164,6 @@ newtype ActionT e m a = ActionT { runAM :: ExceptT (ActionError e) (ReaderT Acti
     deriving ( Functor, Applicative, MonadIO )
 
 instance (Monad m, ScottyError e) => Monad.Monad (ActionT e m) where
-    return = ActionT . return
     ActionT m >>= k = ActionT (m >>= runAM . k)
 #if !(MIN_VERSION_base(4,13,0))
     fail = Fail.fail
