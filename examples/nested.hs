@@ -20,7 +20,7 @@ scottApp :: IO Application
 scottApp = scottyApp $ do
 
     get "/" $ do
-        html $ mconcat ["<h1>Scotty, bean me up!</h1>"]
+        html $ mconcat ["<h1>Scotty, beam me up!</h1>"]
 
     get "/other/test/:word" $ do
         beam <- param "word"
@@ -48,7 +48,7 @@ main = do
   scotty 3000 $ do
 
     get "/" $ do
-        html $ mconcat ["<h1>Scotty, bean me up!</h1>"]
+        html $ mconcat ["<h1>Scotty, beam me up!</h1>"]
 
     get "/test/:word" $ do
         beam <- param "word"
