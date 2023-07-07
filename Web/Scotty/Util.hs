@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 module Web.Scotty.Util
     ( lazyTextToStrictByteString
     , strictByteStringToLazyText
@@ -10,14 +9,19 @@ module Web.Scotty.Util
     , add
     , addIfNotPresent
     , socketDescription
+    , readRequestBody
     ) where
 
 import Network.Socket (SockAddr(..), Socket, getSocketName, socketPort)
 import Network.Wai
 
+import Control.Monad (when)
+import Control.Exception (throw)
+
 import Network.HTTP.Types
 
 import qualified Data.ByteString as B
+import qualified Data.Text as TP (pack)
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Encoding as ES
 import qualified Data.Text.Encoding.Error as ES
@@ -72,3 +76,19 @@ socketDescription sock = do
   case sockName of
     SockAddrUnix u -> return $ "unix socket " ++ u
     _              -> fmap (\port -> "port " ++ show port) $ socketPort sock
+
+-- return request body or throw an exception if request body too big
+readRequestBody :: IO B.ByteString -> ([B.ByteString] -> IO [B.ByteString]) -> Maybe Kilobytes ->IO [B.ByteString]
+readRequestBody rbody prefix maxSize = do
+  b <- rbody
+  if B.null b then
+       prefix []
+    else
+      do
+        checkBodyLength maxSize 
+        readRequestBody rbody (prefix . (b:)) maxSize
+    where checkBodyLength :: Maybe Kilobytes ->  IO ()
+          checkBodyLength (Just maxSize') = prefix [] >>= \bodySoFar -> when (isBigger bodySoFar maxSize') readUntilEmpty
+          checkBodyLength Nothing = return ()
+          isBigger bodySoFar maxSize' = (B.length . B.concat $ bodySoFar) > maxSize' * 1024
+          readUntilEmpty = rbody >>= \b -> if B.null b then throw (RequestException (ES.encodeUtf8 . TP.pack $ "Request is too big Jim!") status413) else readUntilEmpty

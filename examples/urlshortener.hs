@@ -6,13 +6,13 @@ import Web.Scotty
 import Control.Concurrent.MVar
 import Control.Monad.IO.Class
 import qualified Data.Map as M
-import Data.Monoid
 import qualified Data.Text.Lazy as T
 
 import Network.Wai.Middleware.RequestLogger
 import Network.Wai.Middleware.Static
 
-import Prelude
+import Prelude ()
+import Prelude.Compat
 
 import qualified Text.Blaze.Html5 as H
 import Text.Blaze.Html5.Attributes

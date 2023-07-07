@@ -1,3 +1,27 @@
+## next [????.??.??]
+
+## 0.12.1 [2022.11.17]
+* Fix CPP bug that prevented tests from building on Windows.
+* Allow building with `transformers-0.6.*` and `mtl-2.3.*`. Because the
+  `MonadTrans t` class gained a `forall m. Monad m => Monad (t m)` superclass
+  in `transformers-0.6.0.0`, the `MonadTrans` and `MonadTransControl` instances
+  for `ActionT e` now have a `ScottyError e` instance context to match the
+  `Monad` instance.
+
+## 0.12 [2020.05.16]
+* Provide `MonadReader` and `MonadState` instances for `ActionT`.
+* Add HTTP Status code as a field to `ActionError`, and add
+  a sister function to `raise`, `raiseStatus`. This makes
+  throwing a specific error code and exiting much cleaner, and
+  avoids the strange defaulting to HTTP 500. This will make internal
+  functions easier to implement with the right status codes 'thrown',
+  such as `jsonData`.
+* Correct http statuses returned by `jsonData` (#228).
+* Better error message when no data is provided to `jsonData` (#226).
+* Add `Semigroup` and `Monoid` instances for `ActionT` and `ScottyT`
+* ScottyT: Use strict StateT instead of lazy
+* Handle adjacent slashes in the request path as one (thanks @SkyWriter)
+
 ## 0.11.5 [2019.09.07]
 * Allow building the test suite with `hspec-wai-0.10`.
 

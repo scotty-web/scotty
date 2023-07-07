@@ -19,6 +19,7 @@ module Web.Scotty.Action
     , param
     , params
     , raise
+    , raiseStatus
     , raw
     , nested
     , readEither
@@ -38,9 +39,11 @@ module Web.Scotty.Action
 import           Blaze.ByteString.Builder   (fromLazyByteString)
 
 import qualified Control.Exception          as E
+import           Control.Monad              (liftM, when)
 import           Control.Monad.Error.Class
-import           Control.Monad.Reader
-import qualified Control.Monad.State        as MS
+import           Control.Monad.IO.Class     (MonadIO(..))
+import           Control.Monad.Reader       (MonadReader(..), ReaderT(..))
+import qualified Control.Monad.State.Strict as MS
 import           Control.Monad.Trans.Except
 import           Control.Concurrent.MVar
 
@@ -50,18 +53,23 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive       as CI
 import           Data.Default.Class         (def)
 import           Data.Int
-#if !(MIN_VERSION_base(4,8,0))
-import           Data.Monoid                (mconcat)
-#endif
 import qualified Data.Text                  as ST
+import qualified Data.Text.Encoding         as STE
 import qualified Data.Text.Lazy             as T
 import           Data.Text.Lazy.Encoding    (encodeUtf8)
 import           Data.Word
 
 import           Network.HTTP.Types
+-- not re-exported until version 0.11
+#if !MIN_VERSION_http_types(0,11,0)
+import           Network.HTTP.Types.Status
+#endif
 import           Network.Wai
 
 import           Numeric.Natural
+
+import           Prelude ()
+import           Prelude.Compat
 
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util
@@ -84,17 +92,23 @@ defH :: (ScottyError e, Monad m) => ErrorHandler e m -> ActionError e -> ActionT
 defH _          (Redirect url)    = do
     status status302
     setHeader "Location" url
-defH Nothing    (ActionError e)   = do
-    status status500
-    html $ mconcat ["<h1>500 Internal Server Error</h1>", showError e]
-defH h@(Just f) (ActionError e)   = f e `catchError` (defH h) -- so handlers can throw exceptions themselves
+defH Nothing    (ActionError s e)   = do
+    status s
+    let code = T.pack $ show $ statusCode s
+    let msg = T.fromStrict $ STE.decodeUtf8 $ statusMessage s
+    html $ mconcat ["<h1>", code, " ", msg, "</h1>", showError e]
+defH h@(Just f) (ActionError _ e)   = f e `catchError` (defH h) -- so handlers can throw exceptions themselves
 defH _          Next              = next
 defH _          Finish            = return ()
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
 raise :: (ScottyError e, Monad m) => e -> ActionT e m a
-raise = throwError . ActionError
+raise = raiseStatus status500
+
+-- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions turn into HTTP responses corresponding to the given status.
+raiseStatus :: (ScottyError e, Monad m) => Status -> e -> ActionT e m a
+raiseStatus s = throwError . ActionError s
 
 
 -- | Abort execution of this action and continue pattern matching routes.
@@ -119,8 +133,8 @@ next = throwError Next
 -- > raise "just kidding" `rescue` (\msg -> text msg)
 rescue :: (ScottyError e, Monad m) => ActionT e m a -> (e -> ActionT e m a) -> ActionT e m a
 rescue action h = catchError action $ \e -> case e of
-    ActionError err -> h err            -- handle errors
-    other           -> throwError other -- rethrow internal error types
+    ActionError _ err -> h err            -- handle errors
+    other             -> throwError other -- rethrow internal error types
 
 -- | Like 'liftIO', but catch any IO exceptions and turn them into 'ScottyError's.
 liftAndCatchIO :: (ScottyError e, MonadIO m) => IO a -> ActionT e m a
@@ -178,11 +192,35 @@ body = ActionT ask >>= (liftIO . getBody)
 bodyReader :: Monad m => ActionT e m (IO B.ByteString)
 bodyReader = ActionT $ getBodyChunk `liftM` ask
 
--- | Parse the request body as a JSON object and return it. Raises an exception if parse is unsuccessful.
+-- | Parse the request body as a JSON object and return it.
+--
+--   If the JSON object is malformed, this sets the status to
+--   400 Bad Request, and throws an exception.
+--
+--   If the JSON fails to parse, this sets the status to
+--   422 Unprocessable Entity.
+--
+--   These status codes are as per https://www.restapitutorial.com/httpstatuscodes.html.
 jsonData :: (A.FromJSON a, ScottyError e, MonadIO m) => ActionT e m a
 jsonData = do
     b <- body
-    either (\e -> raise $ stringError $ "jsonData - no parse: " ++ e ++ ". Data was:" ++ BL.unpack b) return $ A.eitherDecode b
+    when (b == "") $ do
+      let htmlError = "jsonData - No data was provided."
+      raiseStatus status400 $ stringError htmlError
+    case A.eitherDecode b of
+      Left err -> do
+        let htmlError = "jsonData - malformed."
+              `mappend` " Data was: " `mappend` BL.unpack b
+              `mappend` " Error was: " `mappend` err
+        raiseStatus status400 $ stringError htmlError
+      Right value -> case A.fromJSON value of
+        A.Error err -> do
+          let htmlError = "jsonData - failed parse."
+                `mappend` " Data was: " `mappend` BL.unpack b `mappend` "."
+                `mappend` " Error was: " `mappend` err
+          raiseStatus status422 $ stringError htmlError
+        A.Success a -> do
+          return a
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
@@ -303,7 +341,8 @@ html t = do
     raw $ encodeUtf8 t
 
 -- | Send a file as the response. Doesn't set the \"Content-Type\" header, so you probably
--- want to do that on your own with 'setHeader'.
+-- want to do that on your own with 'setHeader'. Setting a status code will have no effect
+-- because Warp will overwrite that to 200 (see 'Network.Wai.Handler.Warp.Internal.sendResponse').
 file :: Monad m => FilePath -> ActionT e m ()
 file = ActionT . MS.modify . setContent . ContentFile
 

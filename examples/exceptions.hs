@@ -3,13 +3,13 @@ module Main (main) where
 
 import Control.Monad.IO.Class
 
-import Data.Monoid
 import Data.String (fromString)
 
 import Network.HTTP.Types
 import Network.Wai.Middleware.RequestLogger
 
-import Prelude
+import Prelude ()
+import Prelude.Compat
 
 import System.Random
 

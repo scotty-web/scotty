@@ -13,7 +13,7 @@ module Web.Scotty
       -- | 'Middleware' and routes are run in the order in which they
       -- are defined. All middleware is run first, followed by the first
       -- route that matches. If no route matches, a 404 response is given.
-    , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound, nested
+    , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound, nested, setMaxRequestBodySize
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
@@ -26,11 +26,11 @@ module Web.Scotty
       -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json, stream, raw
       -- ** Exceptions
-    , raise, rescue, next, finish, defaultHandler, liftAndCatchIO
+    , raise, raiseStatus, rescue, next, finish, defaultHandler, liftAndCatchIO
       -- * Parsing Parameters
     , Param, Trans.Parsable(..), Trans.readEither
       -- * Types
-    , ScottyM, ActionM, RoutePattern, File
+    , ScottyM, ActionM, RoutePattern, File, Kilobytes
     ) where
 
 -- With the exception of this, everything else better just import types.
@@ -46,7 +46,7 @@ import Network.Socket (Socket)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 
-import Web.Scotty.Internal.Types (ScottyT, ActionT, Param, RoutePattern, Options, File)
+import Web.Scotty.Internal.Types (ScottyT, ActionT, Param, RoutePattern, Options, File, Kilobytes)
 
 type ScottyM = ScottyT Text IO
 type ActionM = ActionT Text IO
@@ -101,10 +101,20 @@ middleware = Trans.middleware
 nested :: Application -> ActionM ()
 nested = Trans.nested
 
+-- | Set global size limit for the request body. Requests with body size exceeding the limit will not be
+-- processed and an HTTP response 413 will be returned to the client. Size limit needs to be greater than 0, 
+-- otherwise the application will terminate on start. 
+setMaxRequestBodySize :: Kilobytes -> ScottyM ()
+setMaxRequestBodySize = Trans.setMaxRequestBodySize
+
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
 raise :: Text -> ActionM a
 raise = Trans.raise
+
+-- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions turn into HTTP responses corresponding to the given status.
+raiseStatus :: Status -> Text -> ActionM a
+raiseStatus = Trans.raiseStatus
 
 -- | Abort execution of this action and continue pattern matching routes.
 -- Like an exception, any code after 'next' is not executed.

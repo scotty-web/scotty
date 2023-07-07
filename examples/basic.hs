@@ -7,14 +7,14 @@ import Network.Wai.Middleware.RequestLogger -- install wai-extra if you don't ha
 
 import Control.Monad
 import Control.Monad.Trans
-import Data.Monoid
 import System.Random (newStdGen, randomRs)
 
 import Network.HTTP.Types (status302)
 
 import Data.Text.Lazy.Encoding (decodeUtf8)
 import Data.String (fromString)
-import Prelude
+import Prelude ()
+import Prelude.Compat
 
 main :: IO ()
 main = scotty 3000 $ do

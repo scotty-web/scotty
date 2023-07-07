@@ -17,7 +17,7 @@ module Web.Scotty.Trans
       -- | 'Middleware' and routes are run in the order in which they
       -- are defined. All middleware is run first, followed by the first
       -- route that matches. If no route matches, a 404 response is given.
-    , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound
+    , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound, setMaxRequestBodySize
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
@@ -30,19 +30,20 @@ module Web.Scotty.Trans
       -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json, stream, raw, nested
       -- ** Exceptions
-    , raise, rescue, next, finish, defaultHandler, ScottyError(..), liftAndCatchIO
+    , raise, raiseStatus, rescue, next, finish, defaultHandler, ScottyError(..), liftAndCatchIO
       -- * Parsing Parameters
     , Param, Parsable(..), readEither
       -- * Types
-    , RoutePattern, File
+    , RoutePattern, File, Kilobytes
       -- * Monad Transformers
     , ScottyT, ActionT
     ) where
 
 import Blaze.ByteString.Builder (fromByteString)
 
+import Control.Exception (assert)
 import Control.Monad (when)
-import Control.Monad.State (execState, modify)
+import Control.Monad.State.Strict (execState, modify)
 import Control.Monad.IO.Class
 
 import Data.Default.Class (def)
@@ -127,3 +128,9 @@ defaultHandler f = ScottyT $ modify $ addHandler $ Just (\e -> status status500 
 -- on the response). Every middleware is run on each request.
 middleware :: Middleware -> ScottyT e m ()
 middleware = ScottyT . modify . addMiddleware
+
+-- | Set global size limit for the request body. Requests with body size exceeding the limit will not be
+-- processed and an HTTP response 413 will be returned to the client. Size limit needs to be greater than 0, 
+-- otherwise the application will terminate on start. 
+setMaxRequestBodySize :: Kilobytes -> ScottyT e m ()
+setMaxRequestBodySize i = assert (i > 0) $ ScottyT . modify . updateMaxRequestBodySize $ def { maxRequestBodySize = Just i } 
