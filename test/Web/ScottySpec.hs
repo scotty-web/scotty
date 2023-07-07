@@ -11,6 +11,7 @@ import           Data.String
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 import           Network.HTTP.Types
+import           Network.Wai (Application, responseLBS)
 import qualified Control.Exception.Lifted as EL
 import qualified Control.Exception as E
 
@@ -190,6 +191,20 @@ spec = do
       withApp (Scotty.get "/scotty" $ SC.deleteCookie "foo") $ do
         it "responds with a Set-Cookie header with expiry date Jan 1, 1970" $ do
           get "/scotty" `shouldRespondWith` 200 {matchHeaders = ["Set-Cookie" <:> "foo=; Expires=Thu, 01-Jan-1970 00:00:00 GMT"]}
+
+    describe "nested" $ do
+      let
+        simpleApp :: Application
+        simpleApp _ respond = do
+            putStrLn "I've done some IO here"
+            respond $ responseLBS
+                status200
+                [("Content-Type", "text/plain")]
+                "Hello, Web!"
+
+      withApp (Scotty.get "/nested" (nested simpleApp)) $ do
+        it "responds with the expected simpleApp response" $ do
+          get "/nested" `shouldRespondWith` 200 {matchHeaders = ["Content-Type" <:> "text/plain"], matchBody = "Hello, Web!"}
 
 -- Unix sockets not available on Windows
 #if !defined(mingw32_HOST_OS)
