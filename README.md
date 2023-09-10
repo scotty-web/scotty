@@ -1,4 +1,4 @@
-# Scotty [![Build Status](https://travis-ci.org/scotty-web/scotty.svg)](https://travis-ci.org/scotty-web/scotty)[![Coverage Status](https://coveralls.io/repos/scotty-web/scotty/badge.svg?branch=master)](https://coveralls.io/r/scotty-web/scotty?branch=master)
+# Scotty [![Build Status](https://travis-ci.org/scotty-web/scotty.svg)](https://travis-ci.org/scotty-web/scotty)
 
 A Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp.
 
@@ -16,10 +16,10 @@ main = scotty 3000 $
 
 Scotty is the cheap and cheerful way to write RESTful, declarative web applications.
 
-* A page is as simple as defining the verb, url pattern, and Text content.
+* A page is as simple as defining the verb, URL pattern, and Text content.
 * It is template-language agnostic. Anything that returns a Text value will do.
-* Conforms to WAI Application interface.
-* Uses very fast Warp webserver by default.
+* Conforms to the [web application interface (WAI)](https://github.com/yesodweb/wai/).
+* Uses the very fast Warp webserver by default.
 
 See examples/basic.hs to see Scotty in action. (basic.hs needs the wai-extra package)
 
@@ -33,12 +33,27 @@ As for the name: Sinatra + Warp = Scotty.
 
 ### More Information
 
-Tutorials and related projects can be found in the Scotty wiki:
-
-https://github.com/scotty-web/scotty/wiki
+Tutorials and related projects can be found in the [Scotty wiki](https://github.com/scotty-web/scotty/wiki).
 
 ### Development & Support
 
-Open an issue on GitHub or join `#scotty` on Freenode.
+Open an issue on GitHub.
 
-Copyright (c) 2012-2017 Andrew Farmer
+Copyright (c) 2012-2019 Andrew Farmer
+
+### FAQ
+
+* Fails to compile regex-posix on Windows
+    * If you are using stack, add the following parameters to `stack.yaml`:
+        * ```yaml
+            extra-deps:
+            - regex-posix-clib-2.7
+            flags:
+              regex-posix:
+                _regex-posix-clib: true
+          ```
+    * If you are using cabal, update the `constraints` section of `cabal.project.local` as follows:
+        * ```
+          constraints:
+            regex-posix +_regex-posix-clib 
+          ```
