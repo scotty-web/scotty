@@ -115,7 +115,7 @@ matchRoute :: RoutePattern -> Request -> Maybe [Param]
 matchRoute (Literal pat)  req | pat == path req = Just []
                               | otherwise       = Nothing
 matchRoute (Function fun) req = fun req
-matchRoute (Capture pat)  req = go (T.split (=='/') pat) (compress $ T.split (=='/') $ path req) []
+matchRoute (Capture pat)  req = go (T.split (=='/') pat) (compress $ T.fromStrict <$> "":pathInfo req) [] -- add empty segment to simulate being at the root
     where go [] [] prs = Just prs -- request string and pattern match!
           go [] r  prs | T.null (mconcat r)  = Just prs -- in case request has trailing slashes
                        | otherwise           = Nothing  -- request string is longer than pattern
