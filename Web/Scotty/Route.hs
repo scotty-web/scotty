@@ -121,10 +121,10 @@ matchRoute (Capture pat)  req = go (T.split (=='/') pat) (compress $ T.split (==
                        | otherwise           = Nothing  -- request string is longer than pattern
           go p  [] prs | T.null (mconcat p)  = Just prs -- in case pattern has trailing slashes
                        | otherwise           = Nothing  -- request string is not long enough
-          go (p:ps) (r:rs) prs | p == r          = go ps rs prs -- equal literals, keeping checking
-                               | T.null p        = Nothing      -- p is null, but r is not, fail
-                               | T.head p == ':' = go ps rs $ (T.tail p, r) : prs -- p is a capture, add to params
-                               | otherwise       = Nothing      -- both literals, but unequal, fail
+          go (p:ps) (r:rs) prs = case T.uncons p of
+                        Just (':', name) -> go ps rs $ (name, r) : prs -- p is a capture, add to params
+                        _ | p == r       -> go ps rs prs -- equal literals, keeping checking
+                          | otherwise    -> Nothing      -- both literals, but unequal, fail
           compress ("":rest@("":_)) = compress rest
           compress (x:xs) = x : compress xs
           compress [] = []
