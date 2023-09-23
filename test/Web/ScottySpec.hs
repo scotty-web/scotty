@@ -1,22 +1,22 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE OverloadedStrings #-}
-
+{-# LANGUAGE OverloadedStrings, CPP #-}
 module Web.ScottySpec (main, spec) where
 
-import Control.Applicative
-import qualified Control.Exception as E
-import qualified Control.Exception.Lifted as EL
-import Control.Monad
-import Data.Char
-import Data.String
+import           Test.Hspec
+import           Test.Hspec.Wai
+
+import           Control.Applicative
+import           Control.Monad
+import           Data.Char
+import           Data.String
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
-import Network.HTTP.Types
-import Test.Hspec
-import Test.Hspec.Wai
-import Web.Scotty as Scotty hiding (delete, get, options, patch, post, put, request)
+import           Network.HTTP.Types
+import qualified Control.Exception.Lifted as EL
+import qualified Control.Exception as E
+
+import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request, options)
 import qualified Web.Scotty as Scotty
-import qualified Web.Scotty.Cookie as SC (deleteCookie, getCookie, setSimpleCookie)
+import qualified Web.Scotty.Cookie as SC (getCookie, setSimpleCookie, deleteCookie)
 
 #if !defined(mingw32_HOST_OS)
 import           Control.Concurrent.Async (withAsync)
@@ -39,28 +39,26 @@ spec :: Spec
 spec = do
   let withApp = with . scottyApp
   describe "ScottyM" $ do
-    forM_
-      [ ("GET", Scotty.get, get),
-        ("POST", Scotty.post, (`post` "")),
-        ("PUT", Scotty.put, (`put` "")),
-        ("PATCH", Scotty.patch, (`patch` "")),
-        ("DELETE", Scotty.delete, delete),
-        ("OPTIONS", Scotty.options, options)
-      ]
-      $ \(method, route, makeRequest) -> do
-        describe (map toLower method) $ do
-          withApp (route "/scotty" $ html "") $ do
-            it ("adds route for " ++ method ++ " requests") $ do
-              makeRequest "/scotty" `shouldRespondWith` 200
+    forM_ [
+        ("GET", Scotty.get, get)
+      , ("POST", Scotty.post, (`post` ""))
+      , ("PUT", Scotty.put, (`put` ""))
+      , ("PATCH", Scotty.patch, (`patch` ""))
+      , ("DELETE", Scotty.delete, delete)
+      , ("OPTIONS", Scotty.options, options)
+      ] $ \(method, route, makeRequest) -> do
+      describe (map toLower method) $ do
+        withApp (route "/scotty" $ html "") $ do
+          it ("adds route for " ++ method ++ " requests") $ do
+            makeRequest "/scotty" `shouldRespondWith` 200
 
-          withApp (route "/scotty" $ html "") $ do
-            it ("properly handles extra slash routes for " ++ method ++ " requests") $ do
-              makeRequest "//scotty" `shouldRespondWith` 200
+        withApp (route "/scotty" $ html "") $ do
+          it ("properly handles extra slash routes for " ++ method ++ " requests") $ do
+            makeRequest "//scotty" `shouldRespondWith` 200
 
-          withApp (route "/:paramName" $ param "paramName" >>= text) $ do
-            it ("captures route parameters for " ++ method ++ " requests when parameter matches its name") $ do
-              makeRequest "/:paramName" `shouldRespondWith` ":paramName"
-
+        withApp (route "/:paramName" $ param "paramName" >>= text) $ do
+          it ("captures route parameters for " ++ method ++ " requests when parameter matches its name") $ do
+            makeRequest "/:paramName" `shouldRespondWith` ":paramName"
     describe "addroute" $ do
       forM_ availableMethods $ \method -> do
         withApp (addroute method "/scotty" $ html "") $ do
@@ -108,8 +106,8 @@ spec = do
 
     withApp (Scotty.get "/dictionary" $ empty <|> param "word1" <|> empty <|> param "word2" >>= text) $
       it "has an Alternative instance" $ do
-        get "/dictionary?word1=haskell" `shouldRespondWith` "haskell"
-        get "/dictionary?word2=scotty" `shouldRespondWith` "scotty"
+        get "/dictionary?word1=haskell"   `shouldRespondWith` "haskell"
+        get "/dictionary?word2=scotty"    `shouldRespondWith` "scotty"
         get "/dictionary?word1=a&word2=b" `shouldRespondWith` "a"
 
     describe "param" $ do
@@ -119,26 +117,19 @@ spec = do
 
         context "when used with application/x-www-form-urlencoded data" $ do
           it "returns POST parameter with given name" $ do
-            request "POST" "/search" [("Content-Type", "application/x-www-form-urlencoded")] "query=haskell" `shouldRespondWith` "haskell"
+            request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=haskell" `shouldRespondWith` "haskell"
 
           it "replaces non UTF-8 bytes with Unicode replacement character" $ do
-            request "POST" "/search" [("Content-Type", "application/x-www-form-urlencoded")] "query=\xe9" `shouldRespondWith` "\xfffd"
+            request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=\xe9" `shouldRespondWith` "\xfffd"
+
 
     describe "requestLimit" $ do
       withApp (Scotty.setMaxRequestBodySize 1 >> Scotty.matchAny "/upload" (do status status200)) $ do
         it "upload endpoint for max-size requests, status 413 if request is too big, 200 otherwise" $ do
-          request
-            "POST"
-            "/upload"
-            [("Content-Type", "multipart/form-data; boundary=--33")]
-            (TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1 .. 4500] :: [Integer])])
-            `shouldRespondWith` 413
-          request
-            "POST"
-            "/upload"
-            [("Content-Type", "multipart/form-data; boundary=--33")]
-            (TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1 .. 50] :: [Integer])])
-            `shouldRespondWith` 200
+          request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
+            (TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..4500]::[Integer])]) `shouldRespondWith` 413
+          request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
+            (TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..50]::[Integer])]) `shouldRespondWith` 200
 
     describe "text" $ do
       let modernGreekText :: IsString a => a
@@ -171,7 +162,7 @@ spec = do
           get "/scotty" `shouldRespondWith` 200 {matchHeaders = ["Content-Type" <:> "text/somethingweird"]}
 
     describe "json" $ do
-      withApp (Scotty.get "/scotty" $ setHeader "Content-Type" "text/somethingweird" >> json (Just (5 :: Int))) $ do
+      withApp (Scotty.get "/scotty" $ setHeader "Content-Type" "text/somethingweird" >> json (Just (5::Int))) $ do
         it "doesn't override a previously set Content-Type header" $ do
           get "/scotty" `shouldRespondWith` 200 {matchHeaders = ["Content-Type" <:> "text/somethingweird"]}
 
@@ -190,16 +181,13 @@ spec = do
           get "/scotty" `shouldRespondWith` 200 {matchHeaders = ["Set-Cookie" <:> "foo=bar"]}
 
     describe "getCookie" $ do
-      withApp
-        ( Scotty.get "/scotty" $ do
-            mt <- SC.getCookie "foo"
-            case mt of
-              Just "bar" -> Scotty.status status200
-              _ -> Scotty.status status400
-        )
-        $ do
-          it "finds the right cookie in the request headers" $ do
-            request "GET" "/scotty" [("Cookie", "foo=bar")] "" `shouldRespondWith` 200
+      withApp (Scotty.get "/scotty" $ do
+                 mt <- SC.getCookie "foo"
+                 case mt of
+                   Just "bar" -> Scotty.status status200
+                   _ -> Scotty.status status400 ) $ do
+        it "finds the right cookie in the request headers" $ do
+          request "GET" "/scotty" [("Cookie", "foo=bar")] "" `shouldRespondWith` 200
 
     describe "deleteCookie" $ do
       withApp (Scotty.get "/scotty" $ SC.deleteCookie "foo") $ do
