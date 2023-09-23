@@ -6,6 +6,7 @@ module Web.Scotty.Action
     , body
     , bodyReader
     , file
+    , rawResponse
     , files
     , finish
     , header
@@ -20,6 +21,7 @@ module Web.Scotty.Action
     , raise
     , raiseStatus
     , raw
+    , nested
     , readEither
     , redirect
     , request
@@ -43,6 +45,7 @@ import           Control.Monad.IO.Class     (MonadIO(..))
 import           Control.Monad.Reader       (MonadReader(..), ReaderT(..))
 import qualified Control.Monad.State.Strict as MS
 import           Control.Monad.Trans.Except
+import           Control.Concurrent.MVar
 
 import qualified Data.Aeson                 as A
 import qualified Data.ByteString.Char8      as B
@@ -70,6 +73,8 @@ import           Prelude.Compat
 
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util
+
+import Network.Wai.Internal (ResponseReceived(..))
 
 -- Nothing indicates route failed (due to Next) and pattern matching should continue.
 -- Just indicates a successful response.
@@ -104,6 +109,7 @@ raise = raiseStatus status500
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions turn into HTTP responses corresponding to the given status.
 raiseStatus :: (ScottyError e, Monad m) => Status -> e -> ActionT e m a
 raiseStatus s = throwError . ActionError s
+
 
 -- | Abort execution of this action and continue pattern matching routes.
 -- Like an exception, any code after 'next' is not executed.
@@ -340,6 +346,9 @@ html t = do
 file :: Monad m => FilePath -> ActionT e m ()
 file = ActionT . MS.modify . setContent . ContentFile
 
+rawResponse :: Monad m => Response -> ActionT e m ()
+rawResponse = ActionT . MS.modify . setContent . ContentResponse
+
 -- | Set the body of the response to the JSON encoding of the given value. Also sets \"Content-Type\"
 -- header to \"application/json; charset=utf-8\" if it has not already been set.
 json :: (A.ToJSON a, ScottyError e, Monad m) => a -> ActionT e m ()
@@ -358,3 +367,14 @@ stream = ActionT . MS.modify . setContent . ContentStream
 -- own with 'setHeader'.
 raw :: Monad m => BL.ByteString -> ActionT e m ()
 raw = ActionT . MS.modify . setContent . ContentBuilder . fromLazyByteString
+
+-- | Nest a whole WAI application inside a Scotty handler.
+-- See Web.Scotty for further documentation
+nested :: (ScottyError e, MonadIO m) => Network.Wai.Application -> ActionT e m ()
+nested app = do
+  -- Is MVar really the best choice here? Not sure.
+  r <- request
+  ref <- liftIO $ newEmptyMVar
+  _ <- liftAndCatchIO $ app r (\res -> putMVar ref res >> return ResponseReceived)
+  res <- liftAndCatchIO $ readMVar ref
+  rawResponse res

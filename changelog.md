@@ -1,4 +1,5 @@
 ## next [????.??.??]
+* Adds a new `nested` handler that allows you to place an entire WAI Application under a Scotty route
 
 ## 0.12.1 [2022.11.17]
 * Fix CPP bug that prevented tests from building on Windows.

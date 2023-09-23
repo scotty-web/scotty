@@ -13,7 +13,7 @@ module Web.Scotty
       -- | 'Middleware' and routes are run in the order in which they
       -- are defined. All middleware is run first, followed by the first
       -- route that matches. If no route matches, a 404 response is given.
-    , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound, setMaxRequestBodySize
+    , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound, nested, setMaxRequestBodySize
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
@@ -89,6 +89,18 @@ defaultHandler = Trans.defaultHandler
 middleware :: Middleware -> ScottyM ()
 middleware = Trans.middleware
 
+-- | Nest a whole WAI application inside a Scotty handler.
+-- Note: You will want to ensure that this route fully handles the response,
+-- as there is no easy delegation as per normal Scotty actions.
+-- Also, you will have to carefully ensure that you are expecting the correct routes,
+-- this could require stripping the current prefix, or adding the prefix to your
+-- application's handlers if it depends on them. One potential use-case for this
+-- is hosting a web-socket handler under a specific route.
+-- nested :: Application -> ActionM ()
+-- nested :: (Monad m, MonadIO m) => Application -> ActionT Text m ()
+nested :: Application -> ActionM ()
+nested = Trans.nested
+
 -- | Set global size limit for the request body. Requests with body size exceeding the limit will not be
 -- processed and an HTTP response 413 will be returned to the client. Size limit needs to be greater than 0, 
 -- otherwise the application will terminate on start. 
@@ -118,7 +130,7 @@ raiseStatus = Trans.raiseStatus
 -- > get "/foo/:baz" $ do
 -- >   w <- param "baz"
 -- >   text $ "You made a request to: " <> w
-next :: ActionM a
+next :: ActionM ()
 next = Trans.next
 
 -- | Abort execution of this action. Like an exception, any code after 'finish'
