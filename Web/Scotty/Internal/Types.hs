@@ -131,13 +131,17 @@ instance Exception ScottyException
 ------------------ Scotty Actions -------------------
 type Param = (Text, Text)
 
-type File = (Text, FileInfo ByteString)
+-- type File = (Text, FileInfo (Either ByteString FilePath))
+type File i = (Text, FileInfo i)
+type FileMem = File ByteString
+type FileDisk = File FilePath
 
 data ActionEnv = Env { getReq       :: Request
                      , getParams    :: [Param]
                      , getBody      :: IO ByteString
                      , getBodyChunk :: IO BS.ByteString
-                     , getFiles     :: [File]
+                     , getFilesMem  :: [FileMem]
+                     , getFilesDisk :: [FileDisk]
                      }
 
 data RequestBodyState = BodyUntouched

@@ -46,7 +46,7 @@ import Network.Socket (Socket)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 
-import Web.Scotty.Internal.Types (ScottyT, ActionT, Param, RoutePattern, Options, File, Kilobytes)
+import Web.Scotty.Internal.Types (ScottyT, ActionT, Param, RoutePattern, Options, File, FileMem, Kilobytes)
 
 type ScottyM = ScottyT Text IO
 type ActionM = ActionT Text IO
@@ -174,7 +174,7 @@ request :: ActionM Request
 request = Trans.request
 
 -- | Get list of uploaded files.
-files :: ActionM [File]
+files :: ActionM [FileMem]
 files = Trans.files
 
 -- | Get a request header. Header name is case-insensitive.

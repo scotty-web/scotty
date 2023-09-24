@@ -165,8 +165,8 @@ request :: Monad m => ActionT e m Request
 request = ActionT $ liftM getReq ask
 
 -- | Get list of uploaded files.
-files :: Monad m => ActionT e m [File]
-files = ActionT $ liftM getFiles ask
+files :: Monad m => ActionT e m [FileMem]
+files = ActionT $ liftM getFilesMem ask
 
 -- | Get a request header. Header name is case-insensitive.
 header :: (ScottyError e, Monad m) => T.Text -> ActionT e m (Maybe T.Text)

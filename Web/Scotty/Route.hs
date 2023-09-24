@@ -11,11 +11,12 @@ import           Control.Concurrent.MVar
 import           Control.Exception (throw, catch)
 import           Control.Monad.IO.Class
 import qualified Control.Monad.State as MS
+import           Control.Monad.Trans.Resource (runResourceT, withInternalState)
 
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 
-import           Data.Maybe (fromMaybe, isJust)
+import           Data.Maybe (fromMaybe)
 import           Data.String (fromString)
 import qualified Data.Text.Lazy as T
 import qualified Data.Text as TS
@@ -138,11 +139,12 @@ path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo
 -- Once read, they can't be read again. We read them into a lazy Bytestring, so Scotty
 -- user can get the raw body, even if they also want to call wai-extra's parsing routines.
 parseRequestBody :: MonadIO m
-                 => [B.ByteString]
+                 => Parse.ParseRequestBodyOptions
+                 -> [B.ByteString]
                  -> Parse.BackEnd y
                  -> Request
                  -> m ([Parse.Param], [Parse.File y])
-parseRequestBody bl s r =
+parseRequestBody opts bl s r =
     case Parse.getRequestBodyType r of
         Nothing -> return ([], [])
         Just rbt -> do
@@ -151,9 +153,9 @@ parseRequestBody bl s r =
             let provider = modifyMVar mvar $ \bsold -> case bsold of
                                                 []     -> return ([], B.empty)
                                                 (b:bs) -> return (bs, b)
-            liftIO $ Parse.sinkRequestBody s rbt provider
+            liftIO $ Parse.sinkRequestBodyEx opts s rbt provider
 
-mkEnv :: forall m. MonadIO m => Request -> [Param] -> RouteOptions ->m ActionEnv
+mkEnv :: forall m. MonadIO m => Request -> [Param] -> RouteOptions -> m ActionEnv
 mkEnv req captures opts = do
     bodyState <- liftIO $ newMVar BodyUntouched
 
@@ -187,19 +189,27 @@ mkEnv req captures opts = do
                  putMVar bodyState $ BodyCached b chunks
                  return b
 
-        shouldParseBody = isJust $ Parse.getRequestBodyType req
-
-    (formparams, fs) <- if shouldParseBody
-      then liftIO $ do wholeBody <- BL.toChunks `fmap` bs
-                       parseRequestBody wholeBody Parse.lbsBackEnd req
-      else return ([], [])
+    (formparams, fsm, fsd) <-
+      case Parse.getRequestBodyType req of
+        Just Parse.UrlEncoded -> liftIO $ do
+          wholeBody <- BL.toChunks `fmap` bs
+          (fp, fsm) <- parseRequestBody Parse.noLimitParseRequestBodyOptions wholeBody Parse.lbsBackEnd req
+          pure (fp, fsm, [])
+        Just (Parse.Multipart _) -> liftIO $ do
+          wholeBody <- BL.toChunks `fmap` bs -- XXX very much unsure we should be traversing the body here
+          (fp, fsd) <- runResourceT (withInternalState $ \ istate ->
+            parseRequestBody Parse.defaultParseRequestBodyOptions wholeBody (Parse.tempFileBackEnd istate) req)
+          pure (fp, [], fsd)
+        Nothing -> pure ([], [], [])
 
     let
         convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
+        toLazies fs = [ (strictByteStringToLazyText k, fi) | (k, fi) <- fs ]
         parameters =  captures ++ map convert formparams ++ queryparams
         queryparams = parseEncodedParams $ rawQueryString req
 
-    return $ Env req parameters bs safeBodyReader [ (strictByteStringToLazyText k, fi) | (k,fi) <- fs ]
+    return $ Env req parameters bs safeBodyReader (toLazies fsm) (toLazies fsd)
+
 
 parseEncodedParams :: B.ByteString -> [Param]
 parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]
