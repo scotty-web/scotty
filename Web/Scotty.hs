@@ -17,7 +17,11 @@ module Web.Scotty
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, header, headers, body, bodyReader, param, params, jsonData, files
+    , request, header, headers, body, bodyReader
+    , param, params
+    , captureParam, formParam, queryParam
+    , captureParams, formParams, queryParams
+    , jsonData, files
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
       -- ** Setting Response Body
@@ -208,10 +212,31 @@ jsonData = Trans.jsonData
 --   capture cannot be parsed.
 param :: Trans.Parsable a => Text -> ActionM a
 param = Trans.param
+{-# DEPRECATED param "(#204) Not a good idea to treat all parameters identically. Use captureParam, formParam and queryParam instead. "#-}
+
+captureParam :: Trans.Parsable a => Text -> ActionM a
+captureParam = Trans.captureParam
+
+formParam :: Trans.Parsable a => Text -> ActionM a
+formParam = Trans.formParam
+
+queryParam :: Trans.Parsable a => Text -> ActionM a
+queryParam = Trans.queryParam
 
 -- | Get all parameters from capture, form and query (in that order).
 params :: ActionM [Param]
 params = Trans.params
+{-# DEPRECATED params "(#204) Not a good idea to treat all parameters identically. Use captureParams, formParams and queryParams instead. "#-}
+
+captureParams :: ActionM [Param]
+captureParams = Trans.captureParams
+
+formParams :: ActionM [Param]
+formParams = Trans.formParams
+
+queryParams :: ActionM [Param]
+queryParams = Trans.queryParams
+
 
 -- | Set the HTTP response status. Default is 200.
 status :: Status -> ActionM ()

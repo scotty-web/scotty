@@ -134,7 +134,9 @@ type Param = (Text, Text)
 type File = (Text, FileInfo ByteString)
 
 data ActionEnv = Env { getReq       :: Request
-                     , getParams    :: [Param]
+                     , getCaptureParams :: [Param]
+                     , getFormParams    :: [Param]
+                     , getQueryParams :: [Param]
                      , getBody      :: IO ByteString
                      , getBodyChunk :: IO BS.ByteString
                      , getFiles     :: [File]

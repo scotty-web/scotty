@@ -17,7 +17,13 @@ module Web.Scotty.Action
     , jsonData
     , next
     , param
+    , captureParam
+    , formParam
+    , queryParam
     , params
+    , captureParams
+    , formParams
+    , queryParams
     , raise
     , raiseStatus
     , raw
@@ -226,19 +232,70 @@ jsonData = do
 --
 -- * Raises an exception which can be caught by 'rescue' if parameter is not found.
 --
--- * If parameter is found, but 'read' fails to parse to the correct type, 'next' is called.
+-- * If parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
 --   This means captures are somewhat typed, in that a route won't match if a correctly typed
 --   capture cannot be parsed.
 param :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
-param k = do
-    val <- ActionT $ liftM (lookup k . getParams) ask
+param = paramWith "" getParams status500
+{-# DEPRECATED param "(#204) Not a good idea to treat all parameters identically. Use captureParam, formParam and queryParam instead. "#-}
+
+-- | Get a capture parameter.
+--
+-- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 500 ("Internal Server Error") to the client.
+--
+-- * If parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
+captureParam :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
+captureParam = paramWith "Capture" getCaptureParams status500
+
+-- | Get a form parameter.
+--
+-- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
+--
+-- * If parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
+formParam :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
+formParam = paramWith "Form" getFormParams status400
+
+-- | Get a query parameter.
+--
+-- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
+--
+-- * If parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
+queryParam :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
+queryParam = paramWith "Query" getQueryParams status400
+
+paramWith :: (ScottyError e, Monad m, Parsable b) =>
+             String -- ^ String representation of the type of query parameter
+          -> (ActionEnv -> [Param])
+          -> Status -- ^ HTTP status to return if parameter is not found
+          -> T.Text -- ^ parameter name
+          -> ActionT e m b
+paramWith tys f err k = do
+    val <- ActionT $ liftM (lookup k . f) ask
     case val of
-        Nothing -> raise $ stringError $ "Param: " ++ T.unpack k ++ " not found!"
+        Nothing -> raiseStatus err $ stringError (tys <> " parameter: " ++ T.unpack k ++ " not found!")
         Just v  -> either (const next) return $ parseParam v
 
 -- | Get all parameters from capture, form and query (in that order).
 params :: Monad m => ActionT e m [Param]
-params = ActionT $ liftM getParams ask
+params = paramsWith getParams
+{-# DEPRECATED params "(#204) Not a good idea to treat all parameters identically. Use captureParams, formParams and queryParams instead. "#-}
+
+-- | Get capture parameters
+captureParams :: Monad m => ActionT e m [Param]
+captureParams = paramsWith getCaptureParams
+-- | Get form parameters
+formParams :: Monad m => ActionT e m [Param]
+formParams = paramsWith getFormParams
+-- | Get query parameters
+queryParams :: Monad m => ActionT e m [Param]
+queryParams = paramsWith getQueryParams
+
+paramsWith :: Monad m => (ActionEnv -> a) -> ActionT e m a
+paramsWith f = ActionT (f <$> ask)
+
+{-# DEPRECATED getParams "(#204) Not a good idea to treat all parameters identically" #-}
+getParams :: ActionEnv -> [Param]
+getParams e = getCaptureParams e <> getFormParams e <> getQueryParams e
 
 -- | Minimum implemention: 'parseParam'
 class Parsable a where

@@ -53,7 +53,7 @@ main = scottyT 3000 id $ do -- note, we aren't using any additional transformer 
                        ]
 
     get "/switch/:val" $ do
-        v <- param "val"
+        v <- captureParam "val"
         _ <- if even v then raise Forbidden else raise (NotFound v)
         text "this will never be reached"
 

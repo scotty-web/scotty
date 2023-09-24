@@ -42,17 +42,17 @@ main = do
                         H.input H.! type_ "submit"
 
     post "/shorten" $ do
-        url <- param "url"
+        url <- captureParam "url"
         liftIO $ modifyMVar_ m $ \(i,db) -> return (i+1, M.insert i (T.pack url) db)
         redirect "/list"
 
     -- We have to be careful here, because this route can match pretty much anything.
     -- Thankfully, the type system knows that 'hash' must be an Int, so this route
-    -- only matches if 'read' can successfully parse the hash capture as an Int.
+    -- only matches if 'parseParam' can successfully parse the hash capture as an Int.
     -- Otherwise, the pattern match will fail and Scotty will continue matching
     -- subsequent routes.
     get "/:hash" $ do
-        hash <- param "hash"
+        hash <- captureParam "hash"
         (_,db) <- liftIO $ readMVar m
         case M.lookup hash db of
             Nothing -> raise $ mconcat ["URL hash #", T.pack $ show $ hash, " not found in database!"]

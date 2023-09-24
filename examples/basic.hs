@@ -32,7 +32,7 @@ main = scotty 3000 $ do
     -- Using a parameter in the query string. If it has
     -- not been given, a 500 page is generated.
     get "/foo" $ do
-        v <- param "fooparam"
+        v <- captureParam "fooparam"
         html $ mconcat ["<h1>", v, "</h1>"]
 
     -- An uncaught error becomes a 500 page.
@@ -58,7 +58,7 @@ main = scotty 3000 $ do
     -- any string, and capture that value as a parameter.
     -- URL captures take precedence over query string parameters.
     get "/foo/:bar/required" $ do
-        v <- param "bar"
+        v <- captureParam "bar"
         html $ mconcat ["<h1>", v, "</h1>"]
 
     -- Files are streamed directly to the client.
@@ -75,7 +75,7 @@ main = scotty 3000 $ do
         json $ take 20 $ randomRs (1::Int,100) g
 
     get "/ints/:is" $ do
-        is <- param "is"
+        is <- captureParam "is"
         json $ [(1::Int)..10] ++ is
 
     get "/setbody" $ do

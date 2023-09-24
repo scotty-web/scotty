@@ -102,23 +102,23 @@ spec = do
       it "has a MonadBaseControl instance" $ do
         get "/" `shouldRespondWith` 200
 
-    withApp (Scotty.get "/dictionary" $ empty <|> param "word1" <|> empty <|> param "word2" >>= text) $
+    withApp (Scotty.get "/dictionary" $ empty <|> queryParam "word1" <|> empty <|> queryParam "word2" >>= text) $
       it "has an Alternative instance" $ do
         get "/dictionary?word1=haskell"   `shouldRespondWith` "haskell"
         get "/dictionary?word2=scotty"    `shouldRespondWith` "scotty"
         get "/dictionary?word1=a&word2=b" `shouldRespondWith` "a"
 
-    describe "param" $ do
-      withApp (Scotty.matchAny "/search" $ param "query" >>= text) $ do
+    describe "queryParam" $ do
+      withApp (Scotty.matchAny "/search" $ queryParam "query" >>= text) $ do
         it "returns query parameter with given name" $ do
           get "/search?query=haskell" `shouldRespondWith` "haskell"
 
-        context "when used with application/x-www-form-urlencoded data" $ do
-          it "returns POST parameter with given name" $ do
-            request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=haskell" `shouldRespondWith` "haskell"
-
-          it "replaces non UTF-8 bytes with Unicode replacement character" $ do
-            request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=\xe9" `shouldRespondWith` "\xfffd"
+    describe "formParam" $ do
+      withApp (Scotty.matchAny "/search" $ formParam "query" >>= text) $ do
+        it "returns form parameter with given name" $ do
+          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=haskell" `shouldRespondWith` "haskell"
+        it "replaces non UTF-8 bytes with Unicode replacement character" $ do
+          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=\xe9" `shouldRespondWith` "\xfffd"
 
 
     describe "requestLimit" $ do
