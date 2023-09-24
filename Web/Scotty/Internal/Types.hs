@@ -131,7 +131,6 @@ instance Exception ScottyException
 ------------------ Scotty Actions -------------------
 type Param = (Text, Text)
 
--- type File = (Text, FileInfo (Either ByteString FilePath))
 type File i = (Text, FileInfo i)
 type FileMem = File ByteString
 type FileDisk = File FilePath
