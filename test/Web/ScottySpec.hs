@@ -108,10 +108,41 @@ spec = do
         get "/dictionary?word2=scotty"    `shouldRespondWith` "scotty"
         get "/dictionary?word1=a&word2=b" `shouldRespondWith` "a"
 
+    describe "captureParam" $ do
+      withApp (
+        do
+          Scotty.matchAny "/search/:q" $ do
+            v <- captureParam "q"
+            let y = v :: Int
+            text "int"
+          Scotty.matchAny "/search/:q" $ do
+            v <- captureParam "q"
+            let y = v :: String
+            text "string"
+              ) $ do
+        it "responds with 200 OK iff at least one route match at the right type" $ do
+          get "/search/42" `shouldRespondWith` 200 { matchBody = "int" }
+          get "/search/potato" `shouldRespondWith` 200 { matchBody = "string" }
+      withApp (
+        do
+          Scotty.matchAny "/search/:q" $ do
+            v <- captureParam "q"
+            json (v :: Int)
+              ) $ do
+        it "responds with 500 Server Error if no route matches at the right type" $ do
+          get "/search/potato" `shouldRespondWith` 500
+
     describe "queryParam" $ do
       withApp (Scotty.matchAny "/search" $ queryParam "query" >>= text) $ do
         it "returns query parameter with given name" $ do
           get "/search?query=haskell" `shouldRespondWith` "haskell"
+      withApp (Scotty.matchAny "/search" (do
+                                             v <- queryParam "query"
+                                             json (v :: Int) )) $ do
+        it "responds with 200 OK if the query parameter can be parsed at the right type" $ do
+          get "/search?query=42" `shouldRespondWith` 200
+        it "responds with 400 Bad Request if the query parameter cannot be parsed at the right type" $ do
+          get "/search?query=potato" `shouldRespondWith` 400
 
     describe "formParam" $ do
       withApp (Scotty.matchAny "/search" $ formParam "query" >>= text) $ do
@@ -119,6 +150,13 @@ spec = do
           request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=haskell" `shouldRespondWith` "haskell"
         it "replaces non UTF-8 bytes with Unicode replacement character" $ do
           request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=\xe9" `shouldRespondWith` "\xfffd"
+      withApp (Scotty.matchAny "/search" (do
+                                             v <- formParam "query"
+                                             json (v :: Int))) $ do
+        it "responds with 200 OK if the form parameter can be parsed at the right type" $ do
+          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=42" `shouldRespondWith` 200
+        it "responds with 400 Bad Request if the form parameter cannot be parsed at the right type" $ do
+          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=potato" `shouldRespondWith` 400
 
 
     describe "requestLimit" $ do

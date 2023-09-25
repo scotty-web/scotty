@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE LambdaCase #-}
 module Web.Scotty.Action
     ( addHeader
     , body
@@ -236,7 +237,7 @@ jsonData = do
 --   This means captures are somewhat typed, in that a route won't match if a correctly typed
 --   capture cannot be parsed.
 param :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
-param = paramWith "" getParams status500
+param = paramWith Nothing getParams status500
 {-# DEPRECATED param "(#204) Not a good idea to treat all parameters identically. Use captureParam, formParam and queryParam instead. "#-}
 
 -- | Get a capture parameter.
@@ -245,7 +246,7 @@ param = paramWith "" getParams status500
 --
 -- * If parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
 captureParam :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
-captureParam = paramWith "Capture" getCaptureParams status500
+captureParam = paramWith (Just CaptureParam) getCaptureParams status500
 
 -- | Get a form parameter.
 --
@@ -253,7 +254,7 @@ captureParam = paramWith "Capture" getCaptureParams status500
 --
 -- * If parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
 formParam :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
-formParam = paramWith "Form" getFormParams status400
+formParam = paramWith (Just FormParam) getFormParams status400
 
 -- | Get a query parameter.
 --
@@ -261,19 +262,35 @@ formParam = paramWith "Form" getFormParams status400
 --
 -- * If parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
 queryParam :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
-queryParam = paramWith "Query" getQueryParams status400
+queryParam = paramWith (Just QueryParam) getQueryParams status400
+
+data ParamType = CaptureParam
+               | FormParam
+               | QueryParam
+instance Show ParamType where
+  show = \case
+    CaptureParam -> "capture"
+    FormParam -> "form"
+    QueryParam -> "query"
 
 paramWith :: (ScottyError e, Monad m, Parsable b) =>
-             String -- ^ String representation of the type of query parameter
+             Maybe ParamType
           -> (ActionEnv -> [Param])
           -> Status -- ^ HTTP status to return if parameter is not found
           -> T.Text -- ^ parameter name
           -> ActionT e m b
-paramWith tys f err k = do
+paramWith tym f err k = do
     val <- ActionT $ liftM (lookup k . f) ask
-    case val of
-        Nothing -> raiseStatus err $ stringError (tys <> " parameter: " ++ T.unpack k ++ " not found!")
-        Just v  -> either (const next) return $ parseParam v
+    case tym of
+      Nothing -> raiseStatus err $ stringError (unwords ["Parameter:", T.unpack k, "not found!"])
+      Just ty ->
+        case val of
+          Nothing -> raiseStatus err $ stringError (unwords [show ty, "parameter:", T.unpack k, "not found!"])
+          Just v ->
+            let handleParseError = \case
+                  CaptureParam -> next
+                  _ -> raiseStatus err $ stringError (unwords ["Cannot parse", T.unpack v, "as a", show ty, "parameter"])
+            in either (const $ handleParseError ty) return $ parseParam v
 
 -- | Get all parameters from capture, form and query (in that order).
 params :: Monad m => ActionT e m [Param]
