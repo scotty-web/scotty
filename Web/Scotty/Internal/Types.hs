@@ -139,8 +139,8 @@ data ActionEnv = Env { getReq       :: Request
                      , getParams    :: [Param]
                      , getBody      :: IO ByteString
                      , getBodyChunk :: IO BS.ByteString
-                     , getFilesMem  :: [FileMem]
-                     , getFilesDisk :: [FileDisk]
+                     , getFilesMem  :: [FileMem] -- ^ files that are completely in memory
+                     , getFilesDisk :: [FileDisk] -- ^ files that have been saved to disk
                      }
 
 data RequestBodyState = BodyUntouched
