@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, CPP #-}
+{-# LANGUAGE OverloadedStrings, CPP, ScopedTypeVariables #-}
 module Web.ScottySpec (main, spec) where
 
 import           Test.Hspec
@@ -112,12 +112,10 @@ spec = do
       withApp (
         do
           Scotty.matchAny "/search/:q" $ do
-            v <- captureParam "q"
-            let y = v :: Int
+            _ :: Int <- captureParam "q"
             text "int"
           Scotty.matchAny "/search/:q" $ do
-            v <- captureParam "q"
-            let y = v :: String
+            _ :: String <- captureParam "q"
             text "string"
               ) $ do
         it "responds with 200 OK iff at least one route match at the right type" $ do
@@ -129,8 +127,8 @@ spec = do
             v <- captureParam "q"
             json (v :: Int)
               ) $ do
-        it "responds with 500 Server Error if no route matches at the right type" $ do
-          get "/search/potato" `shouldRespondWith` 500
+        it "responds with 404 Not Found if no route matches at the right type" $ do
+          get "/search/potato" `shouldRespondWith` 404
 
     describe "queryParam" $ do
       withApp (Scotty.matchAny "/search" $ queryParam "query" >>= text) $ do
