@@ -243,12 +243,13 @@ params :: ActionM [Param]
 params = Trans.params
 {-# DEPRECATED params "(#204) Not a good idea to treat all parameters identically. Use captureParams, formParams and queryParams instead. "#-}
 
+-- | Get capture parameters
 captureParams :: ActionM [Param]
 captureParams = Trans.captureParams
-
+-- | Get form parameters
 formParams :: ActionM [Param]
 formParams = Trans.formParams
-
+-- | Get query parameters
 queryParams :: ActionM [Param]
 queryParams = Trans.queryParams
 
