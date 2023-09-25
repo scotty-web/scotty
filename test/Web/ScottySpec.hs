@@ -118,7 +118,7 @@ spec = do
             _ :: String <- captureParam "q"
             text "string"
               ) $ do
-        it "responds with 200 OK iff at least one route match at the right type" $ do
+        it "responds with 200 OK iff at least one route matches at the right type" $ do
           get "/search/42" `shouldRespondWith` 200 { matchBody = "int" }
           get "/search/potato" `shouldRespondWith` 200 { matchBody = "string" }
       withApp (
@@ -129,6 +129,14 @@ spec = do
               ) $ do
         it "responds with 404 Not Found if no route matches at the right type" $ do
           get "/search/potato" `shouldRespondWith` 404
+      withApp (
+        do
+          Scotty.matchAny "/search/:q" $ do
+            v <- captureParam "zzz"
+            json (v :: Int)
+              ) $ do
+        it "responds with 500 Server Error if the parameter cannot be found in the capture" $ do
+          get "/search/potato" `shouldRespondWith` 500
 
     describe "queryParam" $ do
       withApp (Scotty.matchAny "/search" $ queryParam "query" >>= text) $ do

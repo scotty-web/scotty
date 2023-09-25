@@ -248,7 +248,7 @@ param k = do
 --
 -- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 500 ("Internal Server Error") to the client.
 --
--- * If parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
+-- * If the parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
 captureParam :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
 captureParam = paramWith CaptureParam getCaptureParams status500
 
@@ -256,7 +256,7 @@ captureParam = paramWith CaptureParam getCaptureParams status500
 --
 -- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
 --
--- * If parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
+-- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
 formParam :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
 formParam = paramWith FormParam getFormParams status400
 
@@ -264,7 +264,7 @@ formParam = paramWith FormParam getFormParams status400
 --
 -- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
 --
--- * If parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
+-- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
 queryParam :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
 queryParam = paramWith QueryParam getQueryParams status400
 
