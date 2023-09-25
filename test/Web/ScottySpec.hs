@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, CPP #-}
+{-# LANGUAGE OverloadedStrings, CPP, ScopedTypeVariables #-}
 module Web.ScottySpec (main, spec) where
 
 import           Test.Hspec
@@ -102,23 +102,67 @@ spec = do
       it "has a MonadBaseControl instance" $ do
         get "/" `shouldRespondWith` 200
 
-    withApp (Scotty.get "/dictionary" $ empty <|> param "word1" <|> empty <|> param "word2" >>= text) $
+    withApp (Scotty.get "/dictionary" $ empty <|> queryParam "word1" <|> empty <|> queryParam "word2" >>= text) $
       it "has an Alternative instance" $ do
         get "/dictionary?word1=haskell"   `shouldRespondWith` "haskell"
         get "/dictionary?word2=scotty"    `shouldRespondWith` "scotty"
         get "/dictionary?word1=a&word2=b" `shouldRespondWith` "a"
 
-    describe "param" $ do
-      withApp (Scotty.matchAny "/search" $ param "query" >>= text) $ do
+    describe "captureParam" $ do
+      withApp (
+        do
+          Scotty.matchAny "/search/:q" $ do
+            _ :: Int <- captureParam "q"
+            text "int"
+          Scotty.matchAny "/search/:q" $ do
+            _ :: String <- captureParam "q"
+            text "string"
+              ) $ do
+        it "responds with 200 OK iff at least one route matches at the right type" $ do
+          get "/search/42" `shouldRespondWith` 200 { matchBody = "int" }
+          get "/search/potato" `shouldRespondWith` 200 { matchBody = "string" }
+      withApp (
+        do
+          Scotty.matchAny "/search/:q" $ do
+            v <- captureParam "q"
+            json (v :: Int)
+              ) $ do
+        it "responds with 404 Not Found if no route matches at the right type" $ do
+          get "/search/potato" `shouldRespondWith` 404
+      withApp (
+        do
+          Scotty.matchAny "/search/:q" $ do
+            v <- captureParam "zzz"
+            json (v :: Int)
+              ) $ do
+        it "responds with 500 Server Error if the parameter cannot be found in the capture" $ do
+          get "/search/potato" `shouldRespondWith` 500
+
+    describe "queryParam" $ do
+      withApp (Scotty.matchAny "/search" $ queryParam "query" >>= text) $ do
         it "returns query parameter with given name" $ do
           get "/search?query=haskell" `shouldRespondWith` "haskell"
+      withApp (Scotty.matchAny "/search" (do
+                                             v <- queryParam "query"
+                                             json (v :: Int) )) $ do
+        it "responds with 200 OK if the query parameter can be parsed at the right type" $ do
+          get "/search?query=42" `shouldRespondWith` 200
+        it "responds with 400 Bad Request if the query parameter cannot be parsed at the right type" $ do
+          get "/search?query=potato" `shouldRespondWith` 400
 
-        context "when used with application/x-www-form-urlencoded data" $ do
-          it "returns POST parameter with given name" $ do
-            request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=haskell" `shouldRespondWith` "haskell"
-
-          it "replaces non UTF-8 bytes with Unicode replacement character" $ do
-            request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=\xe9" `shouldRespondWith` "\xfffd"
+    describe "formParam" $ do
+      withApp (Scotty.matchAny "/search" $ formParam "query" >>= text) $ do
+        it "returns form parameter with given name" $ do
+          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=haskell" `shouldRespondWith` "haskell"
+        it "replaces non UTF-8 bytes with Unicode replacement character" $ do
+          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=\xe9" `shouldRespondWith` "\xfffd"
+      withApp (Scotty.matchAny "/search" (do
+                                             v <- formParam "query"
+                                             json (v :: Int))) $ do
+        it "responds with 200 OK if the form parameter can be parsed at the right type" $ do
+          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=42" `shouldRespondWith` 200
+        it "responds with 400 Bad Request if the form parameter cannot be parsed at the right type" $ do
+          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=potato" `shouldRespondWith` 400
 
 
     describe "requestLimit" $ do
