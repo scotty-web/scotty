@@ -6,7 +6,7 @@ Bug-reports:         https://github.com/scotty-web/scotty/issues
 License:             BSD3
 License-file:        LICENSE
 Author:              Andrew Farmer <xichekolas@gmail.com>
-Maintainer:          Andrew Farmer <xichekolas@gmail.com>
+Maintainer:          Andrew Farmer <xichekolas@gmail.com> and the Scotty maintainers
 Copyright:           (c) 2012-Present Andrew Farmer
 Category:            Web
 Stability:           experimental
@@ -24,7 +24,7 @@ Description:
     .
     main = scotty 3000 $
     &#32;&#32;get &#34;/:word&#34; $ do
-    &#32;&#32;&#32;&#32;beam <- param &#34;word&#34;
+    &#32;&#32;&#32;&#32;beam <- captureParam &#34;word&#34;
     &#32;&#32;&#32;&#32;html $ mconcat [&#34;&#60;h1&#62;Scotty, &#34;, beam, &#34; me up!&#60;/h1&#62;&#34;]
   @
   .
@@ -44,16 +44,11 @@ Description:
   [WAI] <http://hackage.haskell.org/package/wai>
   .
   [Warp] <http://hackage.haskell.org/package/warp>
-tested-with:         GHC == 7.6.3
-                   , GHC == 7.8.4
-                   , GHC == 7.10.3
-                   , GHC == 8.0.2
-                   , GHC == 8.2.2
-                   , GHC == 8.4.4
-                   , GHC == 8.6.5
-                   , GHC == 8.8.4
-                   , GHC == 8.10.4
-                   , GHC == 9.0.1
+tested-with:         GHC == 8.10.7
+                   , GHC == 9.0.2
+                   , GHC == 9.2.8
+                   , GHC == 9.4.6
+                   , GHC == 9.6.2
 Extra-source-files:
     README.md
     changelog.md
