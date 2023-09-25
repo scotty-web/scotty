@@ -1,4 +1,4 @@
-# Scotty [![Build Status](https://travis-ci.org/scotty-web/scotty.svg)](https://travis-ci.org/scotty-web/scotty)
+# Scotty [![CI](https://github.com/scotty-web/scotty/actions/workflows/haskell-ci.yml/badge.svg)](https://github.com/scotty-web/scotty/actions/workflows/haskell-ci.yml)
 
 A Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp.
 
@@ -10,7 +10,7 @@ import Data.Monoid (mconcat)
 
 main = scotty 3000 $
     get "/:word" $ do
-        beam <- param "word"
+        beam <- captureParam "word"
         html $ mconcat ["<h1>Scotty, ", beam, " me up!</h1>"]
 ```
 
@@ -31,17 +31,22 @@ Setting phasers to stun... (port 3000) (ctrl-c to quit)
 
 As for the name: Sinatra + Warp = Scotty.
 
-### More Information
+## More Information
 
 Tutorials and related projects can be found in the [Scotty wiki](https://github.com/scotty-web/scotty/wiki).
 
-### Development & Support
+## Contributing
 
-Open an issue on GitHub.
+Feel free to ask questions or report bugs on the [Github issue tracker](https://github.com/scotty-web/scotty/issues/).
 
-Copyright (c) 2012-2019 Andrew Farmer
+Github issues are now (September 2023) labeled, so newcomers to the Haskell language can start with `easy fix` ones and gradually progress to `new feature`s, `bug`s and `R&D` :)
 
-### FAQ
+## Package version numbers
+
+Scotty adheres to the [Package Versioning Policy](https://pvp.haskell.org/).
+
+
+## FAQ
 
 * Fails to compile regex-posix on Windows
     * If you are using stack, add the following parameters to `stack.yaml`:
@@ -57,3 +62,13 @@ Copyright (c) 2012-2019 Andrew Farmer
           constraints:
             regex-posix +_regex-posix-clib 
           ```
+
+### Contributors
+
+<a href="https://github.com/scotty-web/scotty/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=scotty-web/scotty" />
+</a>
+
+
+# Copyright 
+(c) 2012-Present Andrew Farmer and Scotty contributors
