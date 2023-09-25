@@ -164,6 +164,15 @@ spec = do
         it "responds with 400 Bad Request if the form parameter cannot be parsed at the right type" $ do
           request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=potato" `shouldRespondWith` 400
 
+      withApp (do
+                  Scotty.post "/first" $ next
+                  Scotty.post "/first" $ do
+                    p :: Int <- formParam "p"
+                    json p
+              ) $ do
+        it "preserves the body of a POST request even after 'next' (#147)" $ do
+          request "POST" "/first" [("Content-Type","application/x-www-form-urlencoded")] "p=42" `shouldRespondWith` "42"
+
 
     describe "requestLimit" $ do
       withApp (Scotty.setMaxRequestBodySize 1 >> Scotty.matchAny "/upload" (do status status200)) $ do
