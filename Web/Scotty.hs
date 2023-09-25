@@ -214,12 +214,27 @@ param :: Trans.Parsable a => Text -> ActionM a
 param = Trans.param
 {-# DEPRECATED param "(#204) Not a good idea to treat all parameters identically. Use captureParam, formParam and queryParam instead. "#-}
 
+-- | Get a capture parameter.
+--
+-- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 500 ("Internal Server Error") to the client.
+--
+-- * If the parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
 captureParam :: Trans.Parsable a => Text -> ActionM a
 captureParam = Trans.captureParam
 
+-- | Get a form parameter.
+--
+-- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
+--
+-- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
 formParam :: Trans.Parsable a => Text -> ActionM a
 formParam = Trans.formParam
 
+-- | Get a query parameter.
+--
+-- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
+--
+-- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
 queryParam :: Trans.Parsable a => Text -> ActionM a
 queryParam = Trans.queryParam
 
