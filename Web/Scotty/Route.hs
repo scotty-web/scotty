@@ -4,7 +4,7 @@ module Web.Scotty.Route
     ( get, post, put, delete, patch, options, addroute, matchAny, notFound,
       capture, regex, function, literal
     ) where
-      
+
 import           Blaze.ByteString.Builder (fromByteString)
 import           Control.Arrow ((***))
 import           Control.Concurrent.MVar
@@ -25,7 +25,7 @@ import           Network.Wai (Request(..), Response, responseBuilder)
 #if MIN_VERSION_wai(3,2,2)
 import           Network.Wai.Internal (getRequestBodyChunk)
 #endif
-import qualified Network.Wai.Parse as Parse hiding (parseRequestBody)
+import qualified Network.Wai.Parse as W (File)
 
 import           Prelude ()
 import           Prelude.Compat
@@ -33,8 +33,9 @@ import           Prelude.Compat
 import qualified Text.Regex as Regex
 
 import           Web.Scotty.Action
-import           Web.Scotty.Internal.Types
-import           Web.Scotty.Util
+import           Web.Scotty.Internal.Types (RoutePattern(..), RouteOptions, ActionEnv(..), ActionT, ScottyState(..), ScottyT(..), Middleware, BodyInfo, ScottyError(..), ScottyException(..), ErrorHandler, File, handler, addRoute)
+import           Web.Scotty.Util (readRequestBody, strictByteStringToLazyText)
+import Web.Scotty.Body (cloneBodyInfo, getBodyAction, getBodyChunkAction, getFormParamsAndFilesAction)
 
 -- | get = 'addroute' 'GET'
 get :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
@@ -86,31 +87,39 @@ notFound action = matchAny (Function (\req -> Just [("path", path req)])) (statu
 addroute :: (ScottyError e, MonadIO m) => StdMethod -> RoutePattern -> ActionT e m () -> ScottyT e m ()
 addroute method pat action = ScottyT $ MS.modify $ \s -> addRoute (route (routeOptions s) (handler s) (Just method) pat action) s
 
-route :: (ScottyError e, MonadIO m) => RouteOptions -> ErrorHandler e m -> Maybe StdMethod -> RoutePattern -> ActionT e m () -> Middleware m
-route opts h method pat action app req =
-    let tryNext = app req
+route :: (ScottyError e, MonadIO m) =>
+         RouteOptions -> ErrorHandler e m -> Maybe StdMethod -> RoutePattern -> ActionT e m () -> BodyInfo -> Middleware m
+route opts h method pat action bodyInfo app req =
+  let tryNext = app req
         {- |
           We match all methods in the case where 'method' is 'Nothing'.
           See https://github.com/scotty-web/scotty/issues/196
         -}
-        methodMatches :: Bool
-        methodMatches =
-            case method of
-                Nothing -> True
-                Just m -> Right m == parseMethod (requestMethod req)
-    in if methodMatches
-       then case matchRoute pat req of
-            Just captures -> do
-                env <- liftIO $ catch (Right <$> mkEnv req captures opts) (\ex -> return . Left $ ex)
-                res <- evalAction h env action
-                maybe tryNext return res
-            Nothing -> tryNext
-       else tryNext
+      methodMatches :: Bool
+      methodMatches = maybe True (\x -> (Right x == parseMethod (requestMethod req))) method
 
-evalAction :: (ScottyError e, Monad m) => ErrorHandler e m -> (Either ScottyException ActionEnv) -> ActionT e m () -> m (Maybe Response)
+  in if methodMatches
+     then case matchRoute pat req of
+            Just captures -> do
+              -- The user-facing API for "body" and "bodyReader" involve an IO action that
+              -- reads the body/chunks thereof only once, so we shouldn't pass in our BodyInfo
+              -- directly; otherwise, the body might get consumed and then it would be unavailable
+              -- if `next` is called and we try to match further routes.
+              -- Instead, make a "cloned" copy of the BodyInfo that allows the IO actions to be called
+              -- without messing up the state of the original BodyInfo.
+              clonedBodyInfo <- cloneBodyInfo bodyInfo
+
+              env <- mkEnv clonedBodyInfo req captures opts
+              res <- runAction h env action
+              maybe tryNext return res
+            Nothing -> tryNext
+     else tryNext
+
+evalAction :: (ScottyError e, Monad m) =>
+              ErrorHandler e m -> (Either ScottyException ActionEnv) -> ActionT e m () -> m (Maybe Response)
 evalAction _ (Left (RequestException msg s)) _ = return . Just $ responseBuilder s [("Content-Type","text/html")] $ fromByteString msg
 evalAction h (Right env) action = runAction h env action
-  
+
 matchRoute :: RoutePattern -> Request -> Maybe [Param]
 matchRoute (Literal pat)  req | pat == path req = Just []
                               | otherwise       = Nothing
@@ -133,73 +142,15 @@ matchRoute (Capture pat)  req = go (T.split (=='/') pat) (compress $ T.split (==
 path :: Request -> T.Text
 path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo
 
--- Stolen from wai-extra's Network.Wai.Parse, modified to accept body as list of Bytestrings.
--- Reason: WAI's getRequestBodyChunk is an IO action that returns the body as chunks.
--- Once read, they can't be read again. We read them into a lazy Bytestring, so Scotty
--- user can get the raw body, even if they also want to call wai-extra's parsing routines.
-parseRequestBody :: MonadIO m
-                 => [B.ByteString]
-                 -> Parse.BackEnd y
-                 -> Request
-                 -> m ([Parse.Param], [Parse.File y])
-parseRequestBody bl s r =
-    case Parse.getRequestBodyType r of
-        Nothing -> return ([], [])
-        Just rbt -> do
-            mvar <- liftIO $ newMVar bl -- MVar is a bit of a hack so we don't have to inline
-                                        -- large portions of Network.Wai.Parse
-            let provider = modifyMVar mvar $ \bsold -> case bsold of
-                                                []     -> return ([], B.empty)
-                                                (b:bs) -> return (bs, b)
-            liftIO $ Parse.sinkRequestBody s rbt provider
 
-mkEnv :: forall m. MonadIO m => Request -> [Param] -> RouteOptions ->m ActionEnv
-mkEnv req captures opts = do
-    bodyState <- liftIO $ newMVar BodyUntouched
+mkEnv :: MonadIO m => BodyInfo -> Request -> [Param] -> RouteOptions -> m ActionEnv
+mkEnv bodyInfo req captures opts = do
+  (formParams, bodyFiles) <- liftIO $ getFormParamsAndFilesAction req bodyInfo opts
+  let
+    queryParams = parseEncodedParams $ rawQueryString req
+    bodyFiles' = [ (strictByteStringToLazyText k, fi) | (k,fi) <- bodyFiles ]
+  return $ Env req captures formParams queryParams (getBodyAction bodyInfo opts) (getBodyChunkAction bodyInfo) bodyFiles'
 
-    let rbody = getRequestBodyChunk req
-
-        safeBodyReader :: IO B.ByteString
-        safeBodyReader =  do
-          state <- takeMVar bodyState
-          let direct = putMVar bodyState BodyCorrupted >> rbody
-          case state of
-            s@(BodyCached _ []) ->
-              do putMVar bodyState s
-                 return B.empty
-            BodyCached b (chunk:rest) ->
-              do putMVar bodyState $ BodyCached b rest
-                 return chunk
-            BodyUntouched -> direct
-            BodyCorrupted -> direct
-
-        bs :: IO BL.ByteString
-        bs = do
-          state <- takeMVar bodyState
-          case state of
-            s@(BodyCached b _) ->
-              do putMVar bodyState s
-                 return b
-            BodyCorrupted -> throw BodyPartiallyStreamed
-            BodyUntouched ->
-              do chunks <- readRequestBody rbody return (maxRequestBodySize opts)
-                 let b = BL.fromChunks chunks
-                 putMVar bodyState $ BodyCached b chunks
-                 return b
-
-        shouldParseBody = isJust $ Parse.getRequestBodyType req
-
-    (formparams, fs) <- if shouldParseBody
-      then liftIO $ do wholeBody <- BL.toChunks `fmap` bs
-                       parseRequestBody wholeBody Parse.lbsBackEnd req
-      else return ([], [])
-
-    let
-        convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
-        formparams' = map convert formparams
-        queryparams = parseEncodedParams $ rawQueryString req
-
-    return $ Env req captures formparams' queryparams bs safeBodyReader [ (strictByteStringToLazyText k, fi) | (k,fi) <- fs ]
 
 parseEncodedParams :: B.ByteString -> [Param]
 parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]

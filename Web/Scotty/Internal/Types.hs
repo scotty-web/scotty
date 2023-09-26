@@ -29,7 +29,7 @@ import           Control.Monad.Trans.Control (MonadBaseControl, StM, liftBaseWit
 import           Control.Monad.Trans.Except
 
 import qualified Data.ByteString as BS
-import           Data.ByteString.Lazy.Char8 (ByteString)
+import qualified Data.ByteString.Lazy.Char8 as LBS8 (ByteString)
 import           Data.Default.Class (Default, def)
 import           Data.String (IsString(..))
 import           Data.Text.Lazy (Text, pack)
@@ -71,9 +71,16 @@ type Middleware m = Application m -> Application m
 type Application m = Request -> m Response
 
 --------------- Scotty Applications -----------------
+-- data ScottyState e m =
+--     ScottyState { middlewares :: [Wai.Middleware]
+--                 , routes :: [Middleware m]
+--                 , handler :: ErrorHandler e m
+--                 , routeOptions :: RouteOptions
+--                 }
+
 data ScottyState e m =
     ScottyState { middlewares :: [Wai.Middleware]
-                , routes :: [Middleware m]
+                , routes :: [BodyInfo -> Middleware m]
                 , handler :: ErrorHandler e m
                 , routeOptions :: RouteOptions
                 }
@@ -84,7 +91,8 @@ instance Default (ScottyState e m) where
 addMiddleware :: Wai.Middleware -> ScottyState e m -> ScottyState e m
 addMiddleware m s@(ScottyState {middlewares = ms}) = s { middlewares = m:ms }
 
-addRoute :: Middleware m -> ScottyState e m -> ScottyState e m
+-- addRoute :: Middleware m -> ScottyState e m -> ScottyState e m
+addRoute :: (BodyInfo -> Middleware m) -> ScottyState e m -> ScottyState e m
 addRoute r s@(ScottyState {routes = rs}) = s { routes = r:rs }
 
 addHandler :: ErrorHandler e m -> ScottyState e m -> ScottyState e m
@@ -132,19 +140,19 @@ instance Exception ScottyException
 ------------------ Scotty Actions -------------------
 type Param = (Text, Text)
 
-type File = (Text, FileInfo ByteString)
+type File = (Text, FileInfo LBS8.ByteString)
 
 data ActionEnv = Env { getReq       :: Request
                      , getCaptureParams :: [Param]
                      , getFormParams    :: [Param]
                      , getQueryParams :: [Param]
-                     , getBody      :: IO ByteString
+                     , getBody      :: IO LBS8.ByteString
                      , getBodyChunk :: IO BS.ByteString
                      , getFiles     :: [File]
                      }
 
 data RequestBodyState = BodyUntouched
-                      | BodyCached ByteString [BS.ByteString] -- whole body, chunks left to stream
+                      | BodyCached LBS8.ByteString [BS.ByteString] -- whole body, chunks left to stream
                       | BodyCorrupted
 
 data BodyPartiallyStreamed = BodyPartiallyStreamed deriving (Show, Typeable)

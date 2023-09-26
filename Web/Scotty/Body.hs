@@ -17,9 +17,9 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import           Data.Maybe
 import           GHC.Exception
 import           Network.Wai (Request(..), getRequestBodyChunk)
-import qualified Network.Wai.Parse as Parse hiding (parseRequestBody)
+import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, BackEnd, lbsBackEnd, sinkRequestBody)
 import           Web.Scotty.Action
-import           Web.Scotty.Internal.Types (BodyInfo(..), BodyChunkBuffer(..), BodyPartiallyStreamed(..))
+import           Web.Scotty.Internal.Types (BodyInfo(..), BodyChunkBuffer(..), BodyPartiallyStreamed(..), RouteOptions(..))
 import           Web.Scotty.Util
 
 -- | Make a new BodyInfo with readProgress at 0 and an empty BodyChunkBuffer.
@@ -37,16 +37,16 @@ cloneBodyInfo (BodyInfo _ chunkBufferVar getChunk) = liftIO $ do
   return $ BodyInfo cleanReadProgressVar chunkBufferVar getChunk
 
 -- | Get the form params and files from the request. Requires reading the whole body.
-getFormParamsAndFilesAction :: Request -> BodyInfo -> IO ([Param], [Parse.File BL.ByteString])
-getFormParamsAndFilesAction req bodyInfo = do
-  let shouldParseBody = isJust $ Parse.getRequestBodyType req
+getFormParamsAndFilesAction :: Request -> BodyInfo -> RouteOptions -> IO ([Param], [W.File BL.ByteString])
+getFormParamsAndFilesAction req bodyInfo opts = do
+  let shouldParseBody = isJust $ W.getRequestBodyType req
 
   if shouldParseBody
     then
     do
-      bs <- getBodyAction bodyInfo
+      bs <- getBodyAction bodyInfo opts
       let wholeBody = BL.toChunks bs
-      (formparams, fs) <- parseRequestBody wholeBody Parse.lbsBackEnd req
+      (formparams, fs) <- parseRequestBody wholeBody W.lbsBackEnd req -- NB this loads the whole body into memory
       let convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
       return (convert <$> formparams, fs)
     else
@@ -56,14 +56,14 @@ getFormParamsAndFilesAction req bodyInfo = do
 -- chunks if they still exist.
 -- Mimic the previous behavior by throwing BodyPartiallyStreamed if the user has already
 -- started reading the body by chunks.
-getBodyAction :: BodyInfo -> IO (BL.ByteString)
-getBodyAction (BodyInfo readProgress chunkBufferVar getChunk) =
+getBodyAction :: BodyInfo -> RouteOptions -> IO (BL.ByteString)
+getBodyAction (BodyInfo readProgress chunkBufferVar getChunk) opts =
   modifyMVar readProgress $ \index ->
     modifyMVar chunkBufferVar $ \bcb@(BodyChunkBuffer hasFinished chunks) -> do
       if | index > 0 -> throw BodyPartiallyStreamed
          | hasFinished -> return (bcb, (index, BL.fromChunks chunks))
          | otherwise -> do
-             newChunks <- takeAll getChunk return
+             newChunks <- readRequestBody getChunk return (maxRequestBodySize opts)
              return $ (BodyChunkBuffer True (chunks ++ newChunks), (index, BL.fromChunks (chunks ++ newChunks)))
 
 -- | Retrieve a chunk from the body at the index stored in the readProgress MVar.
@@ -79,11 +79,6 @@ getBodyChunkAction (BodyInfo readProgress chunkBufferVar getChunk) =
              newChunk <- getChunk
              return (BodyChunkBuffer (newChunk == mempty) (chunks ++ [newChunk]), (index + 1, newChunk))
 
--- | Call getChunk repeatedly until it returns an empty chunk, and return a list of all the
--- chunks read.
-takeAll :: (IO B.ByteString) -> ([B.ByteString] -> IO [B.ByteString]) -> IO [B.ByteString]
-takeAll getChunk prefix = getChunk >>= \b -> if B.null b then prefix [] else takeAll getChunk (prefix . (b:))
-
 
 -- Stolen from wai-extra's Network.Wai.Parse, modified to accept body as list of Bytestrings.
 -- Reason: WAI's requestBody is an IO action that returns the body as chunks. Once read,
@@ -91,11 +86,11 @@ takeAll getChunk prefix = getChunk >>= \b -> if B.null b then prefix [] else tak
 -- the raw body, even if they also want to call wai-extra's parsing routines.
 parseRequestBody :: MonadIO m
                  => [B.ByteString]
-                 -> Parse.BackEnd y
+                 -> W.BackEnd y
                  -> Request
-                 -> m ([Parse.Param], [Parse.File y])
+                 -> m ([W.Param], [W.File y])
 parseRequestBody bl s r =
-    case Parse.getRequestBodyType r of
+    case W.getRequestBodyType r of
         Nothing -> return ([], [])
         Just rbt -> do
             mvar <- liftIO $ newMVar bl -- MVar is a bit of a hack so we don't have to inline
@@ -103,4 +98,4 @@ parseRequestBody bl s r =
             let provider = modifyMVar mvar $ \bsold -> case bsold of
                                                 []     -> return ([], B.empty)
                                                 (b:bs) -> return (bs, b)
-            liftIO $ Parse.sinkRequestBody s rbt provider
+            liftIO $ W.sinkRequestBody s rbt provider

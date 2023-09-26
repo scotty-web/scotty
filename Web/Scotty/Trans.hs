@@ -62,6 +62,7 @@ import Web.Scotty.Route
 import Web.Scotty.Internal.Types hiding (Application, Middleware)
 import Web.Scotty.Util (socketDescription)
 import qualified Web.Scotty.Internal.Types as Scotty
+import Web.Scotty.Body (newBodyInfo)
 
 -- | Run a scotty application using the warp server.
 -- NB: scotty p === scottyT p id
@@ -108,7 +109,9 @@ scottyAppT :: (Monad m, Monad n)
            -> n Application
 scottyAppT runActionToIO defs = do
     let s = execState (runS defs) def
-    let rapp req callback = runActionToIO (foldl (flip ($)) notFoundApp (routes s) req) >>= callback
+    let rapp req callback = do
+          bodyInfo <- newBodyInfo req
+          runActionToIO (foldl (flip ($)) notFoundApp ([midd bodyInfo | midd <- routes s]) req) >>= callback
     return $ foldl (flip ($)) rapp (middlewares s)
 
 notFoundApp :: Monad m => Scotty.Application m
