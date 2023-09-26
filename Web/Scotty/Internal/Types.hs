@@ -85,7 +85,6 @@ instance Default (ScottyState e m) where
 addMiddleware :: Wai.Middleware -> ScottyState e m -> ScottyState e m
 addMiddleware m s@(ScottyState {middlewares = ms}) = s { middlewares = m:ms }
 
--- addRoute :: Middleware m -> ScottyState e m -> ScottyState e m
 addRoute :: (BodyInfo -> Middleware m) -> ScottyState e m -> ScottyState e m
 addRoute r s@(ScottyState {routes = rs}) = s { routes = r:rs }
 
