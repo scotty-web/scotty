@@ -71,12 +71,6 @@ type Middleware m = Application m -> Application m
 type Application m = Request -> m Response
 
 --------------- Scotty Applications -----------------
--- data ScottyState e m =
---     ScottyState { middlewares :: [Wai.Middleware]
---                 , routes :: [Middleware m]
---                 , handler :: ErrorHandler e m
---                 , routeOptions :: RouteOptions
---                 }
 
 data ScottyState e m =
     ScottyState { middlewares :: [Wai.Middleware]
