@@ -97,6 +97,14 @@ spec = do
           it "returns 500 on exceptions" $ do
             get "/" `shouldRespondWith` "<h1>500 Internal Server Error</h1>divide by zero" {matchStatus = 500}
 
+    describe "setMaxRequestBodySize" $ do
+      withApp (Scotty.setMaxRequestBodySize 1 >> Scotty.matchAny "/upload" (do status status200)) $ do
+        it "upload endpoint for max-size requests, status 413 if request is too big, 200 otherwise" $ do
+          request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
+            (TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..50]::[Integer])]) `shouldRespondWith` 200
+          request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
+            (TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..4500]::[Integer])]) `shouldRespondWith` 413
+
   describe "ActionM" $ do
     withApp (Scotty.get "/" $ (undefined `EL.catch` ((\_ -> html "") :: E.SomeException -> ActionM ()))) $ do
       it "has a MonadBaseControl instance" $ do
@@ -173,14 +181,6 @@ spec = do
         it "preserves the body of a POST request even after 'next' (#147)" $ do
           request "POST" "/first" [("Content-Type","application/x-www-form-urlencoded")] "p=42" `shouldRespondWith` "42"
 
-
-    describe "requestLimit" $ do
-      withApp (Scotty.setMaxRequestBodySize 1 >> Scotty.matchAny "/upload" (do status status200)) $ do
-        it "upload endpoint for max-size requests, status 413 if request is too big, 200 otherwise" $ do
-          request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
-            (TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..4500]::[Integer])]) `shouldRespondWith` 413
-          request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
-            (TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..50]::[Integer])]) `shouldRespondWith` 200
 
     describe "text" $ do
       let modernGreekText :: IsString a => a

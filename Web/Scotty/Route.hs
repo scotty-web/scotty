@@ -1,31 +1,23 @@
-{-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances,
+{-# LANGUAGE FlexibleContexts, FlexibleInstances,
              OverloadedStrings, RankNTypes, ScopedTypeVariables #-}
 module Web.Scotty.Route
     ( get, post, put, delete, patch, options, addroute, matchAny, notFound,
       capture, regex, function, literal
     ) where
 
-import           Blaze.ByteString.Builder (fromByteString)
 import           Control.Arrow ((***))
-import           Control.Concurrent.MVar
-import           Control.Exception (throw, catch)
 import           Control.Monad.IO.Class
 import qualified Control.Monad.State as MS
 
 import qualified Data.ByteString.Char8 as B
-import qualified Data.ByteString.Lazy.Char8 as BL
 
-import           Data.Maybe (fromMaybe, isJust)
+import           Data.Maybe (fromMaybe)
 import           Data.String (fromString)
 import qualified Data.Text.Lazy as T
 import qualified Data.Text as TS
 
 import           Network.HTTP.Types
-import           Network.Wai (Request(..), Response, responseBuilder)
-#if MIN_VERSION_wai(3,2,2)
-import           Network.Wai.Internal (getRequestBodyChunk)
-#endif
-import qualified Network.Wai.Parse as W (File)
+import           Network.Wai (Request(..))
 
 import           Prelude ()
 import           Prelude.Compat
@@ -33,8 +25,8 @@ import           Prelude.Compat
 import qualified Text.Regex as Regex
 
 import           Web.Scotty.Action
-import           Web.Scotty.Internal.Types (RoutePattern(..), RouteOptions, ActionEnv(..), ActionT, ScottyState(..), ScottyT(..), Middleware, BodyInfo, ScottyError(..), ScottyException(..), ErrorHandler, File, handler, addRoute)
-import           Web.Scotty.Util (readRequestBody, strictByteStringToLazyText)
+import           Web.Scotty.Internal.Types (RoutePattern(..), RouteOptions, ActionEnv(..), ActionT, ScottyState(..), ScottyT(..), Middleware, BodyInfo, ScottyError(..), ErrorHandler, handler, addRoute)
+import           Web.Scotty.Util (strictByteStringToLazyText)
 import Web.Scotty.Body (cloneBodyInfo, getBodyAction, getBodyChunkAction, getFormParamsAndFilesAction)
 
 -- | get = 'addroute' 'GET'
@@ -115,10 +107,11 @@ route opts h method pat action bodyInfo app req =
             Nothing -> tryNext
      else tryNext
 
-evalAction :: (ScottyError e, Monad m) =>
-              ErrorHandler e m -> (Either ScottyException ActionEnv) -> ActionT e m () -> m (Maybe Response)
-evalAction _ (Left (RequestException msg s)) _ = return . Just $ responseBuilder s [("Content-Type","text/html")] $ fromByteString msg
-evalAction h (Right env) action = runAction h env action
+-- evalAction :: (ScottyError e, Monad m) =>
+--               ErrorHandler e m -> (Either ScottyException ActionEnv) -> ActionT e m () -> m (Maybe Response)
+-- evalAction h eia action = case eia of
+--   Left (RequestException msg s) -> return . Just $ responseBuilder s [("Content-Type","text/html")] $ fromByteString msg
+--   Right env -> runAction h env action
 
 matchRoute :: RoutePattern -> Request -> Maybe [Param]
 matchRoute (Literal pat)  req | pat == path req = Just []
@@ -144,12 +137,12 @@ path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo
 
 
 mkEnv :: MonadIO m => BodyInfo -> Request -> [Param] -> RouteOptions -> m ActionEnv
-mkEnv bodyInfo req captures opts = do
-  (formParams, bodyFiles) <- liftIO $ getFormParamsAndFilesAction req bodyInfo opts
+mkEnv bodyInfo req captureps opts = do
+  (formps, bodyFiles) <- liftIO $ getFormParamsAndFilesAction req bodyInfo opts
   let
-    queryParams = parseEncodedParams $ rawQueryString req
+    queryps = parseEncodedParams $ rawQueryString req
     bodyFiles' = [ (strictByteStringToLazyText k, fi) | (k,fi) <- bodyFiles ]
-  return $ Env req captures formParams queryParams (getBodyAction bodyInfo opts) (getBodyChunkAction bodyInfo) bodyFiles'
+  return $ Env req captureps formps queryps (getBodyAction bodyInfo opts) (getBodyChunkAction bodyInfo) bodyFiles'
 
 
 parseEncodedParams :: B.ByteString -> [Param]
@@ -206,8 +199,3 @@ function = Function
 -- | Build a route that requires the requested path match exactly, without captures.
 literal :: String -> RoutePattern
 literal = Literal . T.pack
-
-#if !(MIN_VERSION_wai(3,2,2))
-getRequestBodyChunk :: Request -> IO B.ByteString
-getRequestBodyChunk = requestBody
-#endif
