@@ -107,12 +107,6 @@ route opts h method pat action bodyInfo app req =
             Nothing -> tryNext
      else tryNext
 
--- evalAction :: (ScottyError e, Monad m) =>
---               ErrorHandler e m -> (Either ScottyException ActionEnv) -> ActionT e m () -> m (Maybe Response)
--- evalAction h eia action = case eia of
---   Left (RequestException msg s) -> return . Just $ responseBuilder s [("Content-Type","text/html")] $ fromByteString msg
---   Right env -> runAction h env action
-
 matchRoute :: RoutePattern -> Request -> Maybe [Param]
 matchRoute (Literal pat)  req | pat == path req = Just []
                               | otherwise       = Nothing
