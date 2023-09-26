@@ -12,6 +12,7 @@ module Web.Scotty.Internal.Types where
 import           Blaze.ByteString.Builder (Builder)
 
 import           Control.Applicative
+import Control.Concurrent.MVar
 import           Control.Exception (Exception)
 import qualified Control.Exception as E
 import qualified Control.Monad as Monad
@@ -283,3 +284,14 @@ data RoutePattern = Capture   Text
 
 instance IsString RoutePattern where
     fromString = Capture . pack
+
+
+------------------ Scotty Request Body --------------------
+
+data BodyChunkBuffer = BodyChunkBuffer { hasFinishedReadingChunks :: Bool
+                                       , chunksReadSoFar :: [BS.ByteString] }
+
+data BodyInfo = BodyInfo { bodyInfoReadProgress :: MVar Int
+                         , bodyInfoChunkBuffer :: MVar BodyChunkBuffer
+                         , bodyInfoDirectChunkRead :: IO BS.ByteString
+                         }
