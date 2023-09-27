@@ -116,9 +116,13 @@ spec = do
             large `shouldRespondWith` 413
 
   describe "ActionM" $ do
-    withApp (Scotty.get "/" $ (undefined `EL.catch` ((\_ -> html "") :: E.SomeException -> ActionM ()))) $ do
-      it "has a MonadBaseControl instance" $ do
-        get "/" `shouldRespondWith` 200
+    context "MonadBaseControl instance" $ do
+        withApp (Scotty.get "/" $ (undefined `EL.catch` ((\_ -> html "") :: E.SomeException -> ActionM ()))) $ do
+          it "catches SomeException and returns 200" $ do
+            get "/" `shouldRespondWith` 200
+        withApp (Scotty.get "/" $ EL.throwIO E.DivideByZero) $ do
+          it "returns 500 on uncaught exceptions" $ do
+            get "/" `shouldRespondWith` "<h1>500 Internal Server Error</h1>divide by zero" {matchStatus = 500}
 
     withApp (Scotty.get "/dictionary" $ empty <|> queryParam "word1" <|> empty <|> queryParam "word2" >>= text) $
       it "has an Alternative instance" $ do
