@@ -72,12 +72,15 @@ type Application m = Request -> m Response
 
 ------------------ Scotty Request Body --------------------
 
-data BodyChunkBuffer = BodyChunkBuffer { hasFinishedReadingChunks :: Bool
-                                       , chunksReadSoFar :: [BS.ByteString] }
-
-data BodyInfo = BodyInfo { bodyInfoReadProgress :: MVar Int
+data BodyChunkBuffer = BodyChunkBuffer { hasFinishedReadingChunks :: Bool -- ^ whether we've reached the end of the stream yet
+                                       , chunksReadSoFar :: [BS.ByteString]
+                                       }
+-- | The key part of having two MVars is that we can "clone" the BodyInfo to create a copy where the index is reset to 0, but the chunk cache is the same. Passing a cloned BodyInfo into each matched route allows them each to start from the first chunk if they call bodyReader.
+--
+-- Introduced in (#308)
+data BodyInfo = BodyInfo { bodyInfoReadProgress :: MVar Int -- ^ index into the stream read so far
                          , bodyInfoChunkBuffer :: MVar BodyChunkBuffer
-                         , bodyInfoDirectChunkRead :: IO BS.ByteString
+                         , bodyInfoDirectChunkRead :: IO BS.ByteString -- ^ can be called to get more chunks
                          }
 
 --------------- Scotty Applications -----------------
@@ -153,10 +156,6 @@ data ActionEnv = Env { getReq       :: Request
                      , getBodyChunk :: IO BS.ByteString
                      , getFiles     :: [File]
                      }
-
-data RequestBodyState = BodyUntouched
-                      | BodyCached LBS8.ByteString [BS.ByteString] -- whole body, chunks left to stream
-                      | BodyCorrupted
 
 data BodyPartiallyStreamed = BodyPartiallyStreamed deriving (Show, Typeable)
 

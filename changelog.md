@@ -3,6 +3,7 @@
 * Disambiguate request parameters (#204). Adjust the `Env` type to have three [Param] fields instead of one, add `captureParam`, `formParam`, `queryParam` and the associated `captureParams`, `formParams`, `queryParams`. Add deprecation notices to `param` and `params`.
 * Add `Scotty.Cookie` module.
 * Change body parsing behaviour such that calls to 'next' don't result in POST request bodies disappearing (#147).
+* (Internal) Remove unused type RequestBodyState (#313)
 
 ## 0.12.1 [2022.11.17]
 * Fix CPP bug that prevented tests from building on Windows.
