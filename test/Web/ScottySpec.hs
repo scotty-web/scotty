@@ -97,13 +97,23 @@ spec = do
           it "returns 500 on exceptions" $ do
             get "/" `shouldRespondWith` "<h1>500 Internal Server Error</h1>divide by zero" {matchStatus = 500}
 
+
     describe "setMaxRequestBodySize" $ do
+      let
+        large = TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..4500]::[Integer])]
+        smol = TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..50]::[Integer])]
+      context "(counterexample)" $
+        withApp (Scotty.post "/" $ status status200) $ do
+          it "doesn't throw an uncaught exception if the body is large" $ do
+            request "POST" "/" [("Content-Type","multipart/form-data; boundary=--33")]
+              large `shouldRespondWith` 200
       withApp (Scotty.setMaxRequestBodySize 1 >> Scotty.matchAny "/upload" (do status status200)) $ do
-        it "upload endpoint for max-size requests, status 413 if request is too big, 200 otherwise" $ do
+        it "should return 200 OK if the request body size is below 1 KB" $ do
           request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
-            (TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..50]::[Integer])]) `shouldRespondWith` 200
+            smol `shouldRespondWith` 200
+        it "should return 413 (Content Too Large) if the request body size is above 1 KB" $ do
           request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
-            (TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..4500]::[Integer])]) `shouldRespondWith` 413
+            large `shouldRespondWith` 413
 
   describe "ActionM" $ do
     withApp (Scotty.get "/" $ (undefined `EL.catch` ((\_ -> html "") :: E.SomeException -> ActionM ()))) $ do
@@ -173,13 +183,13 @@ spec = do
           request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=potato" `shouldRespondWith` 400
 
       withApp (do
-                  Scotty.post "/first" $ next
-                  Scotty.post "/first" $ do
+                  Scotty.post "/" $ next
+                  Scotty.post "/" $ do
                     p :: Int <- formParam "p"
                     json p
               ) $ do
         it "preserves the body of a POST request even after 'next' (#147)" $ do
-          request "POST" "/first" [("Content-Type","application/x-www-form-urlencoded")] "p=42" `shouldRespondWith` "42"
+          request "POST" "/" [("Content-Type","application/x-www-form-urlencoded")] "p=42" `shouldRespondWith` "42"
 
 
     describe "text" $ do
@@ -297,3 +307,4 @@ listenOn path =
       return sock
     )
 #endif
+

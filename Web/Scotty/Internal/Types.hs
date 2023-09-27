@@ -70,6 +70,16 @@ type Kilobytes = Int
 type Middleware m = Application m -> Application m
 type Application m = Request -> m Response
 
+------------------ Scotty Request Body --------------------
+
+data BodyChunkBuffer = BodyChunkBuffer { hasFinishedReadingChunks :: Bool
+                                       , chunksReadSoFar :: [BS.ByteString] }
+
+data BodyInfo = BodyInfo { bodyInfoReadProgress :: MVar Int
+                         , bodyInfoChunkBuffer :: MVar BodyChunkBuffer
+                         , bodyInfoDirectChunkRead :: IO BS.ByteString
+                         }
+
 --------------- Scotty Applications -----------------
 
 data ScottyState e m =
@@ -287,12 +297,4 @@ instance IsString RoutePattern where
     fromString = Capture . pack
 
 
------------------- Scotty Request Body --------------------
 
-data BodyChunkBuffer = BodyChunkBuffer { hasFinishedReadingChunks :: Bool
-                                       , chunksReadSoFar :: [BS.ByteString] }
-
-data BodyInfo = BodyInfo { bodyInfoReadProgress :: MVar Int
-                         , bodyInfoChunkBuffer :: MVar BodyChunkBuffer
-                         , bodyInfoDirectChunkRead :: IO BS.ByteString
-                         }
