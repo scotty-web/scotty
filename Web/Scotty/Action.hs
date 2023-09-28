@@ -79,23 +79,21 @@ import           Prelude ()
 import           Prelude.Compat
 
 import           Web.Scotty.Internal.Types
-import           Web.Scotty.Util
+import           Web.Scotty.Util (mkResponse, setContent, addIfNotPresent, add, replace, lazyTextToStrictByteString, setStatus, setHeaderWith, strictByteStringToLazyText)
 
 import Network.Wai.Internal (ResponseReceived(..))
 
 -- Nothing indicates route failed (due to Next) and pattern matching should continue.
 -- Just indicates a successful response.
-runAction :: (ScottyError e, Monad m) => ErrorHandler e m -> ActionEnv -> ActionT e m () -> m (Maybe Response)
+-- runAction :: (ScottyError e, Monad m) => ErrorHandler e m -> ActionEnv -> ActionT e m () -> m (Maybe Response)
 runAction h env action = do
-    (e,r) <- flip MS.runStateT def
-           $ flip runReaderT env
-           $ runExceptT
+    (e,r) <- flip runReaderT env
            $ runAM
            $ action `catchError` (defH h)
     return $ either (const Nothing) (const $ Just $ mkResponse r) e
 
 -- | Default error handler for all actions.
-defH :: (ScottyError e, Monad m) => ErrorHandler e m -> ActionError e -> ActionT e m ()
+-- defH :: (ScottyError e, Monad m) => ErrorHandler e m -> ActionError e -> ActionT e m ()
 defH _          (Redirect url)    = do
     status status302
     setHeader "Location" url
@@ -106,7 +104,7 @@ defH Nothing    (ActionError s e)   = do
     html $ mconcat ["<h1>", code, " ", msg, "</h1>", showError e]
 defH h@(Just f) (ActionError _ e)   = f e `catchError` (defH h) -- so handlers can throw exceptions themselves
 defH _          Next              = next
-defH _          Finish            = return ()
+-- defH _          Finish            = return ()
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
