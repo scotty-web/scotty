@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE LambdaCase #-}
+{-# options_ghc -Wno-unused-imports #-}
 module Web.Scotty.Action
     ( addHeader
     , body
@@ -49,9 +50,11 @@ import qualified Control.Exception          as E
 import           Control.Monad              (liftM, when)
 import           Control.Monad.Error.Class (throwError, catchError)
 import           Control.Monad.IO.Class     (MonadIO(..))
+import Control.Monad.IO.Unlift (MonadUnliftIO(..))
 import           Control.Monad.Reader       (MonadReader(..), ReaderT(..))
 import qualified Control.Monad.State.Strict as MS
 import           Control.Monad.Trans.Except
+
 import           Control.Concurrent.MVar
 
 import qualified Data.Aeson                 as A
@@ -64,6 +67,7 @@ import qualified Data.Text                  as ST
 import qualified Data.Text.Encoding         as STE
 import qualified Data.Text.Lazy             as T
 import           Data.Text.Lazy.Encoding    (encodeUtf8)
+import           Data.Typeable (Typeable)
 import           Data.Word
 
 import           Network.HTTP.Types
@@ -71,7 +75,7 @@ import           Network.HTTP.Types
 #if !MIN_VERSION_http_types(0,11,0)
 import           Network.HTTP.Types.Status
 #endif
-import           Network.Wai
+import           Network.Wai (Request, Response, StreamingBody, Application, requestHeaders)
 
 import           Numeric.Natural
 
@@ -79,21 +83,28 @@ import           Prelude ()
 import           Prelude.Compat
 
 import           Web.Scotty.Internal.Types
-import           Web.Scotty.Util (mkResponse, setContent, addIfNotPresent, add, replace, lazyTextToStrictByteString, setStatus, setHeaderWith, strictByteStringToLazyText)
+import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, strictByteStringToLazyText, catch, catchAny, tryAny)
 
 import Network.Wai.Internal (ResponseReceived(..))
 
 -- Nothing indicates route failed (due to Next) and pattern matching should continue.
 -- Just indicates a successful response.
 -- runAction :: (ScottyError e, Monad m) => ErrorHandler e m -> ActionEnv -> ActionT e m () -> m (Maybe Response)
+-- runAction :: MonadUnliftIO m =>
+--              Maybe a -> ActionEnv -> ActionT e m () -> m (Maybe Response)
+runAction :: MonadUnliftIO m =>
+             Maybe (AErr -> ActionT e m ())
+          -> ActionEnv -> ActionT e m () -> m (Maybe Response)
 runAction h env action = do
-    (e,r) <- flip runReaderT env
-           $ runAM
-           $ action `catchError` (defH h)
-    return $ either (const Nothing) (const $ Just $ mkResponse r) e
+  ei <- flip runReaderT env $ runAM $ tryAny (action `catch` defH h)
+  res <- getResponse env
+  return $ either (const Nothing) (const $ Just $ mkResponse res) ei
+
 
 -- | Default error handler for all actions.
--- defH :: (ScottyError e, Monad m) => ErrorHandler e m -> ActionError e -> ActionT e m ()
+-- defH :: (Monad m) => ErrorHandler e m -> ActionError -> ActionT e m ()
+-- defH :: MonadIO m => Maybe a -> ActionError -> ActionT e m ()
+defH :: MonadUnliftIO m => Maybe (AErr -> ActionT e m ()) -> ActionError -> ActionT e m ()
 defH _          (Redirect url)    = do
     status status302
     setHeader "Location" url
@@ -101,19 +112,19 @@ defH Nothing    (ActionError s e)   = do
     status s
     let code = T.pack $ show $ statusCode s
     let msg = T.fromStrict $ STE.decodeUtf8 $ statusMessage s
-    html $ mconcat ["<h1>", code, " ", msg, "</h1>", showError e]
-defH h@(Just f) (ActionError _ e)   = f e `catchError` (defH h) -- so handlers can throw exceptions themselves
+    html $ mconcat ["<h1>", code, " ", msg, "</h1>", T.pack (show e)]
+defH h@(Just f) (ActionError _ e)   = f e `catch` (defH h) -- so handlers can throw exceptions themselves -- TODO
 defH _          Next              = next
--- defH _          Finish            = return ()
+defH _          Finish            = return ()
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
-raise :: (ScottyError e, Monad m) => e -> ActionT e m a
+raise :: (Monad m) => AErr -> ActionT e m a
 raise = raiseStatus status500
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions turn into HTTP responses corresponding to the given status.
-raiseStatus :: (ScottyError e, Monad m) => Status -> e -> ActionT e m a
-raiseStatus s = throwError . ActionError s
+raiseStatus :: (Monad m) => Status -> AErr -> ActionT e m a
+raiseStatus s = E.throw . ActionError s
 
 
 -- | Abort execution of this action and continue pattern matching routes.
@@ -130,22 +141,23 @@ raiseStatus s = throwError . ActionError s
 -- > get "/foo/:baz" $ do
 -- >   w <- param "baz"
 -- >   text $ "You made a request to: " <> w
-next :: (ScottyError e, Monad m) => ActionT e m a
-next = throwError Next
+next :: (Monad m) => ActionT e m a
+next = E.throw Next
 
 -- | Catch an exception thrown by 'raise'.
 --
 -- > raise "just kidding" `rescue` (\msg -> text msg)
-rescue :: (ScottyError e, Monad m) => ActionT e m a -> (e -> ActionT e m a) -> ActionT e m a
-rescue action h = catchError action $ \e -> case e of
-    ActionError _ err -> h err            -- handle errors
-    other             -> throwError other -- rethrow internal error types
+rescue :: (MonadUnliftIO m) => ActionT e m a -> (AErr -> ActionT e m a) -> ActionT e m a
+rescue action h = catch action $ \e -> case e of
+  ActionError _ err -> h err -- handle errors
+  other -> E.throw other -- rethrow internal error types
 
 -- | Like 'liftIO', but catch any IO exceptions and turn them into 'ScottyError's.
-liftAndCatchIO :: (ScottyError e, MonadIO m) => IO a -> ActionT e m a
-liftAndCatchIO io = ActionT $ do
-    r <- liftIO $ liftM Right io `E.catch` (\ e -> return $ Left $ stringError $ show (e :: E.SomeException))
-    either throwError return r
+liftAndCatchIO = undefined -- FIXME
+-- liftAndCatchIO :: (ScottyError e, MonadIO m) => IO a -> ActionT e m a
+-- liftAndCatchIO io = ActionT $ do
+--     r <- liftIO $ liftM Right io `E.catch` (\ e -> return $ Left $ stringError $ show (e :: E.SomeException))
+--     either throwError return r
 
 -- | Redirect to given URL. Like throwing an uncatchable exception. Any code after the call to redirect
 -- will not be run.
@@ -155,47 +167,48 @@ liftAndCatchIO io = ActionT $ do
 -- OR
 --
 -- > redirect "/foo/bar"
-redirect :: (ScottyError e, Monad m) => T.Text -> ActionT e m a
-redirect = throwError . Redirect
+redirect :: (Monad m) => T.Text -> ActionT e m a
+redirect = E.throw . Redirect
 
 -- | Finish the execution of the current action. Like throwing an uncatchable
 -- exception. Any code after the call to finish will not be run.
 --
 -- /Since: 0.10.3/
-finish :: (ScottyError e, Monad m) => ActionT e m a
-finish = throwError Finish
+-- finish :: (ScottyError e, Monad m) => ActionT e m a
+finish :: (Monad m) => ActionT e m a
+finish = E.throw Finish
 
 -- | Get the 'Request' object.
 request :: Monad m => ActionT e m Request
-request = ActionT $ liftM getReq ask
+request = ActionT $ envReq <$> ask
 
 -- | Get list of uploaded files.
 files :: Monad m => ActionT e m [File]
-files = ActionT $ liftM getFiles ask
+files = ActionT $ envFiles <$> ask
 
 -- | Get a request header. Header name is case-insensitive.
-header :: (ScottyError e, Monad m) => T.Text -> ActionT e m (Maybe T.Text)
+header :: (Monad m) => T.Text -> ActionT e m (Maybe T.Text)
 header k = do
-    hs <- liftM requestHeaders request
+    hs <- requestHeaders <$> request
     return $ fmap strictByteStringToLazyText $ lookup (CI.mk (lazyTextToStrictByteString k)) hs
 
 -- | Get all the request headers. Header names are case-insensitive.
-headers :: (ScottyError e, Monad m) => ActionT e m [(T.Text, T.Text)]
+headers :: (Monad m) => ActionT e m [(T.Text, T.Text)]
 headers = do
-    hs <- liftM requestHeaders request
+    hs <- requestHeaders <$> request
     return [ ( strictByteStringToLazyText (CI.original k)
              , strictByteStringToLazyText v)
            | (k,v) <- hs ]
 
 -- | Get the request body.
 body :: (ScottyError e,  MonadIO m) => ActionT e m BL.ByteString
-body = ActionT ask >>= (liftIO . getBody)
+body = ActionT ask >>= (liftIO . envBody)
 
 -- | Get an IO action that reads body chunks
 --
 -- * This is incompatible with 'body' since 'body' consumes all chunks.
 bodyReader :: Monad m => ActionT e m (IO B.ByteString)
-bodyReader = ActionT $ getBodyChunk `liftM` ask
+bodyReader = ActionT $ envBodyChunk <$> ask
 
 -- | Parse the request body as a JSON object and return it.
 --
@@ -206,26 +219,27 @@ bodyReader = ActionT $ getBodyChunk `liftM` ask
 --   422 Unprocessable Entity.
 --
 --   These status codes are as per https://www.restapitutorial.com/httpstatuscodes.html.
-jsonData :: (A.FromJSON a, ScottyError e, MonadIO m) => ActionT e m a
-jsonData = do
-    b <- body
-    when (b == "") $ do
-      let htmlError = "jsonData - No data was provided."
-      raiseStatus status400 $ stringError htmlError
-    case A.eitherDecode b of
-      Left err -> do
-        let htmlError = "jsonData - malformed."
-              `mappend` " Data was: " `mappend` BL.unpack b
-              `mappend` " Error was: " `mappend` err
-        raiseStatus status400 $ stringError htmlError
-      Right value -> case A.fromJSON value of
-        A.Error err -> do
-          let htmlError = "jsonData - failed parse."
-                `mappend` " Data was: " `mappend` BL.unpack b `mappend` "."
-                `mappend` " Error was: " `mappend` err
-          raiseStatus status422 $ stringError htmlError
-        A.Success a -> do
-          return a
+jsonData = undefined
+-- jsonData :: (A.FromJSON a, ScottyError e, MonadIO m) => ActionT e m a
+-- jsonData = do
+--     b <- body
+--     when (b == "") $ do
+--       let htmlError = "jsonData - No data was provided."
+--       raiseStatus status400 $ stringError htmlError
+--     case A.eitherDecode b of
+--       Left err -> do
+--         let htmlError = "jsonData - malformed."
+--               `mappend` " Data was: " `mappend` BL.unpack b
+--               `mappend` " Error was: " `mappend` err
+--         raiseStatus status400 $ stringError htmlError
+--       Right value -> case A.fromJSON value of
+--         A.Error err -> do
+--           let htmlError = "jsonData - failed parse."
+--                 `mappend` " Data was: " `mappend` BL.unpack b `mappend` "."
+--                 `mappend` " Error was: " `mappend` err
+--           raiseStatus status422 $ stringError htmlError
+--         A.Success a -> do
+--           return a
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
@@ -234,11 +248,11 @@ jsonData = do
 -- * If parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
 --   This means captures are somewhat typed, in that a route won't match if a correctly typed
 --   capture cannot be parsed.
-param :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
+-- param :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
 param k = do
-    val <- ActionT $ liftM (lookup k . getParams) ask
+    val <- ActionT $ (lookup k . getParams) <$> ask
     case val of
-        Nothing -> raise $ stringError $ "Param: " ++ T.unpack k ++ " not found!"
+        -- Nothing -> raise $ stringError $ "Param: " ++ T.unpack k ++ " not found!" -- FIXME
         Just v  -> either (const next) return $ parseParam v
 {-# DEPRECATED param "(#204) Not a good idea to treat all parameters identically. Use captureParam, formParam and queryParam instead. "#-}
 
@@ -247,24 +261,27 @@ param k = do
 -- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 500 ("Internal Server Error") to the client.
 --
 -- * If the parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
-captureParam :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
-captureParam = paramWith CaptureParam getCaptureParams status500
+-- captureParam :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
+captureParam :: (Parsable a, Monad m) => T.Text -> ActionT e m a
+captureParam = paramWith CaptureParam envCaptureParams status500
 
 -- | Get a form parameter.
 --
 -- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
 --
 -- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
-formParam :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
-formParam = paramWith FormParam getFormParams status400
+-- formParam :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
+formParam :: (Parsable a, Monad m) => T.Text -> ActionT e m a
+formParam = paramWith FormParam envFormParams status400
 
 -- | Get a query parameter.
 --
 -- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
 --
 -- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
-queryParam :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
-queryParam = paramWith QueryParam getQueryParams status400
+-- queryParam :: (Parsable a, ScottyError e, Monad m) => T.Text -> ActionT e m a
+queryParam :: (Parsable a, Monad m) => T.Text -> ActionT e m a
+queryParam = paramWith QueryParam envQueryParams status400
 
 data ParamType = CaptureParam
                | FormParam
@@ -275,20 +292,20 @@ instance Show ParamType where
     FormParam -> "form"
     QueryParam -> "query"
 
-paramWith :: (ScottyError e, Monad m, Parsable b) =>
+paramWith :: (Monad m, Parsable b) =>
              ParamType
           -> (ActionEnv -> [Param])
           -> Status -- ^ HTTP status to return if parameter is not found
           -> T.Text -- ^ parameter name
           -> ActionT e m b
 paramWith ty f err k = do
-    val <- ActionT $ liftM (lookup k . f) ask
+    val <- ActionT $ (lookup k . f) <$> ask
     case val of
-      Nothing -> raiseStatus err $ stringError (unwords [show ty, "parameter:", T.unpack k, "not found!"])
+      -- Nothing -> raiseStatus err $ stringError (unwords [show ty, "parameter:", T.unpack k, "not found!"]) -- FIXME
       Just v ->
         let handleParseError = \case
               CaptureParam -> next
-              _ -> raiseStatus err $ stringError (unwords ["Cannot parse", T.unpack v, "as a", show ty, "parameter"])
+              -- _ -> raiseStatus err $ stringError (unwords ["Cannot parse", T.unpack v, "as a", show ty, "parameter"]) -- FIXME
         in either (const $ handleParseError ty) return $ parseParam v
 
 -- | Get all parameters from capture, form and query (in that order).
@@ -298,20 +315,20 @@ params = paramsWith getParams
 
 -- | Get capture parameters
 captureParams :: Monad m => ActionT e m [Param]
-captureParams = paramsWith getCaptureParams
+captureParams = paramsWith envCaptureParams
 -- | Get form parameters
 formParams :: Monad m => ActionT e m [Param]
-formParams = paramsWith getFormParams
+formParams = paramsWith envFormParams
 -- | Get query parameters
 queryParams :: Monad m => ActionT e m [Param]
-queryParams = paramsWith getQueryParams
+queryParams = paramsWith envQueryParams
 
 paramsWith :: Monad m => (ActionEnv -> a) -> ActionT e m a
 paramsWith f = ActionT (f <$> ask)
 
 {-# DEPRECATED getParams "(#204) Not a good idea to treat all parameters identically" #-}
 getParams :: ActionEnv -> [Param]
-getParams e = getCaptureParams e <> getFormParams e <> getQueryParams e
+getParams e = envCaptureParams e <> envFormParams e <> envQueryParams e
 
 -- | Minimum implemention: 'parseParam'
 class Parsable a where
@@ -378,37 +395,34 @@ readEither t = case [ x | (x,"") <- reads (T.unpack t) ] of
 
 -- | Set the HTTP response status. Default is 200.
 status :: Monad m => Status -> ActionT e m ()
-status = ActionT . MS.modify . setStatus
+status = undefined -- FIXME
 
 -- Not exported, but useful in the functions below.
-changeHeader :: Monad m
+changeHeader :: MonadIO m
              => (CI.CI B.ByteString -> B.ByteString -> [(HeaderName, B.ByteString)] -> [(HeaderName, B.ByteString)])
              -> T.Text -> T.Text -> ActionT e m ()
-changeHeader f k = ActionT
-                 . MS.modify
-                 . setHeaderWith
-                 . f (CI.mk $ lazyTextToStrictByteString k)
-                 . lazyTextToStrictByteString
+changeHeader f k =
+  modifyResponse . setHeaderWith . f (CI.mk $ lazyTextToStrictByteString k) . lazyTextToStrictByteString
 
 -- | Add to the response headers. Header names are case-insensitive.
-addHeader :: Monad m => T.Text -> T.Text -> ActionT e m ()
+addHeader :: MonadIO m => T.Text -> T.Text -> ActionT e m ()
 addHeader = changeHeader add
 
 -- | Set one of the response headers. Will override any previously set value for that header.
 -- Header names are case-insensitive.
-setHeader :: Monad m => T.Text -> T.Text -> ActionT e m ()
+setHeader :: MonadIO m => T.Text -> T.Text -> ActionT e m ()
 setHeader = changeHeader replace
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
 -- header to \"text/plain; charset=utf-8\" if it has not already been set.
-text :: (ScottyError e, Monad m) => T.Text -> ActionT e m ()
+text :: (MonadIO m) => T.Text -> ActionT e m ()
 text t = do
     changeHeader addIfNotPresent "Content-Type" "text/plain; charset=utf-8"
     raw $ encodeUtf8 t
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
 -- header to \"text/html; charset=utf-8\" if it has not already been set.
-html :: (ScottyError e, Monad m) => T.Text -> ActionT e m ()
+html :: (MonadIO m) => T.Text -> ActionT e m ()
 html t = do
     changeHeader addIfNotPresent "Content-Type" "text/html; charset=utf-8"
     raw $ encodeUtf8 t
@@ -417,14 +431,14 @@ html t = do
 -- want to do that on your own with 'setHeader'. Setting a status code will have no effect
 -- because Warp will overwrite that to 200 (see 'Network.Wai.Handler.Warp.Internal.sendResponse').
 file :: Monad m => FilePath -> ActionT e m ()
-file = ActionT . MS.modify . setContent . ContentFile
+file = undefined -- FIXME
 
 rawResponse :: Monad m => Response -> ActionT e m ()
-rawResponse = ActionT . MS.modify . setContent . ContentResponse
+rawResponse = undefined -- FIXME
 
 -- | Set the body of the response to the JSON encoding of the given value. Also sets \"Content-Type\"
 -- header to \"application/json; charset=utf-8\" if it has not already been set.
-json :: (A.ToJSON a, ScottyError e, Monad m) => a -> ActionT e m ()
+json :: (A.ToJSON a, MonadIO m) => a -> ActionT e m ()
 json v = do
     changeHeader addIfNotPresent "Content-Type" "application/json; charset=utf-8"
     raw $ A.encode v
@@ -432,18 +446,18 @@ json v = do
 -- | Set the body of the response to a Source. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your
 -- own with 'setHeader'.
-stream :: Monad m => StreamingBody -> ActionT e m ()
-stream = ActionT . MS.modify . setContent . ContentStream
+stream :: MonadIO m => StreamingBody -> ActionT e m ()
+stream = modifyResponse . setContent . ContentStream
 
 -- | Set the body of the response to the given 'BL.ByteString' value. Doesn't set the
 -- \"Content-Type\" header, so you probably want to do that on your
 -- own with 'setHeader'.
-raw :: Monad m => BL.ByteString -> ActionT e m ()
-raw = ActionT . MS.modify . setContent . ContentBuilder . fromLazyByteString
+raw :: MonadIO m => BL.ByteString -> ActionT e m ()
+raw = modifyResponse . setContent . ContentBuilder . fromLazyByteString
 
 -- | Nest a whole WAI application inside a Scotty handler.
 -- See Web.Scotty for further documentation
-nested :: (ScottyError e, MonadIO m) => Network.Wai.Application -> ActionT e m ()
+nested :: (MonadIO m) => Network.Wai.Application -> ActionT e m ()
 nested app = do
   -- Is MVar really the best choice here? Not sure.
   r <- request

@@ -71,13 +71,15 @@ module Web.Scotty.Cookie (
     , sameSiteStrict
     ) where
 
+import           Control.Monad.IO.Class (MonadIO(..))
+
 -- bytestring
 import Data.ByteString.Builder (toLazyByteString)
 import qualified Data.ByteString.Lazy as BSL (toStrict)
 -- cookie
 import Web.Cookie (SetCookie, setCookieName , setCookieValue, setCookiePath, setCookieExpires, setCookieMaxAge, setCookieDomain, setCookieHttpOnly, setCookieSecure, setCookieSameSite, renderSetCookie, defaultSetCookie, CookiesText, parseCookiesText, SameSiteOption, sameSiteStrict, sameSiteNone, sameSiteLax)
 -- scotty
-import Web.Scotty.Trans (ActionT, ScottyError(..), addHeader, header)
+import Web.Scotty.Trans (ActionT, addHeader, header)
 -- time
 import Data.Time.Clock.POSIX ( posixSecondsToUTCTime )
 -- text
@@ -88,34 +90,34 @@ import qualified Data.Text.Lazy.Encoding as TL (encodeUtf8, decodeUtf8)
 
 
 -- | Set a cookie, with full access to its options (see 'SetCookie')
-setCookie :: (Monad m, ScottyError e)
+setCookie :: (MonadIO m)
           => SetCookie
           -> ActionT e m ()
 setCookie c = addHeader "Set-Cookie" (TL.decodeUtf8 . toLazyByteString $ renderSetCookie c)
 
 
 -- | 'makeSimpleCookie' and 'setCookie' combined.
-setSimpleCookie :: (Monad m, ScottyError e)
+setSimpleCookie :: (MonadIO m)
                 => Text -- ^ name
                 -> Text -- ^ value
                 -> ActionT e m ()
 setSimpleCookie n v = setCookie $ makeSimpleCookie n v
 
 -- | Lookup one cookie name
-getCookie :: (Monad m, ScottyError e)
+getCookie :: (Monad m)
           => Text -- ^ name
           -> ActionT e m (Maybe Text)
 getCookie c = lookup c <$> getCookies
 
 
 -- | Returns all cookies
-getCookies :: (Monad m, ScottyError e)
+getCookies :: (Monad m)
            => ActionT e m CookiesText
 getCookies = (maybe [] parse) <$> header "Cookie"
     where parse = parseCookiesText . BSL.toStrict . TL.encodeUtf8
 
 -- | Browsers don't directly delete a cookie, but setting its expiry to a past date (e.g. the UNIX epoch) ensures that the cookie will be invalidated (whether and when it will be actually deleted by the browser seems to be browser-dependent).
-deleteCookie :: (Monad m, ScottyError e)
+deleteCookie :: (MonadIO m)
              => Text -- ^ name
              -> ActionT e m ()
 deleteCookie c = setCookie $ (makeSimpleCookie c "") { setCookieExpires = Just $ posixSecondsToUTCTime 0 }

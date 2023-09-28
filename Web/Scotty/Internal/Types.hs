@@ -7,14 +7,14 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RecordWildCards #-}
-
+{-# options_ghc -Wno-unused-imports #-}
 module Web.Scotty.Internal.Types where
 
 import           Blaze.ByteString.Builder (Builder)
 
 import           Control.Applicative
 import Control.Concurrent.MVar
-import Control.Concurrent.STM (STM, TVar, newTVarIO, readTVarIO, readTVar, writeTVar, modifyTVar')
+import Control.Concurrent.STM (STM, TVar, atomically, newTVarIO, readTVarIO, readTVar, writeTVar, modifyTVar')
 import           Control.Exception (Exception)
 import qualified Control.Exception as E
 import qualified Control.Monad as Monad
@@ -23,16 +23,18 @@ import           Control.Monad.Base (MonadBase, liftBase, liftBaseDefault)
 import           Control.Monad.Catch (MonadCatch, catch, MonadThrow, throwM)
 import           Control.Monad.Error.Class
 import qualified Control.Monad.Fail as Fail
-import           Control.Monad.IO.Class (MonadIO)
-import           Control.Monad.Reader (MonadReader(..), ReaderT, mapReaderT)
+import           Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.IO.Unlift (MonadUnliftIO(..))
+import           Control.Monad.Reader (MonadReader(..), ReaderT, mapReaderT, asks)
 import           Control.Monad.State.Strict (MonadState(..), State, StateT, mapStateT)
 import           Control.Monad.Trans.Class (MonadTrans(..))
 import           Control.Monad.Trans.Control (MonadBaseControl, StM, liftBaseWith, restoreM, ComposeSt, defaultLiftBaseWith, defaultRestoreM, MonadTransControl, StT, liftWith, restoreT)
 import           Control.Monad.Trans.Except
 
+
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS8 (ByteString)
-import           Data.Default.Class (Default, def)
+-- import           Data.Default.Class (Default, def)
 import           Data.String (IsString(..))
 import           Data.Text.Lazy (Text, pack)
 import           Data.Typeable (Typeable)
@@ -58,14 +60,12 @@ data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
                                               -- servers using `setFdCacheDuration`.
                        }
 
-instance Default Options where
-    def = Options 1 defaultSettings
+defaultOptions = Options 1 defaultSettings
 
 newtype RouteOptions = RouteOptions { maxRequestBodySize :: Maybe Kilobytes -- max allowed request size in KB
                                     }
 
-instance Default RouteOptions where
-    def = RouteOptions Nothing
+defaultRouteOptions = RouteOptions Nothing
 
 type Kilobytes = Int
 ----- Transformer Aware Applications/Middleware -----
@@ -90,12 +90,12 @@ data BodyInfo = BodyInfo { bodyInfoReadProgress :: MVar Int -- ^ index into the 
 data ScottyState e m =
     ScottyState { middlewares :: [Wai.Middleware]
                 , routes :: [BodyInfo -> Middleware m]
-                , handler :: ErrorHandler e m
+                , handler :: Maybe (AErr -> ActionT e m ()) -- ErrorHandler e m
                 , routeOptions :: RouteOptions
                 }
 
 defaultScottyState :: ScottyState e m
-defaultScottyState = ScottyState [] [] Nothing def
+defaultScottyState = ScottyState [] [] Nothing defaultRouteOptions
 
 addMiddleware :: Wai.Middleware -> ScottyState e m -> ScottyState e m
 addMiddleware m s@(ScottyState {middlewares = ms}) = s { middlewares = m:ms }
@@ -103,7 +103,7 @@ addMiddleware m s@(ScottyState {middlewares = ms}) = s { middlewares = m:ms }
 addRoute :: (BodyInfo -> Middleware m) -> ScottyState e m -> ScottyState e m
 addRoute r s@(ScottyState {routes = rs}) = s { routes = r:rs }
 
-addHandler :: ErrorHandler e m -> ScottyState e m -> ScottyState e m
+addHandler :: Maybe (AErr -> ActionT e m ()) -> ScottyState e m -> ScottyState e m
 addHandler h s = s { handler = h }
 
 updateMaxRequestBodySize :: RouteOptions -> ScottyState e m -> ScottyState e m
@@ -116,11 +116,23 @@ newtype ScottyT e m a = ScottyT { runS :: State (ScottyState e m) a }
 
 
 ------------------ Scotty Errors --------------------
-data ActionError e
+-- data ActionError e
+--   = Redirect Text
+--   | Next
+--   | Finish
+--   | ActionError Status e
+--   deriving (Show, Typeable)
+-- instance (Typeable e, Show e) => Exception (ActionError e)
+data ActionError
   = Redirect Text
   | Next
   | Finish
-  | ActionError Status e
+  | ActionError Status AErr
+  deriving (Show, Typeable)
+instance Exception ActionError
+
+-- | FIXME placeholder for a more informative concrete error type
+newtype AErr = AErr Text deriving (Show, Typeable)
 
 -- | In order to use a custom exception type (aside from 'Text'), you must
 -- define an instance of 'ScottyError' for that type.
@@ -132,12 +144,12 @@ instance ScottyError Text where
     stringError = pack
     showError = id
 
-instance ScottyError e => ScottyError (ActionError e) where
-    stringError = ActionError status500 . stringError
-    showError (Redirect url)  = url
-    showError Next            = pack "Next"
-    showError Finish          = pack "Finish"
-    showError (ActionError _ e) = showError e
+-- instance ScottyError e => ScottyError (ActionError e) where
+--     stringError = ActionError status500 . stringError
+--     showError (Redirect url)  = url
+--     showError Next            = pack "Next"
+--     showError Finish          = pack "Finish"
+--     showError (ActionError _ e) = showError e
 
 type ErrorHandler e m = Maybe (e -> ActionT e m ())
 
@@ -150,15 +162,23 @@ type Param = (Text, Text)
 
 type File = (Text, FileInfo LBS8.ByteString)
 
-data ActionEnv = Env { getReq       :: Request
-                     , getCaptureParams :: [Param]
-                     , getFormParams    :: [Param]
-                     , getQueryParams :: [Param]
-                     , getBody      :: IO LBS8.ByteString
-                     , getBodyChunk :: IO BS.ByteString
-                     , getFiles     :: [File]
-                     , getResponse :: TVar (Maybe ScottyResponse) -- XXX initially empty
+data ActionEnv = Env { envReq       :: Request
+                     , envCaptureParams :: [Param]
+                     , envFormParams    :: [Param]
+                     , envQueryParams :: [Param]
+                     , envBody      :: IO LBS8.ByteString
+                     , envBodyChunk :: IO BS.ByteString
+                     , envFiles     :: [File]
+                     , envResponse :: TVar ScottyResponse
                      }
+
+getResponse :: MonadIO m => ActionEnv -> m ScottyResponse
+getResponse ae = liftIO $ readTVarIO (envResponse ae)
+
+modifyResponse :: (MonadIO m) => (ScottyResponse -> ScottyResponse) -> ActionT e m ()
+modifyResponse f = do
+  tv <- asks envResponse
+  liftIO $ atomically $ modifyTVar' tv f
 
 data BodyPartiallyStreamed = BodyPartiallyStreamed deriving (Show, Typeable)
 
@@ -174,75 +194,21 @@ data ScottyResponse = SR { srStatus  :: Status
                          , srContent :: Content
                          }
 
+setContent :: Content -> ScottyResponse -> ScottyResponse
+setContent c sr = sr { srContent = c }
+
+setHeaderWith :: ([(HeaderName, BS.ByteString)] -> [(HeaderName, BS.ByteString)]) -> ScottyResponse -> ScottyResponse
+setHeaderWith f sr = sr { srHeaders = f (srHeaders sr) }
+
+setStatus :: Status -> ScottyResponse -> ScottyResponse
+setStatus s sr = sr { srStatus = s }
+
 defaultScottyResponse :: ScottyResponse
 defaultScottyResponse = SR status200 [] (ContentBuilder mempty)
 
 
 newtype ActionT e m a = ActionT { runAM :: ReaderT ActionEnv m a }
-  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadReader ActionEnv, MonadTrans, MonadThrow, MonadCatch)
-
--- newtype ActionT e m a = ActionT { runAM :: ExceptT (ActionError e) (ReaderT ActionEnv (StateT ScottyResponse m)) a }
---     deriving ( Functor, Applicative, MonadIO )
-
--- instance (Monad m, ScottyError e) => Monad.Monad (ActionT e m) where
---     ActionT m >>= k = ActionT (m >>= runAM . k)
--- #if !(MIN_VERSION_base(4,13,0))
---     fail = Fail.fail
--- #endif
-
--- instance (Monad m, ScottyError e) => Fail.MonadFail (ActionT e m) where
---     fail = ActionT . throwError . stringError
-
--- instance ( Monad m, ScottyError e
--- #if !(MIN_VERSION_base(4,8,0))
---          , Functor m
--- #endif
---          ) => Alternative (ActionT e m) where
---     empty = mzero
---     (<|>) = mplus
-
--- instance (Monad m, ScottyError e) => MonadPlus (ActionT e m) where
---     mzero = pure Next
---     -- ActionT m `mplus` ActionT n = ActionT . ExceptT $ do
---     --     a <- runExceptT m
---     --     case a of
---     --         Left  _ -> runExceptT n
---     --         Right r -> return $ Right r
-
--- instance (ScottyError e, Monad m) => MonadError (ActionError e) (ActionT e m) where
---     throwError = ActionT . throwError
---     catchError (ActionT m) f = ActionT (catchError m (runAM . f))
-
-
--- instance (MonadBase b m, ScottyError e) => MonadBase b (ActionT e m) where
---     liftBase = liftBaseDefault
-
-
--- instance (MonadThrow m, ScottyError e) => MonadThrow (ActionT e m) where
---     throwM = ActionT . throwM
-
--- instance (MonadCatch m, ScottyError e) => MonadCatch (ActionT e m) where
---     catch (ActionT m) f = ActionT (m `catch` (runAM . f))
-
--- instance ScottyError e => MonadTransControl (ActionT e) where
---      type StT (ActionT e) a = StT (StateT ScottyResponse) (StT (ReaderT ActionEnv) (StT (ExceptT (ActionError e)) a))
---      liftWith = \f ->
---         ActionT $  liftWith $ \run  ->
---                    liftWith $ \run' ->
---                    liftWith $ \run'' ->
---                    f $ run'' . run' . run . runAM
---      restoreT = ActionT . restoreT . restoreT . restoreT
-
--- instance (ScottyError e, MonadBaseControl b m) => MonadBaseControl b (ActionT e m) where
---     type StM (ActionT e m) a = ComposeSt (ActionT e) m a
---     liftBaseWith = defaultLiftBaseWith
---     restoreM     = defaultRestoreM
-
--- instance (MonadState s m, ScottyError e) => MonadState s (ActionT e m) where
---     {-# INLINE get #-}
---     get = lift get
---     {-# INLINE put #-}
---     put = lift . put
+  deriving newtype (Functor, Applicative, Alternative, Monad, MonadIO, MonadReader ActionEnv, MonadTrans, MonadThrow, MonadCatch, MonadBase b, MonadBaseControl b, MonadTransControl, MonadUnliftIO)
 
 instance (Semigroup a) => Semigroup (ScottyT e m a) where
   x <> y = (<>) <$> x <*> y

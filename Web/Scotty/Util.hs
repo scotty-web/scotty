@@ -2,22 +2,26 @@
 module Web.Scotty.Util
     ( lazyTextToStrictByteString
     , strictByteStringToLazyText
-    , setContent
-    , setHeaderWith
-    , setStatus
     , mkResponse
     , replace
     , add
     , addIfNotPresent
     , socketDescription
     , readRequestBody
+    -- * exceptions
+    , catch
+    , catchAny
+    , try
+    , tryAny
     ) where
 
 import Network.Socket (SockAddr(..), Socket, getSocketName, socketPort)
 import Network.Wai
 
 import Control.Monad (when)
-import Control.Exception (throw)
+import Control.Monad.IO.Unlift (MonadUnliftIO(..))
+import Control.Exception (Exception (..), SomeException (..), IOException, SomeAsyncException (..))
+import qualified Control.Exception as EUnsafe (throw, throwIO, catch)
 
 import Network.HTTP.Types
 
@@ -35,14 +39,7 @@ lazyTextToStrictByteString = ES.encodeUtf8 . TL.toStrict
 strictByteStringToLazyText :: B.ByteString -> TL.Text
 strictByteStringToLazyText = TL.fromStrict . ES.decodeUtf8With ES.lenientDecode
 
-setContent :: Content -> ScottyResponse -> ScottyResponse
-setContent c sr = sr { srContent = c }
 
-setHeaderWith :: ([(HeaderName, B.ByteString)] -> [(HeaderName, B.ByteString)]) -> ScottyResponse -> ScottyResponse
-setHeaderWith f sr = sr { srHeaders = f (srHeaders sr) }
-
-setStatus :: Status -> ScottyResponse -> ScottyResponse
-setStatus s sr = sr { srStatus = s }
 
 -- Note: we currently don't support responseRaw, which may be useful
 -- for websockets. However, we always read the request body, which
@@ -101,5 +98,41 @@ readRequestBody rbody prefix maxSize = do
           readUntilEmpty = do
             b <- rbody
             if B.null b
-              then throw (RequestException (ES.encodeUtf8 . TP.pack $ "Request is too big Jim!") status413)
+              then EUnsafe.throw (RequestException (ES.encodeUtf8 . TP.pack $ "Request is too big Jim!") status413)
               else readUntilEmpty
+
+
+-- exceptions
+
+-- | (from 'unliftio') Catch a synchronous (but not asynchronous) exception and recover from it.
+--
+-- @since 0.1.0.0
+catch
+  :: (MonadUnliftIO m, Exception e)
+  => m a -- ^ action
+  -> (e -> m a) -- ^ handler
+  -> m a
+catch f g = withRunInIO $ \run -> run f `EUnsafe.catch` \e ->
+  if isSyncException e
+    then run (g e)
+    -- intentionally rethrowing an async exception synchronously,
+    -- since we want to preserve async behavior
+    else EUnsafe.throwIO e
+
+-- | 'catch' specialized to catch all synchronous exceptions.
+catchAny :: MonadUnliftIO m => m a -> (SomeException -> m a) -> m a
+catchAny = catch
+
+-- | (from 'safe-exceptions') Check if the given exception is synchronous
+isSyncException :: Exception e => e -> Bool
+isSyncException e =
+    case fromException (toException e) of
+        Just (SomeAsyncException _) -> False
+        Nothing -> True
+
+try :: (MonadUnliftIO m, Exception e) => m a -> m (Either e a)
+try f = catch (Right <$> f) (pure . Left)
+
+-- | 'try' specialized to catch all synchronous exceptions.
+tryAny :: MonadUnliftIO m => m a -> m (Either SomeException a)
+tryAny = try

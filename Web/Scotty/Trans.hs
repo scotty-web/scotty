@@ -50,7 +50,7 @@ import Control.Monad (when)
 import Control.Monad.State.Strict (execState, modify)
 import Control.Monad.IO.Class
 
-import Data.Default.Class (def)
+-- import Data.Default.Class (def)
 
 import Network.HTTP.Types (status404, status500)
 import Network.Socket (Socket)
@@ -71,7 +71,7 @@ scottyT :: (Monad m, MonadIO n)
         -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
         -> ScottyT e m ()
         -> n ()
-scottyT p = scottyOptsT $ def { settings = setPort p (settings def) }
+scottyT p = scottyOptsT $ defaultOptions { settings = setPort p (settings defaultOptions) }
 
 -- | Run a scotty application using the warp server, passing extra options.
 -- NB: scottyOpts opts === scottyOptsT opts id
@@ -108,11 +108,14 @@ scottyAppT :: (Monad m, Monad n)
            -> ScottyT e m ()
            -> n Application
 scottyAppT runActionToIO defs = do
-    let s = execState (runS defs) def
+    let s = execState (runS defs) defaultScottyState
     let rapp req callback = do
           bodyInfo <- newBodyInfo req
-          runActionToIO (foldl (flip ($)) notFoundApp ([midd bodyInfo | midd <- routes s]) req) >>= callback
-    return $ foldl (flip ($)) rapp (middlewares s)
+          runActionToIO (applyAll notFoundApp ([midd bodyInfo | midd <- routes s]) req) >>= callback
+    return $ applyAll rapp (middlewares s)
+
+applyAll :: Foldable t => a -> t (a -> a) -> a
+applyAll = foldl (flip ($))
 
 notFoundApp :: Monad m => Scotty.Application m
 notFoundApp _ = return $ responseBuilder status404 [("Content-Type","text/html")]
@@ -127,7 +130,7 @@ notFoundApp _ = return $ responseBuilder status404 [("Content-Type","text/html")
 -- This has security implications, so you probably want to provide your
 -- own defaultHandler in production which does not send out the error
 -- strings as 500 responses.
-defaultHandler :: (ScottyError e, Monad m) => (e -> ActionT e m ()) -> ScottyT e m ()
+defaultHandler :: (Monad m) => (AErr -> ActionT e m ()) -> ScottyT e m ()
 defaultHandler f = ScottyT $ modify $ addHandler $ Just (\e -> status status500 >> f e)
 
 -- | Use given middleware. Middleware is nested such that the first declared
@@ -140,4 +143,4 @@ middleware = ScottyT . modify . addMiddleware
 -- processed and an HTTP response 413 will be returned to the client. Size limit needs to be greater than 0, 
 -- otherwise the application will terminate on start. 
 setMaxRequestBodySize :: Kilobytes -> ScottyT e m ()
-setMaxRequestBodySize i = assert (i > 0) $ ScottyT . modify . updateMaxRequestBodySize $ def { maxRequestBodySize = Just i } 
+setMaxRequestBodySize i = assert (i > 0) $ ScottyT . modify . updateMaxRequestBodySize $ defaultRouteOptions { maxRequestBodySize = Just i } 

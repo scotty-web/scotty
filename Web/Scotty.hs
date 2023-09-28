@@ -7,7 +7,7 @@
 -- the comments on each of these functions for more information.
 module Web.Scotty
     ( -- * scotty-to-WAI
-      scotty, scottyApp, scottyOpts, scottySocket, Options(..)
+      scotty, scottyApp, scottyOpts, scottySocket, Options(..), defaultOptions
       -- * Defining Middleware and Routes
       --
       -- | 'Middleware' and routes are run in the order in which they
@@ -34,7 +34,7 @@ module Web.Scotty
       -- * Parsing Parameters
     , Param, Trans.Parsable(..), Trans.readEither
       -- * Types
-    , ScottyM, ActionM, RoutePattern, File, Kilobytes
+    , ScottyM, ActionM, RoutePattern, File, Kilobytes, AErr
     ) where
 
 -- With the exception of this, everything else better just import types.
@@ -50,7 +50,7 @@ import Network.Socket (Socket)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 
-import Web.Scotty.Internal.Types (ScottyT, ActionT, Param, RoutePattern, Options, File, Kilobytes)
+import Web.Scotty.Internal.Types (ScottyT, ActionT, AErr, Param, RoutePattern, Options, defaultOptions, File, Kilobytes)
 
 type ScottyM = ScottyT Text IO
 type ActionM = ActionT Text IO
@@ -84,7 +84,7 @@ scottyApp = Trans.scottyAppT id
 -- This has security implications, so you probably want to provide your
 -- own defaultHandler in production which does not send out the error
 -- strings as 500 responses.
-defaultHandler :: (Text -> ActionM ()) -> ScottyM ()
+defaultHandler :: (AErr -> ActionM ()) -> ScottyM ()
 defaultHandler = Trans.defaultHandler
 
 -- | Use given middleware. Middleware is nested such that the first declared
@@ -113,11 +113,11 @@ setMaxRequestBodySize = Trans.setMaxRequestBodySize
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
-raise :: Text -> ActionM a
+raise :: AErr -> ActionM a
 raise = Trans.raise
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions turn into HTTP responses corresponding to the given status.
-raiseStatus :: Status -> Text -> ActionM a
+raiseStatus :: Status -> AErr -> ActionM a
 raiseStatus = Trans.raiseStatus
 
 -- | Abort execution of this action and continue pattern matching routes.
@@ -155,7 +155,7 @@ finish = Trans.finish
 -- | Catch an exception thrown by 'raise'.
 --
 -- > raise "just kidding" `rescue` (\msg -> text msg)
-rescue :: ActionM a -> (Text -> ActionM a) -> ActionM a
+rescue :: ActionM a -> (AErr -> ActionM a) -> ActionM a
 rescue = Trans.rescue
 
 -- | Like 'liftIO', but catch any IO exceptions and turn them into Scotty exceptions.

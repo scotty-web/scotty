@@ -6,7 +6,9 @@ module Web.Scotty.Route
     ) where
 
 import           Control.Arrow ((***))
-import           Control.Monad.IO.Class
+import Control.Concurrent.STM (STM, TVar, atomically, newTVarIO)
+import           Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.IO.Unlift (MonadUnliftIO(..))
 import qualified Control.Monad.State as MS
 
 import qualified Data.ByteString.Char8 as B
@@ -25,41 +27,41 @@ import           Prelude.Compat
 import qualified Text.Regex as Regex
 
 import           Web.Scotty.Action
-import           Web.Scotty.Internal.Types (RoutePattern(..), RouteOptions, ActionEnv(..), ActionT, ScottyState(..), ScottyT(..), Middleware, BodyInfo, ScottyError(..), ErrorHandler, handler, addRoute)
+import           Web.Scotty.Internal.Types (RoutePattern(..), RouteOptions, ActionEnv(..), ActionT, ScottyState(..), ScottyT(..), Middleware, BodyInfo, ScottyError(..), ErrorHandler, AErr, handler, addRoute, defaultScottyResponse)
 import           Web.Scotty.Util (strictByteStringToLazyText)
 import Web.Scotty.Body (cloneBodyInfo, getBodyAction, getBodyChunkAction, getFormParamsAndFilesAction)
 
 -- | get = 'addroute' 'GET'
-get :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
+get :: (MonadUnliftIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
 get = addroute GET
 
 -- | post = 'addroute' 'POST'
-post :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
+post :: (MonadUnliftIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
 post = addroute POST
 
 -- | put = 'addroute' 'PUT'
-put :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
+put :: (MonadUnliftIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
 put = addroute PUT
 
 -- | delete = 'addroute' 'DELETE'
-delete :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
+delete :: (MonadUnliftIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
 delete = addroute DELETE
 
 -- | patch = 'addroute' 'PATCH'
-patch :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
+patch :: (MonadUnliftIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
 patch = addroute PATCH
 
 -- | options = 'addroute' 'OPTIONS'
-options :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
+options :: (MonadUnliftIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
 options = addroute OPTIONS
 
 -- | Add a route that matches regardless of the HTTP verb.
-matchAny :: (ScottyError e, MonadIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
+matchAny :: (MonadUnliftIO m) => RoutePattern -> ActionT e m () -> ScottyT e m ()
 matchAny pattern action = ScottyT $ MS.modify $ \s -> addRoute (route (routeOptions s) (handler s) Nothing pattern action) s
 
 -- | Specify an action to take if nothing else is found. Note: this _always_ matches,
 -- so should generally be the last route specified.
-notFound :: (ScottyError e, MonadIO m) => ActionT e m () -> ScottyT e m ()
+notFound :: (MonadUnliftIO m) => ActionT e m () -> ScottyT e m ()
 notFound action = matchAny (Function (\req -> Just [("path", path req)])) (status status404 >> action)
 
 -- | Define a route with a 'StdMethod', 'T.Text' value representing the path spec,
@@ -76,11 +78,12 @@ notFound action = matchAny (Function (\req -> Just [("path", path req)])) (statu
 --
 -- >>> curl http://localhost:3000/foo/something
 -- something
-addroute :: (ScottyError e, MonadIO m) => StdMethod -> RoutePattern -> ActionT e m () -> ScottyT e m ()
+addroute :: (MonadUnliftIO m) => StdMethod -> RoutePattern -> ActionT e m () -> ScottyT e m ()
 addroute method pat action = ScottyT $ MS.modify $ \s -> addRoute (route (routeOptions s) (handler s) (Just method) pat action) s
 
-route :: (ScottyError e, MonadIO m) =>
-         RouteOptions -> ErrorHandler e m -> Maybe StdMethod -> RoutePattern -> ActionT e m () -> BodyInfo -> Middleware m
+route :: (MonadUnliftIO m) =>
+         RouteOptions
+      -> Maybe (AErr -> ActionT e m()) -> Maybe StdMethod -> RoutePattern -> ActionT e m () -> BodyInfo -> Middleware m
 route opts h method pat action bodyInfo app req =
   let tryNext = app req
         {- |
@@ -129,14 +132,15 @@ matchRoute (Capture pat)  req = go (T.split (=='/') pat) (compress $ T.split (==
 path :: Request -> T.Text
 path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo
 
-
+-- | Parse the request and construct the initial 'ActionEnv' with a default 200 OK response
 mkEnv :: MonadIO m => BodyInfo -> Request -> [Param] -> RouteOptions -> m ActionEnv
 mkEnv bodyInfo req captureps opts = do
   (formps, bodyFiles) <- liftIO $ getFormParamsAndFilesAction req bodyInfo opts
   let
     queryps = parseEncodedParams $ rawQueryString req
     bodyFiles' = [ (strictByteStringToLazyText k, fi) | (k,fi) <- bodyFiles ]
-  return $ Env req captureps formps queryps (getBodyAction bodyInfo opts) (getBodyChunkAction bodyInfo) bodyFiles'
+  responseInit <- liftIO $ newTVarIO defaultScottyResponse
+  return $ Env req captureps formps queryps (getBodyAction bodyInfo opts) (getBodyChunkAction bodyInfo) bodyFiles' responseInit
 
 
 parseEncodedParams :: B.ByteString -> [Param]
