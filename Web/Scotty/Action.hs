@@ -88,21 +88,25 @@ import           Prelude ()
 import "base-compat-batteries" Prelude.Compat
 
 import           Web.Scotty.Internal.Types
-import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, strictByteStringToLazyText, catch, catches, catchesOptionally, catchAny, try, tryAny)
+import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, strictByteStringToLazyText)
+import Web.Scotty.Exceptions (Handler(..), catch, catches, catchesOptionally, catchAny, try, tryAny)
 
 import Network.Wai.Internal (ResponseReceived(..))
 
 -- | Nothing indicates route failed (due to Next) and pattern matching should continue.
 -- Just indicates a successful response.
--- runAction :: (ScottyError e, Monad m) => ErrorHandler e m -> ActionEnv -> ActionT e m () -> m (Maybe Response)
 runAction :: MonadUnliftIO m =>
              Maybe (ErrorHandler m) -- ^ if present, this handler is in charge of user-defined exceptions
           -> ActionEnv -> ActionT m () -> m (Maybe Response)
 runAction mh env action = do
-  ok <- flip runReaderT env $ runAM $ tryNext (catchesOptionally action mh actionErrorHandler )
+  let
+    handlers = [
+      scottyExceptionHandler
+      , actionErrorHandler
+               ]
+  ok <- flip runReaderT env $ runAM $ tryNext (catchesOptionally action mh handlers )
   res <- getResponse env
   return $ bool Nothing (Just $ mkResponse res) ok
-  -- return $ either (const Nothing) (const $ Just $ mkResponse res) ei
 
 
 {-|
@@ -116,8 +120,8 @@ tryNext io = catch (io >> pure True) $ \e ->
     Next -> pure False
     _ -> pure True
 
--- | Error handler in charge of 'ActionError'. Rethrowing 'Next' here is caught by 'tryNext'
-actionErrorHandler :: MonadIO m => ErrorHandler m -- ActionError -> ActionT m ()
+-- | Exception handler in charge of 'ActionError'. Rethrowing 'Next' here is caught by 'tryNext'
+actionErrorHandler :: MonadIO m => ErrorHandler m
 actionErrorHandler = Handler $ \case
   Redirect url -> do
     status status302
@@ -129,6 +133,12 @@ actionErrorHandler = Handler $ \case
     html $ mconcat ["<h1>", code, " ", msg, "</h1>", e]
   Next -> next
   Finish -> return ()
+
+-- | Exception handler in charge of 'ScottyException'
+scottyExceptionHandler :: MonadIO m => ErrorHandler m
+scottyExceptionHandler = Handler $ \case
+  RequestException ebody s -> do
+    raiseStatus s (strictByteStringToLazyText ebody)
 
 -- -- defH :: (Monad m) => ErrorHandler e m -> ActionError -> ActionT e m ()
 -- defH :: MonadUnliftIO m => Maybe (AErr -> ActionT m ()) -> ActionError -> ActionT m ()

@@ -2,7 +2,8 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE ExistentialQuantification #-}
+{-# language DerivingVia #-}
+
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -47,6 +48,8 @@ import           Network.Wai hiding (Middleware, Application)
 import qualified Network.Wai as Wai
 import           Network.Wai.Handler.Warp (Settings, defaultSettings)
 import           Network.Wai.Parse (FileInfo)
+
+import Web.Scotty.Exceptions (Handler, tryAny)
 
 import           Prelude ()
 import "base-compat-batteries" Prelude.Compat
@@ -126,34 +129,10 @@ data ActionError
   | Next
   | Finish
   | StatusError Status Text -- e.g. 422 Unprocessable Entity when JSON body parsing fails
-  -- | SomeActionError Status AErr
   deriving (Show, Typeable)
 instance E.Exception ActionError
 
--- actionErrorHandler = Handler (\(e1 :: ActionError e))
 
--- | Handler for a specific type of exception, see 'handleActionError'
---
--- TODO export the constructor to the user since they will need to implement their
--- own handler
-data Handler m a = forall e . E.Exception e => Handler (e -> m a)
-instance Monad m => Functor (Handler m) where
-  fmap f (Handler h) = Handler (\e -> f <$> h e)
-
-
-
--- -- | FIXME placeholder for a more informative concrete error type
--- newtype AErr = AErr { aErrText :: Text } deriving (Show, Typeable)
--- instance E.Exception AErr
--- instance IsString AErr where
---   fromString = AErr . pack
-
-
--- -- | In order to use a custom exception type (aside from 'Text'), you must
--- -- define an instance of 'ScottyError' for that type.
--- class ScottyError e where
---     stringError :: String -> e
---     showError :: e -> Text
 
 type ErrorHandler m = Handler (ActionT m) ()
 -- type ErrorHandler e m = Maybe (e -> ActionT e m ())
@@ -212,7 +191,14 @@ defaultScottyResponse = SR status200 [] (ContentBuilder mempty)
 
 
 newtype ActionT m a = ActionT { runAM :: ReaderT ActionEnv m a }
-  deriving newtype (Functor, Applicative, Alternative, Monad, MonadIO, MonadReader ActionEnv, MonadTrans, MonadThrow, MonadCatch, MonadBase b, MonadBaseControl b, MonadTransControl, MonadUnliftIO)
+  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadReader ActionEnv, MonadTrans, MonadThrow, MonadCatch, MonadBase b, MonadBaseControl b, MonadTransControl, MonadUnliftIO)
+instance (MonadUnliftIO m) => Alternative (ActionT m) where
+  empty = E.throw Next
+  a <|> b = do
+    e <- tryAny a
+    case e of
+      Left _ -> b
+      Right ra -> pure ra
 
 instance (Semigroup a) => Semigroup (ScottyT m a) where
   x <> y = (<>) <$> x <*> y

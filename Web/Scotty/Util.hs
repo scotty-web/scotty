@@ -8,13 +8,6 @@ module Web.Scotty.Util
     , addIfNotPresent
     , socketDescription
     , readRequestBody
-    -- * exceptions
-    , catch
-    , catches
-    , catchesOptionally
-    , catchAny
-    , try
-    , tryAny
     ) where
 
 import Network.Socket (SockAddr(..), Socket, getSocketName, socketPort)
@@ -25,7 +18,7 @@ import           Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.IO.Unlift (MonadUnliftIO(..))
 import Control.Exception (Exception (..), SomeException (..), IOException, SomeAsyncException (..))
 import qualified Control.Exception as EUnsafe (fromException, throw, throwIO, catch)
-import Data.Maybe (maybeToList)
+
 
 import Network.HTTP.Types
 
@@ -106,51 +99,4 @@ readRequestBody rbody prefix maxSize = do
               else readUntilEmpty
 
 
--- exceptions
 
-catchesOptionally :: MonadUnliftIO m =>
-                     m a
-                  -> Maybe (Handler m a) -- ^ if present, this 'Handler' is tried first
-                  -> Handler m a -> m a
-catchesOptionally io mh h = io `catches` (maybeToList mh <> [h])
-
-catches :: MonadUnliftIO m => m a -> [Handler m a] -> m a
-catches io handlers = io `catch` catchesHandler handlers
-
-catchesHandler :: MonadIO m => [Handler m a] -> SomeException -> m a
-catchesHandler handlers e = foldr tryHandler (liftIO (EUnsafe.throwIO e)) handlers
-    where tryHandler (Handler h) res
-              = case EUnsafe.fromException e of
-                Just e' -> h e'
-                Nothing -> res
-
--- | (from 'unliftio') Catch a synchronous (but not asynchronous) exception and recover from it.
-catch
-  :: (MonadUnliftIO m, Exception e)
-  => m a -- ^ action
-  -> (e -> m a) -- ^ handler
-  -> m a
-catch f g = withRunInIO $ \run -> run f `EUnsafe.catch` \e ->
-  if isSyncException e
-    then run (g e)
-    -- intentionally rethrowing an async exception synchronously,
-    -- since we want to preserve async behavior
-    else EUnsafe.throwIO e
-
--- | 'catch' specialized to catch all synchronous exceptions.
-catchAny :: MonadUnliftIO m => m a -> (SomeException -> m a) -> m a
-catchAny = catch
-
--- | (from 'safe-exceptions') Check if the given exception is synchronous
-isSyncException :: Exception e => e -> Bool
-isSyncException e =
-    case EUnsafe.fromException (toException e) of
-        Just (SomeAsyncException _) -> False
-        Nothing -> True
-
-try :: (MonadUnliftIO m, Exception e) => m a -> m (Either e a)
-try f = catch (Right <$> f) (pure . Left)
-
--- | 'try' specialized to catch all synchronous exceptions.
-tryAny :: MonadUnliftIO m => m a -> m (Either SomeException a)
-tryAny = try

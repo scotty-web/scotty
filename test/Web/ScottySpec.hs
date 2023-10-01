@@ -83,12 +83,13 @@ spec = do
           it "returns 404 when no route matches" $ do
             get "/" `shouldRespondWith` "<h1>404: File Not Found!</h1>" {matchStatus = 404}
 
-    -- describe "defaultHandler" $ do
-    --   withApp (defaultHandler text >> Scotty.get "/" (liftAndCatchIO $ E.throwIO E.DivideByZero)) $ do
-    --     it "sets custom exception handler" $ do
-    --       get "/" `shouldRespondWith` "divide by zero" {matchStatus = 500}
-
     describe "defaultHandler" $ do
+      withApp (do
+                  let h = Handler (\(e :: E.ArithException) -> text (TL.pack $ show e))
+                  defaultHandler h
+                  Scotty.get "/" (liftAndCatchIO $ E.throwIO E.DivideByZero)) $ do
+        it "sets custom exception handler" $ do
+          get "/" `shouldRespondWith` "divide by zero" {matchStatus = 500}
       withApp (do
                   let h = Handler (\(e :: E.ArithException) -> status status503)
                   defaultHandler h
