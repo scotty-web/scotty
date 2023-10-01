@@ -88,6 +88,7 @@ executable scotty-globalstate
                        stm,
                        text,
                        transformers,
+                       unliftio-core >= 0.2,
                        wai-extra
   GHC-options:         -Wall -threaded
 
@@ -117,10 +118,10 @@ executable scotty-reader
   hs-source-dirs:      .
   build-depends:       base >= 4.6 && < 5,
                        base-compat >= 0.11 && < 0.13,
-                       data-default-class,
                        mtl,
                        scotty,
-                       text
+                       text,
+                       unliftio-core >= 0.2
   GHC-options:         -Wall -threaded
 
 executable scotty-upload

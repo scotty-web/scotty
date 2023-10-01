@@ -8,11 +8,11 @@
 module Main where
 
 import Control.Monad.Reader (MonadIO, MonadReader, ReaderT, asks, lift, runReaderT)
-import Data.Default.Class (def)
+import Control.Monad.IO.Unlift (MonadUnliftIO(..))
 import Data.Text.Lazy (Text, pack)
 import Prelude ()
 import Prelude.Compat
-import Web.Scotty.Trans (ScottyT, get, scottyOptsT, text)
+import Web.Scotty.Trans (ScottyT, defaultOptions, get, scottyOptsT, text)
 
 data Config = Config
   { environment :: String
@@ -20,16 +20,16 @@ data Config = Config
 
 newtype ConfigM a = ConfigM
   { runConfigM :: ReaderT Config IO a
-  } deriving (Applicative, Functor, Monad, MonadIO, MonadReader Config)
+  } deriving (Applicative, Functor, Monad, MonadIO, MonadReader Config, MonadUnliftIO)
 
-application :: ScottyT Text ConfigM ()
+application :: ScottyT ConfigM ()
 application = do
   get "/" $ do
     e <- lift $ asks environment
     text $ pack $ show e
 
 main :: IO ()
-main = scottyOptsT def runIO application where
+main = scottyOptsT defaultOptions runIO application where
   runIO :: ConfigM a -> IO a
   runIO m = runReaderT (runConfigM m) config
 

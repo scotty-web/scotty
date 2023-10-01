@@ -52,7 +52,7 @@ main = scotty 3000 $ do
     -- Of course you can catch your own errors.
     get "/rescue" $ do
         (do void $ raise "a rescued error"; redirect "http://www.we-never-go-here.com")
-        `rescue` (\m -> text $ "we recovered from " `mappend` m)
+        `rescue` (\m -> text $ "we recovered from " `mappend` aErrText m)
 
     -- Parts of the URL that start with a colon match
     -- any string, and capture that value as a parameter.

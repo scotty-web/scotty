@@ -4,6 +4,7 @@
 * Add `Scotty.Cookie` module.
 * Change body parsing behaviour such that calls to 'next' don't result in POST request bodies disappearing (#147).
 * (Internal) Remove unused type RequestBodyState (#313)
+* Get rid of data-default-class (#316) https://markkarpov.com/post/data-default.html
 
 ## 0.12.1 [2022.11.17]
 * Fix CPP bug that prevented tests from building on Windows.

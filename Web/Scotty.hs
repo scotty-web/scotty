@@ -34,12 +34,13 @@ module Web.Scotty
       -- * Parsing Parameters
     , Param, Trans.Parsable(..), Trans.readEither
       -- * Types
-    , ScottyM, ActionM, RoutePattern, File, Kilobytes, AErr
+    , ScottyM, ActionM, RoutePattern, File, Kilobytes, Handler(..)
     ) where
 
 -- With the exception of this, everything else better just import types.
 import qualified Web.Scotty.Trans as Trans
 
+import qualified Control.Exception          as E
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString as BS
 import Data.ByteString.Lazy.Char8 (ByteString)
@@ -50,10 +51,10 @@ import Network.Socket (Socket)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 
-import Web.Scotty.Internal.Types (ScottyT, ActionT, AErr, Param, RoutePattern, Options, defaultOptions, File, Kilobytes)
+import Web.Scotty.Internal.Types (ScottyT, ActionT, Handler(..), ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes)
 
-type ScottyM = ScottyT Text IO
-type ActionM = ActionT Text IO
+type ScottyM = ScottyT IO
+type ActionM = ActionT IO
 
 -- | Run a scotty application using the warp server.
 scotty :: Port -> ScottyM () -> IO ()
@@ -75,16 +76,8 @@ scottySocket opts sock = Trans.scottySocketT opts sock id
 scottyApp :: ScottyM () -> IO Application
 scottyApp = Trans.scottyAppT id
 
--- | Global handler for uncaught exceptions.
---
--- Uncaught exceptions normally become 500 responses.
--- You can use this to selectively override that behavior.
---
--- Note: IO exceptions are lifted into Scotty exceptions by default.
--- This has security implications, so you probably want to provide your
--- own defaultHandler in production which does not send out the error
--- strings as 500 responses.
-defaultHandler :: (AErr -> ActionM ()) -> ScottyM ()
+-- | Global handler for user-defined exceptions.
+defaultHandler :: ErrorHandler IO -> ScottyM ()
 defaultHandler = Trans.defaultHandler
 
 -- | Use given middleware. Middleware is nested such that the first declared
@@ -113,11 +106,11 @@ setMaxRequestBodySize = Trans.setMaxRequestBodySize
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
-raise :: AErr -> ActionM a
+raise :: E.Exception e => e -> ActionM a
 raise = Trans.raise
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions turn into HTTP responses corresponding to the given status.
-raiseStatus :: Status -> AErr -> ActionM a
+raiseStatus :: Status -> Text -> ActionM a
 raiseStatus = Trans.raiseStatus
 
 -- | Abort execution of this action and continue pattern matching routes.
@@ -155,7 +148,7 @@ finish = Trans.finish
 -- | Catch an exception thrown by 'raise'.
 --
 -- > raise "just kidding" `rescue` (\msg -> text msg)
-rescue :: ActionM a -> (AErr -> ActionM a) -> ActionM a
+rescue :: E.Exception e => ActionM a -> (e -> ActionM a) -> ActionM a
 rescue = Trans.rescue
 
 -- | Like 'liftIO', but catch any IO exceptions and turn them into Scotty exceptions.

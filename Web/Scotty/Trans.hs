@@ -11,7 +11,7 @@
 -- the comments on each of these functions for more information.
 module Web.Scotty.Trans
     ( -- * scotty-to-WAI
-      scottyT, scottyAppT, scottyOptsT, scottySocketT, Options(..)
+      scottyT, scottyAppT, scottyOptsT, scottySocketT, Options(..), Scotty.defaultOptions
       -- * Defining Middleware and Routes
       --
       -- | 'Middleware' and routes are run in the order in which they
@@ -34,7 +34,7 @@ module Web.Scotty.Trans
       -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json, stream, raw, nested
       -- ** Exceptions
-    , raise, raiseStatus, rescue, next, finish, defaultHandler, ScottyError(..), liftAndCatchIO
+    , raise, raiseStatus, rescue, next, finish, defaultHandler, liftAndCatchIO
       -- * Parsing Parameters
     , Param, Parsable(..), readEither
       -- * Types
@@ -69,7 +69,7 @@ import Web.Scotty.Body (newBodyInfo)
 scottyT :: (Monad m, MonadIO n)
         => Port
         -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
-        -> ScottyT e m ()
+        -> ScottyT m ()
         -> n ()
 scottyT p = scottyOptsT $ defaultOptions { settings = setPort p (settings defaultOptions) }
 
@@ -78,7 +78,7 @@ scottyT p = scottyOptsT $ defaultOptions { settings = setPort p (settings defaul
 scottyOptsT :: (Monad m, MonadIO n)
             => Options
             -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
-            -> ScottyT e m ()
+            -> ScottyT m ()
             -> n ()
 scottyOptsT opts runActionToIO s = do
     when (verbose opts > 0) $
@@ -92,7 +92,7 @@ scottySocketT :: (Monad m, MonadIO n)
               => Options
               -> Socket
               -> (m Response -> IO Response)
-              -> ScottyT e m ()
+              -> ScottyT m ()
               -> n ()
 scottySocketT opts sock runActionToIO s = do
     when (verbose opts > 0) $ do
@@ -105,7 +105,7 @@ scottySocketT opts sock runActionToIO s = do
 -- NB: scottyApp === scottyAppT id
 scottyAppT :: (Monad m, Monad n)
            => (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
-           -> ScottyT e m ()
+           -> ScottyT m ()
            -> n Application
 scottyAppT runActionToIO defs = do
     let s = execState (runS defs) defaultScottyState
@@ -121,26 +121,18 @@ notFoundApp :: Monad m => Scotty.Application m
 notFoundApp _ = return $ responseBuilder status404 [("Content-Type","text/html")]
                        $ fromByteString "<h1>404: File Not Found!</h1>"
 
--- | Global handler for uncaught exceptions.
---
--- Uncaught exceptions normally become 500 responses.
--- You can use this to selectively override that behavior.
---
--- Note: IO exceptions are lifted into 'ScottyError's by 'stringError'.
--- This has security implications, so you probably want to provide your
--- own defaultHandler in production which does not send out the error
--- strings as 500 responses.
-defaultHandler :: (Monad m) => (AErr -> ActionT e m ()) -> ScottyT e m ()
-defaultHandler f = ScottyT $ modify $ addHandler $ Just (\e -> status status500 >> f e)
+-- | Global handler for user-defined exceptions.
+defaultHandler :: (Monad m) => (ErrorHandler m) -> ScottyT m ()
+defaultHandler f = ScottyT $ modify $ setHandler $ Just f
 
 -- | Use given middleware. Middleware is nested such that the first declared
 -- is the outermost middleware (it has first dibs on the request and last action
 -- on the response). Every middleware is run on each request.
-middleware :: Middleware -> ScottyT e m ()
+middleware :: Middleware -> ScottyT m ()
 middleware = ScottyT . modify . addMiddleware
 
 -- | Set global size limit for the request body. Requests with body size exceeding the limit will not be
 -- processed and an HTTP response 413 will be returned to the client. Size limit needs to be greater than 0, 
 -- otherwise the application will terminate on start. 
-setMaxRequestBodySize :: Kilobytes -> ScottyT e m ()
+setMaxRequestBodySize :: Kilobytes -> ScottyT m ()
 setMaxRequestBodySize i = assert (i > 0) $ ScottyT . modify . updateMaxRequestBodySize $ defaultRouteOptions { maxRequestBodySize = Just i } 

@@ -10,6 +10,8 @@ module Web.Scotty.Util
     , readRequestBody
     -- * exceptions
     , catch
+    , catches
+    , catchesOptionally
     , catchAny
     , try
     , tryAny
@@ -19,9 +21,11 @@ import Network.Socket (SockAddr(..), Socket, getSocketName, socketPort)
 import Network.Wai
 
 import Control.Monad (when)
+import           Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.IO.Unlift (MonadUnliftIO(..))
 import Control.Exception (Exception (..), SomeException (..), IOException, SomeAsyncException (..))
-import qualified Control.Exception as EUnsafe (throw, throwIO, catch)
+import qualified Control.Exception as EUnsafe (fromException, throw, throwIO, catch)
+import Data.Maybe (maybeToList)
 
 import Network.HTTP.Types
 
@@ -104,9 +108,23 @@ readRequestBody rbody prefix maxSize = do
 
 -- exceptions
 
+catchesOptionally :: MonadUnliftIO m =>
+                     m a
+                  -> Maybe (Handler m a) -- ^ if present, this 'Handler' is tried first
+                  -> Handler m a -> m a
+catchesOptionally io mh h = io `catches` (maybeToList mh <> [h])
+
+catches :: MonadUnliftIO m => m a -> [Handler m a] -> m a
+catches io handlers = io `catch` catchesHandler handlers
+
+catchesHandler :: MonadIO m => [Handler m a] -> SomeException -> m a
+catchesHandler handlers e = foldr tryHandler (liftIO (EUnsafe.throwIO e)) handlers
+    where tryHandler (Handler h) res
+              = case EUnsafe.fromException e of
+                Just e' -> h e'
+                Nothing -> res
+
 -- | (from 'unliftio') Catch a synchronous (but not asynchronous) exception and recover from it.
---
--- @since 0.1.0.0
 catch
   :: (MonadUnliftIO m, Exception e)
   => m a -- ^ action
@@ -126,7 +144,7 @@ catchAny = catch
 -- | (from 'safe-exceptions') Check if the given exception is synchronous
 isSyncException :: Exception e => e -> Bool
 isSyncException e =
-    case fromException (toException e) of
+    case EUnsafe.fromException (toException e) of
         Just (SomeAsyncException _) -> False
         Nothing -> True
 

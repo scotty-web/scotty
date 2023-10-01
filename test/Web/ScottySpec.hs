@@ -5,6 +5,7 @@ import           Test.Hspec
 import           Test.Hspec.Wai
 
 import           Control.Applicative
+import qualified Control.Exception as E
 import           Control.Monad
 import           Data.Char
 import           Data.String
@@ -87,7 +88,11 @@ spec = do
     --     it "sets custom exception handler" $ do
     --       get "/" `shouldRespondWith` "divide by zero" {matchStatus = 500}
 
-      withApp (defaultHandler (\_ -> status status503) >> Scotty.get "/" (liftAndCatchIO $ E.throwIO E.DivideByZero)) $ do
+    describe "defaultHandler" $ do
+      withApp (do
+                  let h = Handler (\(e :: E.ArithException) -> status status503)
+                  defaultHandler h
+                  Scotty.get "/" (liftAndCatchIO $ E.throwIO E.DivideByZero)) $ do
         it "allows to customize the HTTP status code" $ do
           get "/" `shouldRespondWith` "" {matchStatus = 503}
 

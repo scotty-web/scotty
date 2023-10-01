@@ -92,7 +92,7 @@ import qualified Data.Text.Lazy.Encoding as TL (encodeUtf8, decodeUtf8)
 -- | Set a cookie, with full access to its options (see 'SetCookie')
 setCookie :: (MonadIO m)
           => SetCookie
-          -> ActionT e m ()
+          -> ActionT m ()
 setCookie c = addHeader "Set-Cookie" (TL.decodeUtf8 . toLazyByteString $ renderSetCookie c)
 
 
@@ -100,26 +100,26 @@ setCookie c = addHeader "Set-Cookie" (TL.decodeUtf8 . toLazyByteString $ renderS
 setSimpleCookie :: (MonadIO m)
                 => Text -- ^ name
                 -> Text -- ^ value
-                -> ActionT e m ()
+                -> ActionT m ()
 setSimpleCookie n v = setCookie $ makeSimpleCookie n v
 
 -- | Lookup one cookie name
 getCookie :: (Monad m)
           => Text -- ^ name
-          -> ActionT e m (Maybe Text)
+          -> ActionT m (Maybe Text)
 getCookie c = lookup c <$> getCookies
 
 
 -- | Returns all cookies
 getCookies :: (Monad m)
-           => ActionT e m CookiesText
+           => ActionT m CookiesText
 getCookies = (maybe [] parse) <$> header "Cookie"
     where parse = parseCookiesText . BSL.toStrict . TL.encodeUtf8
 
 -- | Browsers don't directly delete a cookie, but setting its expiry to a past date (e.g. the UNIX epoch) ensures that the cookie will be invalidated (whether and when it will be actually deleted by the browser seems to be browser-dependent).
 deleteCookie :: (MonadIO m)
              => Text -- ^ name
-             -> ActionT e m ()
+             -> ActionT m ()
 deleteCookie c = setCookie $ (makeSimpleCookie c "") { setCookieExpires = Just $ posixSecondsToUTCTime 0 }
 
 

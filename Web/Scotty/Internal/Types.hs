@@ -1,9 +1,12 @@
+{-# LANGUAGE PackageImports #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# language ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -15,12 +18,11 @@ import           Blaze.ByteString.Builder (Builder)
 import           Control.Applicative
 import Control.Concurrent.MVar
 import Control.Concurrent.STM (STM, TVar, atomically, newTVarIO, readTVarIO, readTVar, writeTVar, modifyTVar')
-import           Control.Exception (Exception)
 import qualified Control.Exception as E
 import qualified Control.Monad as Monad
 import           Control.Monad (MonadPlus(..))
 import           Control.Monad.Base (MonadBase, liftBase, liftBaseDefault)
-import           Control.Monad.Catch (MonadCatch, catch, MonadThrow, throwM)
+import           Control.Monad.Catch (MonadCatch, MonadThrow)
 import           Control.Monad.Error.Class
 import qualified Control.Monad.Fail as Fail
 import           Control.Monad.IO.Class (MonadIO(..))
@@ -47,7 +49,7 @@ import           Network.Wai.Handler.Warp (Settings, defaultSettings)
 import           Network.Wai.Parse (FileInfo)
 
 import           Prelude ()
-import           Prelude.Compat
+import "base-compat-batteries" Prelude.Compat
 
 --------------------- Options -----------------------
 data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
@@ -60,11 +62,13 @@ data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
                                               -- servers using `setFdCacheDuration`.
                        }
 
+defaultOptions :: Options
 defaultOptions = Options 1 defaultSettings
 
 newtype RouteOptions = RouteOptions { maxRequestBodySize :: Maybe Kilobytes -- max allowed request size in KB
                                     }
 
+defaultRouteOptions :: RouteOptions
 defaultRouteOptions = RouteOptions Nothing
 
 type Kilobytes = Int
@@ -87,75 +91,75 @@ data BodyInfo = BodyInfo { bodyInfoReadProgress :: MVar Int -- ^ index into the 
 
 --------------- Scotty Applications -----------------
 
-data ScottyState e m =
+data ScottyState m =
     ScottyState { middlewares :: [Wai.Middleware]
                 , routes :: [BodyInfo -> Middleware m]
-                , handler :: Maybe (AErr -> ActionT e m ()) -- ErrorHandler e m
+                , handler :: Maybe (ErrorHandler m) -- Maybe (AErr -> ActionT m ()) -- ErrorHandler e m
                 , routeOptions :: RouteOptions
                 }
 
-defaultScottyState :: ScottyState e m
+defaultScottyState :: ScottyState m
 defaultScottyState = ScottyState [] [] Nothing defaultRouteOptions
 
-addMiddleware :: Wai.Middleware -> ScottyState e m -> ScottyState e m
+addMiddleware :: Wai.Middleware -> ScottyState m -> ScottyState m
 addMiddleware m s@(ScottyState {middlewares = ms}) = s { middlewares = m:ms }
 
-addRoute :: (BodyInfo -> Middleware m) -> ScottyState e m -> ScottyState e m
+addRoute :: (BodyInfo -> Middleware m) -> ScottyState m -> ScottyState m
 addRoute r s@(ScottyState {routes = rs}) = s { routes = r:rs }
 
-addHandler :: Maybe (AErr -> ActionT e m ()) -> ScottyState e m -> ScottyState e m
-addHandler h s = s { handler = h }
+setHandler :: Maybe (ErrorHandler m) -> ScottyState m -> ScottyState m
+setHandler h s = s { handler = h }
 
-updateMaxRequestBodySize :: RouteOptions -> ScottyState e m -> ScottyState e m
+updateMaxRequestBodySize :: RouteOptions -> ScottyState m -> ScottyState m
 updateMaxRequestBodySize RouteOptions { .. } s@ScottyState { routeOptions = ro } =
     let ro' = ro { maxRequestBodySize = maxRequestBodySize }
     in s { routeOptions = ro' }
 
-newtype ScottyT e m a = ScottyT { runS :: State (ScottyState e m) a }
+newtype ScottyT m a = ScottyT { runS :: State (ScottyState m) a }
     deriving ( Functor, Applicative, Monad )
 
 
 ------------------ Scotty Errors --------------------
--- data ActionError e
---   = Redirect Text
---   | Next
---   | Finish
---   | ActionError Status e
---   deriving (Show, Typeable)
--- instance (Typeable e, Show e) => Exception (ActionError e)
+
 data ActionError
   = Redirect Text
   | Next
   | Finish
-  | ActionError Status AErr
+  | StatusError Status Text -- e.g. 422 Unprocessable Entity when JSON body parsing fails
+  -- | SomeActionError Status AErr
   deriving (Show, Typeable)
-instance Exception ActionError
+instance E.Exception ActionError
 
--- | FIXME placeholder for a more informative concrete error type
-newtype AErr = AErr Text deriving (Show, Typeable)
+-- actionErrorHandler = Handler (\(e1 :: ActionError e))
 
--- | In order to use a custom exception type (aside from 'Text'), you must
--- define an instance of 'ScottyError' for that type.
-class ScottyError e where
-    stringError :: String -> e
-    showError :: e -> Text
+-- | Handler for a specific type of exception, see 'handleActionError'
+--
+-- TODO export the constructor to the user since they will need to implement their
+-- own handler
+data Handler m a = forall e . E.Exception e => Handler (e -> m a)
+instance Monad m => Functor (Handler m) where
+  fmap f (Handler h) = Handler (\e -> f <$> h e)
 
-instance ScottyError Text where
-    stringError = pack
-    showError = id
 
--- instance ScottyError e => ScottyError (ActionError e) where
---     stringError = ActionError status500 . stringError
---     showError (Redirect url)  = url
---     showError Next            = pack "Next"
---     showError Finish          = pack "Finish"
---     showError (ActionError _ e) = showError e
 
-type ErrorHandler e m = Maybe (e -> ActionT e m ())
+-- -- | FIXME placeholder for a more informative concrete error type
+-- newtype AErr = AErr { aErrText :: Text } deriving (Show, Typeable)
+-- instance E.Exception AErr
+-- instance IsString AErr where
+--   fromString = AErr . pack
+
+
+-- -- | In order to use a custom exception type (aside from 'Text'), you must
+-- -- define an instance of 'ScottyError' for that type.
+-- class ScottyError e where
+--     stringError :: String -> e
+--     showError :: e -> Text
+
+type ErrorHandler m = Handler (ActionT m) ()
+-- type ErrorHandler e m = Maybe (e -> ActionT e m ())
 
 data ScottyException = RequestException BS.ByteString Status deriving (Show, Typeable)
-
-instance Exception ScottyException
+instance E.Exception ScottyException
 
 ------------------ Scotty Actions -------------------
 type Param = (Text, Text)
@@ -175,7 +179,7 @@ data ActionEnv = Env { envReq       :: Request
 getResponse :: MonadIO m => ActionEnv -> m ScottyResponse
 getResponse ae = liftIO $ readTVarIO (envResponse ae)
 
-modifyResponse :: (MonadIO m) => (ScottyResponse -> ScottyResponse) -> ActionT e m ()
+modifyResponse :: (MonadIO m) => (ScottyResponse -> ScottyResponse) -> ActionT m ()
 modifyResponse f = do
   tv <- asks envResponse
   liftIO $ atomically $ modifyTVar' tv f
@@ -207,10 +211,10 @@ defaultScottyResponse :: ScottyResponse
 defaultScottyResponse = SR status200 [] (ContentBuilder mempty)
 
 
-newtype ActionT e m a = ActionT { runAM :: ReaderT ActionEnv m a }
+newtype ActionT m a = ActionT { runAM :: ReaderT ActionEnv m a }
   deriving newtype (Functor, Applicative, Alternative, Monad, MonadIO, MonadReader ActionEnv, MonadTrans, MonadThrow, MonadCatch, MonadBase b, MonadBaseControl b, MonadTransControl, MonadUnliftIO)
 
-instance (Semigroup a) => Semigroup (ScottyT e m a) where
+instance (Semigroup a) => Semigroup (ScottyT m a) where
   x <> y = (<>) <$> x <*> y
 
 instance
@@ -221,7 +225,7 @@ instance
 #if !(MIN_VERSION_base(4,8,0))
   , Functor m
 #endif
-  ) => Monoid (ScottyT e m a) where
+  ) => Monoid (ScottyT m a) where
   mempty = return mempty
 #if !(MIN_VERSION_base(4,11,0))
   mappend = (<>)
@@ -233,18 +237,18 @@ instance
   , Functor m
 #endif
   , Semigroup a
-  ) => Semigroup (ActionT e m a) where
+  ) => Semigroup (ActionT m a) where
   x <> y = (<>) <$> x <*> y
 
 instance
-  ( Monad m, ScottyError e, Monoid a
+  ( Monad m, Monoid a
 #if !(MIN_VERSION_base(4,11,0))
   , Semigroup a
 #endif
 #if !(MIN_VERSION_base(4,8,0))
   , Functor m
 #endif
-  ) => Monoid (ActionT e m a) where
+  ) => Monoid (ActionT m a) where
   mempty = return mempty
 #if !(MIN_VERSION_base(4,11,0))
   mappend = (<>)

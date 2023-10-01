@@ -26,7 +26,7 @@ instance ScottyError Except where
     showError = fromString . show
 
 -- Handler for uncaught exceptions.
-handleEx :: Monad m => Except -> ActionT Except m ()
+handleEx :: Monad m => Except -> ActionT m ()
 handleEx Forbidden    = do
     status status403
     html "<h1>Scotty Says No</h1>"

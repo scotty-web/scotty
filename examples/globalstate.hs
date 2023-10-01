@@ -10,6 +10,7 @@
 module Main (main) where
 
 import Control.Concurrent.STM
+import Control.Monad.IO.Unlift (MonadUnliftIO(..))
 import Control.Monad.Reader
 
 import Data.Default.Class
@@ -39,7 +40,7 @@ instance Default AppState where
 -- Also note: your monad must be an instance of 'MonadIO' for
 -- Scotty to use it.
 newtype WebM a = WebM { runWebM :: ReaderT (TVar AppState) IO a }
-    deriving (Applicative, Functor, Monad, MonadIO, MonadReader (TVar AppState))
+    deriving (Applicative, Functor, Monad, MonadIO, MonadReader (TVar AppState), MonadUnliftIO)
 
 -- Scotty's monads are layered on top of our custom monad.
 -- We define this synonym for lift in order to be explicit
@@ -66,7 +67,7 @@ main = do
 -- type is ambiguous. We can fix it by putting a type
 -- annotation just about anywhere. In this case, we'll
 -- just do it on the entire app.
-app :: ScottyT Text WebM ()
+app :: ScottyT WebM ()
 app = do
     middleware logStdoutDev
     get "/" $ do
