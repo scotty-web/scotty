@@ -39,7 +39,6 @@ module Web.Scotty
     , ScottyState, defaultScottyState
     ) where
 
--- With the exception of this, everything else better just import types.
 import qualified Web.Scotty.Trans as Trans
 
 import qualified Control.Exception          as E
