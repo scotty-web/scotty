@@ -11,9 +11,6 @@ module Web.Scotty.Exceptions (
   , tryAny
                              ) where
 
-import Control.Exception (Exception (..), SomeException (..), SomeAsyncException (..))
-import qualified Control.Exception as EUnsafe (fromException, throwIO, catch)
-import           Control.Monad.IO.Class (MonadIO(..))
 import Data.Maybe (maybeToList)
 
 import UnliftIO (MonadUnliftIO(..), catch, catchAny, catches, try, tryAny, Handler(..))

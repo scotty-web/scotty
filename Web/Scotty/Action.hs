@@ -107,26 +107,32 @@ runAction :: MonadUnliftIO m =>
 runAction mh env action = do
   let
     handlers = [
-      actionErrorHandler -- ActionError e.g. Next, Redirect
+      statusErrorHandler -- StatusError
+      , actionErrorHandler -- ActionError e.g. Next, Redirect
       , someExceptionHandler -- all remaining exceptions
                ]
   ok <- flip runReaderT env $ runAM $ tryNext (catchesOptionally action mh handlers )
   res <- getResponse env
   return $ bool Nothing (Just $ mkResponse res) ok
 
+-- | Catches 'StatusError' and rethrows it wrapped inside an 'ActionError' for the next handler stage.
+statusErrorHandler :: MonadIO m => ErrorHandler m
+statusErrorHandler = Handler $ \case
+  s@StatusError{} -> E.throw $ AEStatusError s
+
 -- | Exception handler in charge of 'ActionError'. Rethrowing 'Next' here is caught by 'tryNext'
 actionErrorHandler :: MonadIO m => ErrorHandler m
 actionErrorHandler = Handler $ \case
-  Redirect url -> do
+  AERedirect url -> do
     status status302
     setHeader "Location" url
-  StatusError s e -> do
+  AEStatusError (StatusError s e) -> do
     status s
     let code = T.pack $ show $ statusCode s
     let msg = T.fromStrict $ STE.decodeUtf8 $ statusMessage s
     html $ mconcat ["<h1>", code, " ", msg, "</h1>", e]
-  Next -> next
-  Finish -> return ()
+  AENext -> next
+  AEFinish -> return ()
 
 -- | Uncaught exceptions turn into HTTP 500 Server Error codes
 someExceptionHandler :: MonadIO m => ErrorHandler m
@@ -134,8 +140,8 @@ someExceptionHandler = Handler $ \case
   (_ :: E.SomeException) -> status status500
 
 
--- | Throw a "500 Server Error" 'StatusError', which can be caught with 'rescue'. Uncaught exceptions
--- turn into HTTP 500 responses.
+-- | Throw a "500 Server Error" 'StatusError', which can be caught with 'rescue'.
+-- Uncaught exceptions turn into HTTP 500 responses.
 raise :: (MonadIO m) =>
          T.Text -- ^ Error text
       -> ActionT m a
@@ -164,7 +170,7 @@ throw = E.throw
 -- >   w <- captureParam "baz"
 -- >   text $ "You made a request to: " <> w
 next :: Monad m => ActionT m a
-next = E.throw Next
+next = E.throw AENext
 
 -- | Catch an exception.
 --
@@ -188,14 +194,14 @@ liftAndCatchIO io = liftIO $ do
 --
 -- > redirect "/foo/bar"
 redirect :: (Monad m) => T.Text -> ActionT m a
-redirect = E.throw . Redirect
+redirect = E.throw . AERedirect
 
 -- | Finish the execution of the current action. Like throwing an uncatchable
 -- exception. Any code after the call to finish will not be run.
 --
 -- /Since: 0.10.3/
 finish :: (Monad m) => ActionT m a
-finish = E.throw Finish
+finish = E.throw AEFinish
 
 -- | Get the 'Request' object.
 request :: Monad m => ActionT m Request

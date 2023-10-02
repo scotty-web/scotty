@@ -3,7 +3,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# language DerivingVia #-}
-
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -138,20 +137,22 @@ newtype ScottyT m a = ScottyT { runS :: State (ScottyState m) a }
 -- The exception constructor is not exposed to the user and all exceptions of this type are caught
 -- and processed within the 'runAction' function.
 data ActionError
-  = Redirect Text -- ^ Redirect
-  | Next -- ^ Stop processing this route and skip to the next one
-  | Finish -- ^ Stop processing the request
-  | StatusError Status Text -- ^ e.g. 422 Unprocessable Entity when JSON body parsing fails
+  = AERedirect Text -- ^ Redirect
+  | AENext -- ^ Stop processing this route and skip to the next one
+  | AEFinish -- ^ Stop processing the request
+  | AEStatusError StatusError -- ^ e.g. 422 Unprocessable Entity when JSON body parsing fails
   deriving (Show, Typeable)
 instance E.Exception ActionError
 
 tryNext :: MonadUnliftIO m => m a -> m Bool
 tryNext io = catch (io >> pure True) $ \e ->
   case e of
-    Next -> pure False
+    AENext -> pure False
     _ -> pure True
 
-
+-- | E.g. when a parameter is not found in a query string (400 Bad Request) or when parsing a JSON body fails (422 Unprocessable Entity)
+data StatusError = StatusError Status Text deriving (Show, Typeable)
+instance E.Exception StatusError
 
 -- | Specializes a 'Handler' to the 'ActionT' monad
 type ErrorHandler m = Handler (ActionT m) ()
@@ -217,7 +218,7 @@ defaultScottyResponse = SR status200 [] (ContentBuilder mempty)
 newtype ActionT m a = ActionT { runAM :: ReaderT ActionEnv m a }
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadReader ActionEnv, MonadTrans, MonadThrow, MonadCatch, MonadBase b, MonadBaseControl b, MonadTransControl, MonadUnliftIO)
 instance (MonadUnliftIO m) => Alternative (ActionT m) where
-  empty = E.throw Next
+  empty = E.throw AENext
   a <|> b = do
     ok <- tryActionError a
     if ok then a else b

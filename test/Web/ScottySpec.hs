@@ -130,6 +130,9 @@ spec = do
             get "/" `shouldRespondWith` "" {matchStatus = 500}
 
     context "Alternative instance" $ do
+      withApp (Scotty.get "/" $ empty >>= text) $
+        it "empty without any route following returns a 404" $
+          get "/" `shouldRespondWith` 404
       withApp (Scotty.get "/dictionary" $ empty <|> queryParam "word1" >>= text) $
         it "empty throws Next" $ do
           get "/dictionary?word1=x" `shouldRespondWith` "x"
@@ -137,6 +140,14 @@ spec = do
         it "<|> skips the left route if that fails" $ do
           get "/dictionary?word2=y" `shouldRespondWith` "y"
           get "/dictionary?word1=a&word2=b" `shouldRespondWith` "a"
+
+    describe "redirect" $ do
+      withApp (
+        do
+          Scotty.get "/a" $ redirect "/b"
+              ) $ do
+        it "Responds with a 302 Redirect" $ do
+          get "/a" `shouldRespondWith` 302
 
     describe "captureParam" $ do
       withApp (

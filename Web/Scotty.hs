@@ -31,6 +31,7 @@ module Web.Scotty
     , text, html, file, json, stream, raw
       -- ** Exceptions
     , raise, raiseStatus, throw, rescue, next, finish, defaultHandler, liftAndCatchIO
+    , StatusError(..)
       -- * Parsing Parameters
     , Param, Trans.Parsable(..), Trans.readEither
       -- * Types
@@ -52,7 +53,7 @@ import Network.Socket (Socket)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 
-import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState)
+import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, StatusError(..))
 import Web.Scotty.Exceptions (Handler(..))
 
 type ScottyM = ScottyT IO
@@ -126,12 +127,12 @@ throw = Trans.throw
 -- ever run is if the first one calls 'next'.
 --
 -- > get "/foo/:bar" $ do
--- >   w :: Text <- param "bar"
+-- >   w :: Text <- captureParam "bar"
 -- >   unless (w == "special") next
 -- >   text "You made a request to /foo/special"
 -- >
 -- > get "/foo/:baz" $ do
--- >   w <- param "baz"
+-- >   w <- captureParam "baz"
 -- >   text $ "You made a request to: " <> w
 next :: ActionM ()
 next = Trans.next
@@ -143,7 +144,7 @@ next = Trans.next
 -- content the text message.
 --
 -- > get "/foo/:bar" $ do
--- >   w :: Text <- param "bar"
+-- >   w :: Text <- captureParam "bar"
 -- >   unless (w == "special") finish
 -- >   text "You made a request to /foo/special"
 --
@@ -151,7 +152,7 @@ next = Trans.next
 finish :: ActionM a
 finish = Trans.finish
 
--- | Catch an exception thrown by 'raise'.
+-- | Catch an exception.
 --
 -- > raise JustKidding `rescue` (\msg -> text msg)
 rescue :: E.Exception e => ActionM a -> (e -> ActionM a) -> ActionM a
@@ -206,7 +207,7 @@ jsonData = Trans.jsonData
 --
 -- * Raises an exception which can be caught by 'rescue' if parameter is not found.
 --
--- * If parameter is found, but 'read' fails to parse to the correct type, 'next' is called.
+-- * If parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
 --   This means captures are somewhat typed, in that a route won't match if a correctly typed
 --   capture cannot be parsed.
 param :: Trans.Parsable a => Text -> ActionM a

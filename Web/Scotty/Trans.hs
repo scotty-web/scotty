@@ -36,6 +36,7 @@ module Web.Scotty.Trans
     , text, html, file, json, stream, raw, nested
       -- ** Exceptions
     , raise, raiseStatus, throw, rescue, next, finish, defaultHandler, liftAndCatchIO
+    , StatusError(..)
       -- * Parsing Parameters
     , Param, Parsable(..), readEither
       -- * Types
@@ -59,7 +60,7 @@ import Network.Wai.Handler.Warp (Port, runSettings, runSettingsSocket, setPort, 
 
 import Web.Scotty.Action
 import Web.Scotty.Route
-import Web.Scotty.Internal.Types (ActionT(..), ScottyT(..), defaultScottyState, Application, RoutePattern, Options(..), defaultOptions, RouteOptions(..), defaultRouteOptions, ErrorHandler, Kilobytes, File, addMiddleware, setHandler, updateMaxRequestBodySize, routes, middlewares, ScottyException(..), ScottyState, defaultScottyState)
+import Web.Scotty.Internal.Types (ActionT(..), ScottyT(..), defaultScottyState, Application, RoutePattern, Options(..), defaultOptions, RouteOptions(..), defaultRouteOptions, ErrorHandler, Kilobytes, File, addMiddleware, setHandler, updateMaxRequestBodySize, routes, middlewares, ScottyException(..), ScottyState, defaultScottyState, StatusError(..))
 import Web.Scotty.Util (socketDescription)
 import Web.Scotty.Body (newBodyInfo)
 import Web.Scotty.Exceptions (Handler(..), catches)
