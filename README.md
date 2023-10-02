@@ -6,8 +6,6 @@ A Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp.
 {-# LANGUAGE OverloadedStrings #-}
 import Web.Scotty
 
-import Data.Monoid (mconcat)
-
 main = scotty 3000 $
     get "/:word" $ do
         beam <- captureParam "word"
@@ -41,7 +39,7 @@ Feel free to ask questions or report bugs on the [Github issue tracker](https://
 
 Github issues are now (September 2023) labeled, so newcomers to the Haskell language can start with `easy fix` ones and gradually progress to `new feature`s, `bug`s and `R&D` :)
 
-## Package version numbers
+## Package versions
 
 Scotty adheres to the [Package Versioning Policy](https://pvp.haskell.org/).
 
@@ -71,4 +69,4 @@ Scotty adheres to the [Package Versioning Policy](https://pvp.haskell.org/).
 
 
 # Copyright 
-(c) 2012-Present Andrew Farmer and Scotty contributors
+(c) 2012-Present, Andrew Farmer and Scotty contributors

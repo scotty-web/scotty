@@ -7,7 +7,7 @@
 -- the comments on each of these functions for more information.
 module Web.Scotty
     ( -- * scotty-to-WAI
-      scotty, scottyApp, scottyOpts, scottySocket, Options(..)
+      scotty, scottyApp, scottyOpts, scottySocket, Options(..), defaultOptions
       -- * Defining Middleware and Routes
       --
       -- | 'Middleware' and routes are run in the order in which they
@@ -30,16 +30,18 @@ module Web.Scotty
       -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json, stream, raw
       -- ** Exceptions
-    , raise, raiseStatus, rescue, next, finish, defaultHandler, liftAndCatchIO
+    , raise, raiseStatus, throw, rescue, next, finish, defaultHandler, liftAndCatchIO
+    , StatusError(..)
       -- * Parsing Parameters
     , Param, Trans.Parsable(..), Trans.readEither
       -- * Types
-    , ScottyM, ActionM, RoutePattern, File, Kilobytes
+    , ScottyM, ActionM, RoutePattern, File, Kilobytes, Handler(..)
+    , ScottyState, defaultScottyState
     ) where
 
--- With the exception of this, everything else better just import types.
 import qualified Web.Scotty.Trans as Trans
 
+import qualified Control.Exception          as E
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString as BS
 import Data.ByteString.Lazy.Char8 (ByteString)
@@ -50,10 +52,11 @@ import Network.Socket (Socket)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 
-import Web.Scotty.Internal.Types (ScottyT, ActionT, Param, RoutePattern, Options, File, Kilobytes)
+import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, StatusError(..))
+import Web.Scotty.Exceptions (Handler(..))
 
-type ScottyM = ScottyT Text IO
-type ActionM = ActionT Text IO
+type ScottyM = ScottyT IO
+type ActionM = ActionT IO
 
 -- | Run a scotty application using the warp server.
 scotty :: Port -> ScottyM () -> IO ()
@@ -75,16 +78,8 @@ scottySocket opts sock = Trans.scottySocketT opts sock id
 scottyApp :: ScottyM () -> IO Application
 scottyApp = Trans.scottyAppT id
 
--- | Global handler for uncaught exceptions.
---
--- Uncaught exceptions normally become 500 responses.
--- You can use this to selectively override that behavior.
---
--- Note: IO exceptions are lifted into Scotty exceptions by default.
--- This has security implications, so you probably want to provide your
--- own defaultHandler in production which does not send out the error
--- strings as 500 responses.
-defaultHandler :: (Text -> ActionM ()) -> ScottyM ()
+-- | Global handler for user-defined exceptions.
+defaultHandler :: ErrorHandler IO -> ScottyM ()
 defaultHandler = Trans.defaultHandler
 
 -- | Use given middleware. Middleware is nested such that the first declared
@@ -100,8 +95,6 @@ middleware = Trans.middleware
 -- this could require stripping the current prefix, or adding the prefix to your
 -- application's handlers if it depends on them. One potential use-case for this
 -- is hosting a web-socket handler under a specific route.
--- nested :: Application -> ActionM ()
--- nested :: (Monad m, MonadIO m) => Application -> ActionT Text m ()
 nested :: Application -> ActionM ()
 nested = Trans.nested
 
@@ -111,28 +104,42 @@ nested = Trans.nested
 setMaxRequestBodySize :: Kilobytes -> ScottyM ()
 setMaxRequestBodySize = Trans.setMaxRequestBodySize
 
--- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
--- turn into HTTP 500 responses.
+-- | Throw a "500 Server Error" 'StatusError', which can be caught with 'rescue'.
+--
+-- Uncaught exceptions turn into HTTP 500 responses.
 raise :: Text -> ActionM a
 raise = Trans.raise
 
--- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions turn into HTTP responses corresponding to the given status.
+-- | Throw a 'StatusError' exception that has an associated HTTP error code and can be caught with 'rescue'.
+--
+-- Uncaught exceptions turn into HTTP responses corresponding to the given status.
 raiseStatus :: Status -> Text -> ActionM a
 raiseStatus = Trans.raiseStatus
 
+-- | Throw an exception which can be caught within the scope of the current Action with 'rescue' or 'catch'.
+--
+-- If the exception is not caught locally, another option is to implement a global 'Handler' (with 'defaultHandler') that defines its interpretation and a translation to HTTP error codes.
+--
+-- Uncaught exceptions turn into HTTP 500 responses.
+throw :: (E.Exception e) => e -> ActionM a
+throw = Trans.throw
+
 -- | Abort execution of this action and continue pattern matching routes.
 -- Like an exception, any code after 'next' is not executed.
+--
+-- NB : Internally, this is implemented with an exception that can only be
+-- caught by the library, but not by the user.
 --
 -- As an example, these two routes overlap. The only way the second one will
 -- ever run is if the first one calls 'next'.
 --
 -- > get "/foo/:bar" $ do
--- >   w :: Text <- param "bar"
+-- >   w :: Text <- captureParam "bar"
 -- >   unless (w == "special") next
 -- >   text "You made a request to /foo/special"
 -- >
 -- > get "/foo/:baz" $ do
--- >   w <- param "baz"
+-- >   w <- captureParam "baz"
 -- >   text $ "You made a request to: " <> w
 next :: ActionM ()
 next = Trans.next
@@ -144,7 +151,7 @@ next = Trans.next
 -- content the text message.
 --
 -- > get "/foo/:bar" $ do
--- >   w :: Text <- param "bar"
+-- >   w :: Text <- captureParam "bar"
 -- >   unless (w == "special") finish
 -- >   text "You made a request to /foo/special"
 --
@@ -152,10 +159,10 @@ next = Trans.next
 finish :: ActionM a
 finish = Trans.finish
 
--- | Catch an exception thrown by 'raise'.
+-- | Catch an exception e.g. a 'StatusError' or a user-defined exception.
 --
--- > raise "just kidding" `rescue` (\msg -> text msg)
-rescue :: ActionM a -> (Text -> ActionM a) -> ActionM a
+-- > raise JustKidding `rescue` (\msg -> text msg)
+rescue :: E.Exception e => ActionM a -> (e -> ActionM a) -> ActionM a
 rescue = Trans.rescue
 
 -- | Like 'liftIO', but catch any IO exceptions and turn them into Scotty exceptions.
@@ -207,7 +214,7 @@ jsonData = Trans.jsonData
 --
 -- * Raises an exception which can be caught by 'rescue' if parameter is not found.
 --
--- * If parameter is found, but 'read' fails to parse to the correct type, 'next' is called.
+-- * If parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
 --   This means captures are somewhat typed, in that a route won't match if a correctly typed
 --   capture cannot be parsed.
 param :: Trans.Parsable a => Text -> ActionM a

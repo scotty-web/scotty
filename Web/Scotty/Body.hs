@@ -15,12 +15,12 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import           Data.Maybe
-import           GHC.Exception
+import qualified GHC.Exception as E (throw)
 import           Network.Wai (Request(..), getRequestBodyChunk)
 import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, BackEnd, lbsBackEnd, sinkRequestBody)
-import           Web.Scotty.Action
+import           Web.Scotty.Action (Param)
 import           Web.Scotty.Internal.Types (BodyInfo(..), BodyChunkBuffer(..), BodyPartiallyStreamed(..), RouteOptions(..))
-import           Web.Scotty.Util
+import           Web.Scotty.Util (readRequestBody, strictByteStringToLazyText)
 
 -- | Make a new BodyInfo with readProgress at 0 and an empty BodyChunkBuffer.
 newBodyInfo :: (MonadIO m) => Request -> m BodyInfo
@@ -60,7 +60,7 @@ getBodyAction :: BodyInfo -> RouteOptions -> IO (BL.ByteString)
 getBodyAction (BodyInfo readProgress chunkBufferVar getChunk) opts =
   modifyMVar readProgress $ \index ->
     modifyMVar chunkBufferVar $ \bcb@(BodyChunkBuffer hasFinished chunks) -> do
-      if | index > 0 -> throw BodyPartiallyStreamed
+      if | index > 0 -> E.throw BodyPartiallyStreamed
          | hasFinished -> return (bcb, (index, BL.fromChunks chunks))
          | otherwise -> do
              newChunks <- readRequestBody getChunk return (maxRequestBodySize opts)

@@ -1,13 +1,13 @@
 Name:                scotty
-Version:             0.12.1
+Version:             0.20
 Synopsis:            Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp
 Homepage:            https://github.com/scotty-web/scotty
 Bug-reports:         https://github.com/scotty-web/scotty/issues
 License:             BSD3
 License-file:        LICENSE
 Author:              Andrew Farmer <xichekolas@gmail.com>
-Maintainer:          Andrew Farmer <xichekolas@gmail.com> and the Scotty maintainers
-Copyright:           (c) 2012-Present Andrew Farmer
+Maintainer:          The Scotty maintainers
+Copyright:           (c) 2012-Present, Andrew Farmer and the Scotty contributors
 Category:            Web
 Stability:           experimental
 Build-type:          Simple
@@ -19,8 +19,6 @@ Description:
     &#123;-&#35; LANGUAGE OverloadedStrings &#35;-&#125;
     .
     import Web.Scotty
-    .
-    import Data.Monoid (mconcat)
     .
     main = scotty 3000 $
     &#32;&#32;get &#34;/:word&#34; $ do
@@ -66,6 +64,7 @@ Library
                        Web.Scotty.Cookie
   other-modules:       Web.Scotty.Action
                        Web.Scotty.Body
+                       Web.Scotty.Exceptions
                        Web.Scotty.Route
                        Web.Scotty.Util
   default-language:    Haskell2010
@@ -76,18 +75,20 @@ Library
                        bytestring            >= 0.10.0.2 && < 0.12,
                        case-insensitive      >= 1.0.0.1  && < 1.3,
                        cookie                >= 0.4,
-                       data-default-class    >= 0.0.1    && < 0.2,
+                       data-default-class >= 0.1,
                        exceptions            >= 0.7      && < 0.11,
                        http-types            >= 0.9.1    && < 0.13,
                        monad-control         >= 1.0.0.3  && < 1.1,
                        mtl                   >= 2.1.2    && < 2.4,
                        network               >= 2.6.0.2  && < 3.2,
                        regex-compat          >= 0.95.1   && < 0.96,
+                       stm,
                        text                  >= 0.11.3.1 && < 2.1,
                        time                  >= 1.8,
                        transformers          >= 0.3.0.0  && < 0.7,
                        transformers-base     >= 0.4.1    && < 0.5,
                        transformers-compat   >= 0.4      && < 0.8,
+                       unliftio >= 0.2,
                        wai                   >= 3.0.0    && < 3.3,
                        wai-extra             >= 3.0.0    && < 3.2,
                        warp                  >= 3.0.13   && < 3.4
@@ -109,7 +110,6 @@ test-suite spec
   build-depends:       async,
                        base,
                        bytestring,
-                       data-default-class,
                        directory,
                        hspec == 2.*,
                        hspec-wai >= 0.6.3,
@@ -134,7 +134,6 @@ benchmark weigh
                        mtl,
                        text,
                        transformers,
-                       data-default-class,
                        weigh >= 0.0.16 && <0.1
   GHC-options:         -Wall -O2 -threaded
 

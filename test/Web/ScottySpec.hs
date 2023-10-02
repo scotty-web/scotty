@@ -24,7 +24,6 @@ import           Control.Concurrent.Async (withAsync)
 import           Control.Exception (bracketOnError)
 import qualified Data.ByteString as BS
 import           Data.ByteString (ByteString)
-import           Data.Default.Class (def)
 import           Network.Socket (Family(..), SockAddr(..), Socket, SocketOption(..), SocketType(..), bind, close, connect, listen, maxListenQueue, setSocketOption, socket)
 import           Network.Socket.ByteString (send, recv)
 import           System.Directory (removeFile)
@@ -84,29 +83,29 @@ spec = do
             get "/" `shouldRespondWith` "<h1>404: File Not Found!</h1>" {matchStatus = 404}
 
     describe "defaultHandler" $ do
-      withApp (defaultHandler text >> Scotty.get "/" (liftAndCatchIO $ E.throwIO E.DivideByZero)) $ do
+      withApp (do
+                  let h = Handler (\(e :: E.ArithException) -> status status500 >> text (TL.pack $ show e))
+                  defaultHandler h
+                  Scotty.get "/" (throw E.DivideByZero)) $ do
         it "sets custom exception handler" $ do
           get "/" `shouldRespondWith` "divide by zero" {matchStatus = 500}
-
-      withApp (defaultHandler (\_ -> status status503) >> Scotty.get "/" (liftAndCatchIO $ E.throwIO E.DivideByZero)) $ do
+      withApp (do
+                  let h = Handler (\(_ :: E.ArithException) -> status status503)
+                  defaultHandler h
+                  Scotty.get "/" (liftAndCatchIO $ E.throwIO E.DivideByZero)) $ do
         it "allows to customize the HTTP status code" $ do
           get "/" `shouldRespondWith` "" {matchStatus = 503}
 
       context "when not specified" $ do
-        withApp (Scotty.get "/" $ liftAndCatchIO $ E.throwIO E.DivideByZero) $ do
+        withApp (Scotty.get "/" $ throw E.DivideByZero) $ do
           it "returns 500 on exceptions" $ do
-            get "/" `shouldRespondWith` "<h1>500 Internal Server Error</h1>divide by zero" {matchStatus = 500}
+            get "/" `shouldRespondWith` "" {matchStatus = 500}
 
 
     describe "setMaxRequestBodySize" $ do
       let
         large = TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..4500]::[Integer])]
         smol = TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..50]::[Integer])]
-      context "(counterexample)" $
-        withApp (Scotty.post "/" $ status status200) $ do
-          it "doesn't throw an uncaught exception if the body is large" $ do
-            request "POST" "/" [("Content-Type","multipart/form-data; boundary=--33")]
-              large `shouldRespondWith` 200
       withApp (Scotty.setMaxRequestBodySize 1 >> Scotty.matchAny "/upload" (do status status200)) $ do
         it "should return 200 OK if the request body size is below 1 KB" $ do
           request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
@@ -114,6 +113,12 @@ spec = do
         it "should return 413 (Content Too Large) if the request body size is above 1 KB" $ do
           request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
             large `shouldRespondWith` 413
+      context "(counterexample)" $
+        withApp (Scotty.post "/" $ status status200) $ do
+          it "doesn't throw an uncaught exception if the body is large" $ do
+            request "POST" "/" [("Content-Type","multipart/form-data; boundary=--33")]
+              large `shouldRespondWith` 200
+
 
   describe "ActionM" $ do
     context "MonadBaseControl instance" $ do
@@ -122,13 +127,27 @@ spec = do
             get "/" `shouldRespondWith` 200
         withApp (Scotty.get "/" $ EL.throwIO E.DivideByZero) $ do
           it "returns 500 on uncaught exceptions" $ do
-            get "/" `shouldRespondWith` "<h1>500 Internal Server Error</h1>divide by zero" {matchStatus = 500}
+            get "/" `shouldRespondWith` "" {matchStatus = 500}
 
-    withApp (Scotty.get "/dictionary" $ empty <|> queryParam "word1" <|> empty <|> queryParam "word2" >>= text) $
-      it "has an Alternative instance" $ do
-        get "/dictionary?word1=haskell"   `shouldRespondWith` "haskell"
-        get "/dictionary?word2=scotty"    `shouldRespondWith` "scotty"
-        get "/dictionary?word1=a&word2=b" `shouldRespondWith` "a"
+    context "Alternative instance" $ do
+      withApp (Scotty.get "/" $ empty >>= text) $
+        it "empty without any route following returns a 404" $
+          get "/" `shouldRespondWith` 404
+      withApp (Scotty.get "/dictionary" $ empty <|> queryParam "word1" >>= text) $
+        it "empty throws Next" $ do
+          get "/dictionary?word1=x" `shouldRespondWith` "x"
+      withApp (Scotty.get "/dictionary" $ queryParam "word1" <|> empty <|> queryParam "word2" >>= text) $
+        it "<|> skips the left route if that fails" $ do
+          get "/dictionary?word2=y" `shouldRespondWith` "y"
+          get "/dictionary?word1=a&word2=b" `shouldRespondWith` "a"
+
+    describe "redirect" $ do
+      withApp (
+        do
+          Scotty.get "/a" $ redirect "/b"
+              ) $ do
+        it "Responds with a 302 Redirect" $ do
+          get "/a" `shouldRespondWith` 302 { matchHeaders = ["Location" <:> "/b"] }
 
     describe "captureParam" $ do
       withApp (
@@ -159,6 +178,12 @@ spec = do
               ) $ do
         it "responds with 500 Server Error if the parameter cannot be found in the capture" $ do
           get "/search/potato" `shouldRespondWith` 500
+      context "recover from missing parameter exception" $ do
+        withApp (Scotty.get "/search/:q" $
+                 (captureParam "z" >>= text) `rescue` (\(_::StatusError) -> text "z")
+                ) $ do
+          it "catches a StatusError" $ do
+            get "/search/xxx" `shouldRespondWith` 200 { matchBody = "z"}
 
     describe "queryParam" $ do
       withApp (Scotty.matchAny "/search" $ queryParam "query" >>= text) $ do
@@ -171,20 +196,29 @@ spec = do
           get "/search?query=42" `shouldRespondWith` 200
         it "responds with 400 Bad Request if the query parameter cannot be parsed at the right type" $ do
           get "/search?query=potato" `shouldRespondWith` 400
+      context "recover from type mismatch parameter exception" $ do
+        withApp (Scotty.get "/search" $
+                 (queryParam "z" >>= (\v -> json (v :: Int))) `rescue` (\(_::StatusError) -> text "z")
+                ) $ do
+          it "catches a StatusError" $ do
+            get "/search?query=potato" `shouldRespondWith` 200 { matchBody = "z"}
 
     describe "formParam" $ do
-      withApp (Scotty.matchAny "/search" $ formParam "query" >>= text) $ do
+      let
+        postForm p bdy = request "POST" p [("Content-Type","application/x-www-form-urlencoded")] bdy
+      withApp (Scotty.post "/search" $ formParam "query" >>= text) $ do
         it "returns form parameter with given name" $ do
-          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=haskell" `shouldRespondWith` "haskell"
+          postForm "/search" "query=haskell" `shouldRespondWith` "haskell"
+
         it "replaces non UTF-8 bytes with Unicode replacement character" $ do
-          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=\xe9" `shouldRespondWith` "\xfffd"
-      withApp (Scotty.matchAny "/search" (do
+          postForm "/search" "query=\xe9" `shouldRespondWith` "\xfffd"
+      withApp (Scotty.post "/search" (do
                                              v <- formParam "query"
                                              json (v :: Int))) $ do
         it "responds with 200 OK if the form parameter can be parsed at the right type" $ do
-          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=42" `shouldRespondWith` 200
+          postForm "/search" "query=42" `shouldRespondWith` 200
         it "responds with 400 Bad Request if the form parameter cannot be parsed at the right type" $ do
-          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=potato" `shouldRespondWith` 400
+          postForm "/search" "query=potato" `shouldRespondWith` 400
 
       withApp (do
                   Scotty.post "/" $ next
@@ -193,7 +227,13 @@ spec = do
                     json p
               ) $ do
         it "preserves the body of a POST request even after 'next' (#147)" $ do
-          request "POST" "/" [("Content-Type","application/x-www-form-urlencoded")] "p=42" `shouldRespondWith` "42"
+          postForm "/" "p=42" `shouldRespondWith` "42"
+      context "recover from type mismatch parameter exception" $ do
+        withApp (Scotty.post "/search" $
+                 (formParam "z" >>= (\v -> json (v :: Int))) `rescue` (\(_::StatusError) -> text "z")
+                ) $ do
+          it "catches a StatusError" $ do
+            postForm "/search" "z=potato" `shouldRespondWith` 200 { matchBody = "z"}
 
 
     describe "text" $ do
@@ -296,7 +336,7 @@ withServer :: ScottyM () -> IO a -> IO a
 withServer actions inner = E.bracket
   (listenOn socketPath)
   (\sock -> close sock >> removeFile socketPath)
-  (\sock -> withAsync (Scotty.scottySocket def sock actions) $ const inner)
+  (\sock -> withAsync (Scotty.scottySocket defaultOptions sock actions) $ const inner)
 
 -- See https://github.com/haskell/network/issues/318
 listenOn :: String -> IO Socket

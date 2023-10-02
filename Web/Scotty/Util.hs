@@ -2,9 +2,6 @@
 module Web.Scotty.Util
     ( lazyTextToStrictByteString
     , strictByteStringToLazyText
-    , setContent
-    , setHeaderWith
-    , setStatus
     , mkResponse
     , replace
     , add
@@ -17,7 +14,8 @@ import Network.Socket (SockAddr(..), Socket, getSocketName, socketPort)
 import Network.Wai
 
 import Control.Monad (when)
-import Control.Exception (throw)
+import qualified Control.Exception as EUnsafe (throw)
+
 
 import Network.HTTP.Types
 
@@ -35,14 +33,7 @@ lazyTextToStrictByteString = ES.encodeUtf8 . TL.toStrict
 strictByteStringToLazyText :: B.ByteString -> TL.Text
 strictByteStringToLazyText = TL.fromStrict . ES.decodeUtf8With ES.lenientDecode
 
-setContent :: Content -> ScottyResponse -> ScottyResponse
-setContent c sr = sr { srContent = c }
 
-setHeaderWith :: ([(HeaderName, B.ByteString)] -> [(HeaderName, B.ByteString)]) -> ScottyResponse -> ScottyResponse
-setHeaderWith f sr = sr { srHeaders = f (srHeaders sr) }
-
-setStatus :: Status -> ScottyResponse -> ScottyResponse
-setStatus s sr = sr { srStatus = s }
 
 -- Note: we currently don't support responseRaw, which may be useful
 -- for websockets. However, we always read the request body, which
@@ -101,5 +92,8 @@ readRequestBody rbody prefix maxSize = do
           readUntilEmpty = do
             b <- rbody
             if B.null b
-              then throw (RequestException (ES.encodeUtf8 . TP.pack $ "Request is too big Jim!") status413)
+              then EUnsafe.throw (RequestException (ES.encodeUtf8 . TP.pack $ "Request is too big Jim!") status413)
               else readUntilEmpty
+
+
+
