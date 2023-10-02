@@ -10,10 +10,10 @@
 
 Breaking:
 
-* (#310) Rewrite `ActionT` as a `ReaderT`-over-`IO` (using the "ReaderT pattern" : https://www.fpcomplete.com/blog/readert-design-pattern/ )
+* (#310) Rewrite `ActionT` using the "ReaderT pattern" : https://www.fpcomplete.com/blog/readert-design-pattern/
 * (#310) Introduce `unliftio-core` as a dependency, and base exception handling on methods copied from `unliftio` e.g. `catch`.
 * (#310) Clarify the exception handling mechanism of ActionT, ScottyT. `raise` and `rescue` change signature to use proper `Exception` types rather than strings.
-* (#310) All ActionT methods (`text`, `html` etc.) have now a MonadIO constraint on the base monad rather than Monad. `rescue` has a MonadUnliftIO constraint. The Alternative instance of ActionT also is based on MonadIO because `next` is implemented in terms of `throw`.
+* (#310) All ActionT methods (`text`, `html` etc.) have now a MonadIO constraint on the base monad rather than Monad because the response is in a TVar inside ActionEnv. `rescue` has a MonadUnliftIO constraint. The Alternative instance of ActionT also is based on MonadUnliftIO because `<|>` is implemented in terms of `catch`.
 * Get rid of data-default-class (#316)
 
 ## 0.12.1 [2022.11.17]
