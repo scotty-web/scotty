@@ -35,6 +35,7 @@ module Web.Scotty
     , Param, Trans.Parsable(..), Trans.readEither
       -- * Types
     , ScottyM, ActionM, RoutePattern, File, Kilobytes, Handler(..)
+    , ScottyState, defaultScottyState
     ) where
 
 -- With the exception of this, everything else better just import types.
@@ -51,7 +52,7 @@ import Network.Socket (Socket)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 
-import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes)
+import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState)
 import Web.Scotty.Exceptions (Handler(..))
 
 type ScottyM = ScottyT IO

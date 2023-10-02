@@ -6,9 +6,7 @@
 module Main (main) where
 
 import Control.Monad
-import Data.Default.Class (def)
 import Data.Functor.Identity
-import Data.Text (Text)
 import Lucid.Base
 import Lucid.Html5
 import Web.Scotty
@@ -25,9 +23,9 @@ main = do
     setColumns [Case,Allocated,GCs,Live,Check,Max,MaxOS]
     setFormat Markdown
     io "ScottyM Strict" BL.putStr
-      (SS.evalState (runS $ renderBST htmlScotty) def)
+      (SS.evalState (runS $ renderBST htmlScotty) defaultScottyState)
     io "ScottyM Lazy" BL.putStr
-      (SL.evalState (runScottyLazy $ renderBST htmlScottyLazy) def)
+      (SL.evalState (runScottyLazy $ renderBST htmlScottyLazy) defaultScottyState)
     io "Identity" BL.putStr
       (runIdentity $ renderBST htmlIdentity)
 
@@ -49,6 +47,6 @@ htmlScottyLazy = htmlTest
 {-# noinline htmlScottyLazy #-}
 
 newtype ScottyLazy a = ScottyLazy
-  { runScottyLazy:: SL.State (ScottyState Text IO) a }
+  { runScottyLazy:: SL.State (ScottyState IO) a }
   deriving (Functor,Applicative,Monad)
 

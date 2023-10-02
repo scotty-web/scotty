@@ -42,6 +42,7 @@ module Web.Scotty.Trans
     , RoutePattern, File, Kilobytes, ErrorHandler, Handler(..)
       -- * Monad Transformers
     , ScottyT, ActionT
+    , ScottyState, defaultScottyState
     ) where
 
 import Blaze.ByteString.Builder (fromByteString)
@@ -58,7 +59,7 @@ import Network.Wai.Handler.Warp (Port, runSettings, runSettingsSocket, setPort, 
 
 import Web.Scotty.Action
 import Web.Scotty.Route
-import Web.Scotty.Internal.Types (ActionT(..), ScottyT(..), defaultScottyState, Application, RoutePattern, Options(..), defaultOptions, RouteOptions(..), defaultRouteOptions, ErrorHandler, Kilobytes, File, addMiddleware, setHandler, updateMaxRequestBodySize, routes, middlewares, ScottyException(..))
+import Web.Scotty.Internal.Types (ActionT(..), ScottyT(..), defaultScottyState, Application, RoutePattern, Options(..), defaultOptions, RouteOptions(..), defaultRouteOptions, ErrorHandler, Kilobytes, File, addMiddleware, setHandler, updateMaxRequestBodySize, routes, middlewares, ScottyException(..), ScottyState, defaultScottyState)
 import Web.Scotty.Util (socketDescription)
 import Web.Scotty.Body (newBodyInfo)
 import Web.Scotty.Exceptions (Handler(..), catches)
@@ -129,7 +130,7 @@ defaultHandler f = ScottyT $ modify $ setHandler $ Just f
 scottyExceptionHandler :: MonadIO m => Handler m W.Response
 scottyExceptionHandler = Handler $ \case
   RequestException ebody s -> do
-    return $ W.responseBuilder s [] (fromByteString ebody)
+    return $ W.responseBuilder s [("Content-Type", "text/plain")] (fromByteString ebody)
 
 
 -- | Use given middleware. Middleware is nested such that the first declared
