@@ -1,9 +1,13 @@
 {-# LANGUAGE OverloadedStrings, GeneralizedNewtypeDeriving, ScopedTypeVariables #-}
+{-# language DeriveAnyClass #-}
+{-# language LambdaCase #-}
 module Main (main) where
 
+import Control.Exception (Exception(..))
 import Control.Monad.IO.Class
 
 import Data.String (fromString)
+import Data.Typeable
 
 import Network.HTTP.Types
 import Network.Wai.Middleware.RequestLogger
@@ -15,25 +19,20 @@ import System.Random
 
 import Web.Scotty.Trans
 
--- Define a custom exception type.
+-- | A custom exception type.
 data Except = Forbidden | NotFound Int | StringEx String
-    deriving (Show, Eq)
+    deriving (Show, Eq, Typeable, Exception)
 
--- The type must be an instance of 'ScottyError'.
--- 'ScottyError' is essentially a combination of 'Error' and 'Show'.
-instance ScottyError Except where
-    stringError = StringEx
-    showError = fromString . show
-
--- Handler for uncaught exceptions.
-handleEx :: Monad m => Except -> ActionT m ()
-handleEx Forbidden    = do
+-- | User-defined exceptions should have an associated Handler:
+handleEx :: MonadIO m => ErrorHandler m
+handleEx = Handler $ \case
+  Forbidden -> do
     status status403
     html "<h1>Scotty Says No</h1>"
-handleEx (NotFound i) = do
+  NotFound i -> do
     status status404
     html $ fromString $ "<h1>Can't find " ++ show i ++ ".</h1>"
-handleEx (StringEx s) = do
+  StringEx s -> do
     status status500
     html $ fromString $ "<h1>" ++ s ++ "</h1>"
 

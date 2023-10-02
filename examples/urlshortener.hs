@@ -1,12 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# language DeriveAnyClass #-}
+{-# language LambdaCase #-}
+-- {-# language ScopedTypeVariables #-}
 module Main (main) where
 
 import Web.Scotty
 
 import Control.Concurrent.MVar
+import Control.Exception (Exception(..))
 import Control.Monad.IO.Class
 import qualified Data.Map as M
 import qualified Data.Text.Lazy as T
+import Data.Typeable (Typeable)
 
 import Network.Wai.Middleware.RequestLogger
 import Network.Wai.Middleware.Static
@@ -26,9 +31,14 @@ import Text.Blaze.Html.Renderer.Text (renderHtml)
 -- Implement some kind of session and/or cookies
 -- Add links
 
+data SessionError = UrlHashNotFound Int deriving (Typeable, Exception)
+instance Show SessionError where
+  show = \case
+    UrlHashNotFound hash -> unwords ["URL hash #", show hash, " not found in database!"]
+
 main :: IO ()
 main = do
-  m <- newMVar (0::Int,M.empty :: M.Map Int T.Text)
+  m <- newMVar (0::Int, M.empty :: M.Map Int T.Text)
   scotty 3000 $ do
     middleware logStdoutDev
     middleware static
@@ -55,7 +65,7 @@ main = do
         hash <- captureParam "hash"
         (_,db) <- liftIO $ readMVar m
         case M.lookup hash db of
-            Nothing -> raise $ mconcat ["URL hash #", T.pack $ show $ hash, " not found in database!"]
+            Nothing -> raise $ UrlHashNotFound hash
             Just url -> redirect url
 
     -- We put /list down here to show that it will not match the '/:hash' route above.

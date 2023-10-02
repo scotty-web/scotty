@@ -38,7 +38,7 @@ module Web.Scotty.Trans
       -- * Parsing Parameters
     , Param, Parsable(..), readEither
       -- * Types
-    , RoutePattern, File, Kilobytes
+    , RoutePattern, File, Kilobytes, ErrorHandler, Handler(..)
       -- * Monad Transformers
     , ScottyT, ActionT
     ) where
@@ -63,6 +63,7 @@ import Web.Scotty.Internal.Types hiding (Application, Middleware)
 import Web.Scotty.Util (socketDescription)
 import qualified Web.Scotty.Internal.Types as Scotty
 import Web.Scotty.Body (newBodyInfo)
+import Web.Scotty.Exceptions (Handler(..))
 
 -- | Run a scotty application using the warp server.
 -- NB: scotty p === scottyT p id

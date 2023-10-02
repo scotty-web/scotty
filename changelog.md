@@ -1,10 +1,16 @@
 ## next [????.??.??]
-* Adds a new `nested` handler that allows you to place an entire WAI Application under a Scotty route
-* Disambiguate request parameters (#204). Adjust the `Env` type to have three [Param] fields instead of one, add `captureParam`, `formParam`, `queryParam` and the associated `captureParams`, `formParams`, `queryParams`. Add deprecation notices to `param` and `params`.
-* Add `Scotty.Cookie` module.
-* Change body parsing behaviour such that calls to 'next' don't result in POST request bodies disappearing (#147).
-* (Internal) Remove unused type RequestBodyState (#313)
+* Drop support for GHC < 8.10 and modernise the CI pipeline (#300).
+* Adds a new `nested` handler that allows you to place an entire WAI Application under a Scotty route (#233).
+* Disambiguate request parameters (#204). Adjust the `Env` type to have three `[Param]` fields instead of one, add `captureParam`, `formParam`, `queryParam` and the associated `captureParams`, `formParams`, `queryParams`. Add deprecation notices to `param` and `params`.
+* Add `Scotty.Cookie` module (#293).
+* Change body parsing behaviour such that calls to `next` don't result in POST request bodies disappearing (#147).
+* (Internal) Remove unused type `RequestBodyState` (#313)
+
+### Breaking:
 * Get rid of data-default-class (#316) https://markkarpov.com/post/data-default.html
+* (#314) Rewrite `ActionT` as a `ReaderT`-over-`IO` (using the "ReaderT pattern" : https://www.fpcomplete.com/blog/readert-design-pattern/ )
+* (#314) Introduce `unliftio-core` as a dependency, and base exception handling on methods copied from `unliftio` e.g. `catch`.
+* (#314) All ActionT methods (`text`, `html` etc.) have now a MonadIO constraint on the base monad rather than Monad. `rescue` has a MonadUnliftIO constraint. The Alternative instance of ActionT also is based on MonadIO because `next` is implemented in terms of `throw`.
 
 ## 0.12.1 [2022.11.17]
 * Fix CPP bug that prevented tests from building on Windows.

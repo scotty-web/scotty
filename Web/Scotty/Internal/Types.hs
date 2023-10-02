@@ -97,7 +97,7 @@ data BodyInfo = BodyInfo { bodyInfoReadProgress :: MVar Int -- ^ index into the 
 data ScottyState m =
     ScottyState { middlewares :: [Wai.Middleware]
                 , routes :: [BodyInfo -> Middleware m]
-                , handler :: Maybe (ErrorHandler m) -- Maybe (AErr -> ActionT m ()) -- ErrorHandler e m
+                , handler :: Maybe (ErrorHandler m)
                 , routeOptions :: RouteOptions
                 }
 
@@ -124,19 +124,22 @@ newtype ScottyT m a = ScottyT { runS :: State (ScottyState m) a }
 
 ------------------ Scotty Errors --------------------
 
+-- | Internal exception mechanism used to modify the request processing flow.
+--
+-- The exception constructor is not exposed to the user and all exceptions of this type are caught
+-- and processed within the 'runAction' function.
 data ActionError
-  = Redirect Text
-  | Next
-  | Finish
-  | StatusError Status Text -- e.g. 422 Unprocessable Entity when JSON body parsing fails
+  = Redirect Text -- ^ Redirect
+  | Next -- ^ Stop processing this route and skip to the next one
+  | Finish -- ^ Stop processing the request
+  | StatusError Status Text -- ^ e.g. 422 Unprocessable Entity when JSON body parsing fails
   deriving (Show, Typeable)
 instance E.Exception ActionError
 
-
-
+-- | Specializes a 'Handler' to the 'ActionT' monad
 type ErrorHandler m = Handler (ActionT m) ()
--- type ErrorHandler e m = Maybe (e -> ActionT e m ())
 
+-- | Thrown e.g. when a request is too large
 data ScottyException = RequestException BS.ByteString Status deriving (Show, Typeable)
 instance E.Exception ScottyException
 
@@ -186,6 +189,7 @@ setHeaderWith f sr = sr { srHeaders = f (srHeaders sr) }
 setStatus :: Status -> ScottyResponse -> ScottyResponse
 setStatus s sr = sr { srStatus = s }
 
+-- | The default response has code 200 OK and empty body
 defaultScottyResponse :: ScottyResponse
 defaultScottyResponse = SR status200 [] (ContentBuilder mempty)
 

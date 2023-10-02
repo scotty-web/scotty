@@ -1,20 +1,28 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# language DeriveAnyClass #-}
+{-# language ScopedTypeVariables #-}
 module Main (main) where
 
 import Web.Scotty
 
 import Network.Wai.Middleware.RequestLogger -- install wai-extra if you don't have this
 
+import Control.Exception (Exception(..))
 import Control.Monad
 import Control.Monad.Trans
 import System.Random (newStdGen, randomRs)
 
 import Network.HTTP.Types (status302)
 
+import Data.Text.Lazy (pack)
 import Data.Text.Lazy.Encoding (decodeUtf8)
 import Data.String (fromString)
+import Data.Typeable (Typeable)
 import Prelude ()
 import Prelude.Compat
+
+data Err = Boom | UserAgentNotFound | NeverReached deriving (Show, Typeable, Exception)
+
 
 main :: IO ()
 main = scotty 3000 $ do
@@ -36,7 +44,7 @@ main = scotty 3000 $ do
         html $ mconcat ["<h1>", v, "</h1>"]
 
     -- An uncaught error becomes a 500 page.
-    get "/raise" $ raise "some error here"
+    get "/raise" $ raise Boom
 
     -- You can set status and headers directly.
     get "/redirect-custom" $ do
@@ -47,12 +55,12 @@ main = scotty 3000 $ do
     -- redirects preempt execution
     get "/redirect" $ do
         void $ redirect "http://www.google.com"
-        raise "this error is never reached"
+        raise NeverReached
 
     -- Of course you can catch your own errors.
     get "/rescue" $ do
-        (do void $ raise "a rescued error"; redirect "http://www.we-never-go-here.com")
-        `rescue` (\m -> text $ "we recovered from " `mappend` aErrText m)
+        (do void $ raise Boom; redirect "http://www.we-never-go-here.com")
+        `rescue` (\(e :: Err) -> text $ "we recovered from " `mappend` pack (show e))
 
     -- Parts of the URL that start with a colon match
     -- any string, and capture that value as a parameter.
@@ -85,13 +93,15 @@ main = scotty 3000 $ do
                        ,"</form>"
                        ]
 
+    -- Read and decode the request body as UTF-8
     post "/readbody" $ do
         b <- body
         text $ decodeUtf8 b
 
+    -- Look up a request header
     get "/header" $ do
         agent <- header "User-Agent"
-        maybe (raise "User-Agent header not found!") text agent
+        maybe (raise UserAgentNotFound) text agent
 
     -- Make a request to this URI, then type a line in the terminal, which
     -- will be the response. Using ctrl-c will cause getLine to fail.

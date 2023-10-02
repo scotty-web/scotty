@@ -148,7 +148,7 @@ finish = Trans.finish
 
 -- | Catch an exception thrown by 'raise'.
 --
--- > raise "just kidding" `rescue` (\msg -> text msg)
+-- > raise JustKidding `rescue` (\msg -> text msg)
 rescue :: E.Exception e => ActionM a -> (e -> ActionM a) -> ActionM a
 rescue = Trans.rescue
 
