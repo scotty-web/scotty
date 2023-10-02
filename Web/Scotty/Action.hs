@@ -6,7 +6,6 @@
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE LambdaCase #-}
 {-# language ScopedTypeVariables #-}
-{-# options_ghc -Wno-unused-imports #-}
 module Web.Scotty.Action
     ( addHeader
     , body
@@ -52,13 +51,10 @@ module Web.Scotty.Action
 import           Blaze.ByteString.Builder   (fromLazyByteString)
 
 import qualified Control.Exception          as E
-import           Control.Monad              (liftM, when)
-import           Control.Monad.Error.Class (throwError, catchError)
+import           Control.Monad              (when)
 import           Control.Monad.IO.Class     (MonadIO(..))
 import UnliftIO (MonadUnliftIO(..))
 import           Control.Monad.Reader       (MonadReader(..), ReaderT(..))
-import qualified Control.Monad.State.Strict as MS
-import           Control.Monad.Trans.Except
 
 import           Control.Concurrent.MVar
 
@@ -68,12 +64,10 @@ import qualified Data.ByteString.Char8      as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive       as CI
 import           Data.Int
-import           Data.String (IsString(..))
 import qualified Data.Text                  as ST
 import qualified Data.Text.Encoding         as STE
 import qualified Data.Text.Lazy             as T
 import           Data.Text.Lazy.Encoding    (encodeUtf8)
-import           Data.Typeable (Typeable)
 import           Data.Word
 
 import           Network.HTTP.Types
@@ -90,7 +84,7 @@ import "base-compat-batteries" Prelude.Compat
 
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, strictByteStringToLazyText)
-import Web.Scotty.Exceptions (Handler(..), catch, catches, catchesOptionally, catchAny, try, tryAny)
+import Web.Scotty.Exceptions (Handler(..), catch, catchesOptionally, tryAny)
 
 import Network.Wai.Internal (ResponseReceived(..))
 

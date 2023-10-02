@@ -1,5 +1,4 @@
 {-# LANGUAGE LambdaCase #-}
-{-# options_ghc -Wno-unused-imports #-}
 module Web.Scotty.Util
     ( lazyTextToStrictByteString
     , strictByteStringToLazyText
@@ -15,10 +14,7 @@ import Network.Socket (SockAddr(..), Socket, getSocketName, socketPort)
 import Network.Wai
 
 import Control.Monad (when)
-import           Control.Monad.IO.Class (MonadIO(..))
-import UnliftIO (MonadUnliftIO(..))
-import Control.Exception (Exception (..), SomeException (..), IOException, SomeAsyncException (..))
-import qualified Control.Exception as EUnsafe (fromException, throw, throwIO, catch)
+import qualified Control.Exception as EUnsafe (throw)
 
 
 import Network.HTTP.Types

@@ -10,29 +10,23 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# options_ghc -Wno-unused-imports #-}
 module Web.Scotty.Internal.Types where
 
 import           Blaze.ByteString.Builder (Builder)
 
 import           Control.Applicative
 import Control.Concurrent.MVar
-import Control.Concurrent.STM (STM, TVar, atomically, newTVarIO, readTVarIO, readTVar, writeTVar, modifyTVar')
+import Control.Concurrent.STM (TVar, atomically, readTVarIO, modifyTVar')
 import qualified Control.Exception as E
-import qualified Control.Monad as Monad
 import           Control.Monad (MonadPlus(..))
-import           Control.Monad.Base (MonadBase, liftBase, liftBaseDefault)
+import           Control.Monad.Base (MonadBase)
 import           Control.Monad.Catch (MonadCatch, MonadThrow)
-import           Control.Monad.Error.Class
-import qualified Control.Monad.Fail as Fail
 import           Control.Monad.IO.Class (MonadIO(..))
 import UnliftIO (MonadUnliftIO(..))
-import           Control.Monad.Reader (MonadReader(..), ReaderT, mapReaderT, asks)
-import           Control.Monad.State.Strict (MonadState(..), State, StateT(..), mapStateT, execState)
+import           Control.Monad.Reader (MonadReader(..), ReaderT, asks)
+import           Control.Monad.State.Strict (State, StateT(..))
 import           Control.Monad.Trans.Class (MonadTrans(..))
-import           Control.Monad.Trans.Control (MonadBaseControl, StM, liftBaseWith, restoreM, ComposeSt, defaultLiftBaseWith, defaultRestoreM, MonadTransControl, StT, liftWith, restoreT)
-import           Control.Monad.Trans.Except
-
+import           Control.Monad.Trans.Control (MonadBaseControl, MonadTransControl)
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS8 (ByteString)
