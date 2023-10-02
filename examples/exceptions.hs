@@ -53,12 +53,12 @@ main = scottyT 3000 id $ do -- note, we aren't using any additional transformer 
 
     get "/switch/:val" $ do
         v <- captureParam "val"
-        _ <- if even v then raise Forbidden else raise (NotFound v)
+        _ <- if even v then throw Forbidden else throw (NotFound v)
         text "this will never be reached"
 
     get "/random" $ do
         rBool <- liftIO randomIO
         i <- liftIO randomIO
         let catchOne Forbidden = html "<h1>Forbidden was randomly thrown, but we caught it."
-            catchOne other     = raise other
-        raise (if rBool then Forbidden else NotFound i) `rescue` catchOne
+            catchOne other     = throw other
+        throw (if rBool then Forbidden else NotFound i) `rescue` catchOne

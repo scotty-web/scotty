@@ -27,7 +27,7 @@ import           Control.Monad.Catch (MonadCatch, MonadThrow)
 import           Control.Monad.Error.Class
 import qualified Control.Monad.Fail as Fail
 import           Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.IO.Unlift (MonadUnliftIO(..))
+import UnliftIO (MonadUnliftIO(..))
 import           Control.Monad.Reader (MonadReader(..), ReaderT, mapReaderT, asks)
 import           Control.Monad.State.Strict (MonadState(..), State, StateT(..), mapStateT, execState)
 import           Control.Monad.Trans.Class (MonadTrans(..))

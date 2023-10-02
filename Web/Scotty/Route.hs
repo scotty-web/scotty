@@ -9,7 +9,7 @@ module Web.Scotty.Route
 import           Control.Arrow ((***))
 import Control.Concurrent.STM (newTVarIO)
 import           Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.IO.Unlift (MonadUnliftIO(..))
+import UnliftIO (MonadUnliftIO(..))
 import qualified Control.Monad.State as MS
 
 import qualified Data.ByteString.Char8 as B

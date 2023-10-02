@@ -32,6 +32,7 @@ module Web.Scotty.Action
     , queryParams
     , raise
     , raiseStatus
+    , throw
     , raw
     , nested
     , readEither
@@ -54,7 +55,7 @@ import qualified Control.Exception          as E
 import           Control.Monad              (liftM, when)
 import           Control.Monad.Error.Class (throwError, catchError)
 import           Control.Monad.IO.Class     (MonadIO(..))
-import Control.Monad.IO.Unlift (MonadUnliftIO(..))
+import UnliftIO (MonadUnliftIO(..))
 import           Control.Monad.Reader       (MonadReader(..), ReaderT(..))
 import qualified Control.Monad.State.Strict as MS
 import           Control.Monad.Trans.Except
@@ -133,15 +134,20 @@ someExceptionHandler = Handler $ \case
   (_ :: E.SomeException) -> status status500
 
 
--- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
+-- | Throw a "500 Server Error" 'StatusError', which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
-raise :: (MonadIO m, E.Exception e) => e -> ActionT m a
-raise = E.throw
+raise :: (MonadIO m) =>
+         T.Text -- ^ Error text
+      -> ActionT m a
+raise  = raiseStatus status500
 
--- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions turn into HTTP responses corresponding to the given status.
-raiseStatus :: (Monad m) => Status -> T.Text -> ActionT m a
+-- | Throw an exception that has an associated HTTP error code. Uncaught exceptions turn into HTTP responses corresponding to the given status.
+raiseStatus :: Monad m => Status -> T.Text -> ActionT m a
 raiseStatus s = E.throw . StatusError s
 
+-- | Throw an exception. A user-defined 'Handler' will then have to define its interpretation and a translation to HTTP error codes.
+throw :: (MonadIO m, E.Exception e) => e -> ActionT m a
+throw = E.throw
 
 -- | Abort execution of this action and continue pattern matching routes.
 -- Like an exception, any code after 'next' is not executed.
@@ -150,17 +156,17 @@ raiseStatus s = E.throw . StatusError s
 -- ever run is if the first one calls 'next'.
 --
 -- > get "/foo/:bar" $ do
--- >   w :: Text <- param "bar"
+-- >   w :: Text <- captureParam "bar"
 -- >   unless (w == "special") next
 -- >   text "You made a request to /foo/special"
 -- >
 -- > get "/foo/:baz" $ do
 -- >   w <- captureParam "baz"
 -- >   text $ "You made a request to: " <> w
-next :: (Monad m) => ActionT m a
+next :: Monad m => ActionT m a
 next = E.throw Next
 
--- | Catch an exception thrown by 'raise'.
+-- | Catch an exception.
 --
 -- > raise JustKidding `rescue` (\msg -> text msg)
 rescue :: (MonadUnliftIO m, E.Exception e) => ActionT m a -> (e -> ActionT m a) -> ActionT m a

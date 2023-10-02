@@ -86,7 +86,7 @@ spec = do
       withApp (do
                   let h = Handler (\(e :: E.ArithException) -> status status500 >> text (TL.pack $ show e))
                   defaultHandler h
-                  Scotty.get "/" (raise E.DivideByZero)) $ do
+                  Scotty.get "/" (throw E.DivideByZero)) $ do
         it "sets custom exception handler" $ do
           get "/" `shouldRespondWith` "divide by zero" {matchStatus = 500}
       withApp (do
@@ -97,7 +97,7 @@ spec = do
           get "/" `shouldRespondWith` "" {matchStatus = 503}
 
       context "when not specified" $ do
-        withApp (Scotty.get "/" $ raise E.DivideByZero) $ do
+        withApp (Scotty.get "/" $ throw E.DivideByZero) $ do
           it "returns 500 on exceptions" $ do
             get "/" `shouldRespondWith` "" {matchStatus = 500}
 

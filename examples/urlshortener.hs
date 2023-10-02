@@ -65,7 +65,7 @@ main = do
         hash <- captureParam "hash"
         (_,db) <- liftIO $ readMVar m
         case M.lookup hash db of
-            Nothing -> raise $ UrlHashNotFound hash
+            Nothing -> throw $ UrlHashNotFound hash
             Just url -> redirect url
 
     -- We put /list down here to show that it will not match the '/:hash' route above.

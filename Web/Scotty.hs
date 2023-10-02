@@ -30,7 +30,7 @@ module Web.Scotty
       -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json, stream, raw
       -- ** Exceptions
-    , raise, raiseStatus, rescue, next, finish, defaultHandler, liftAndCatchIO
+    , raise, raiseStatus, throw, rescue, next, finish, defaultHandler, liftAndCatchIO
       -- * Parsing Parameters
     , Param, Trans.Parsable(..), Trans.readEither
       -- * Types
@@ -106,14 +106,18 @@ nested = Trans.nested
 setMaxRequestBodySize :: Kilobytes -> ScottyM ()
 setMaxRequestBodySize = Trans.setMaxRequestBodySize
 
--- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
+-- | Throw a "500 Server Error" 'StatusError', which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
-raise :: E.Exception e => e -> ActionM a
+raise :: Text -> ActionM a
 raise = Trans.raise
 
--- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions turn into HTTP responses corresponding to the given status.
+-- | Throw an exception that has an associated HTTP error code. Uncaught exceptions turn into HTTP responses corresponding to the given status.
 raiseStatus :: Status -> Text -> ActionM a
 raiseStatus = Trans.raiseStatus
+
+-- | Throw an exception. A user-defined 'Handler' will then have to define its interpretation and a translation to HTTP error codes.
+throw :: (E.Exception e) => e -> ActionM a
+throw = Trans.throw
 
 -- | Abort execution of this action and continue pattern matching routes.
 -- Like an exception, any code after 'next' is not executed.

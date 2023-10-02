@@ -44,7 +44,7 @@ main = scotty 3000 $ do
         html $ mconcat ["<h1>", v, "</h1>"]
 
     -- An uncaught error becomes a 500 page.
-    get "/raise" $ raise Boom
+    get "/raise" $ throw Boom
 
     -- You can set status and headers directly.
     get "/redirect-custom" $ do
@@ -55,11 +55,11 @@ main = scotty 3000 $ do
     -- redirects preempt execution
     get "/redirect" $ do
         void $ redirect "http://www.google.com"
-        raise NeverReached
+        throw NeverReached
 
     -- Of course you can catch your own errors.
     get "/rescue" $ do
-        (do void $ raise Boom; redirect "http://www.we-never-go-here.com")
+        (do void $ throw Boom; redirect "http://www.we-never-go-here.com")
         `rescue` (\(e :: Err) -> text $ "we recovered from " `mappend` pack (show e))
 
     -- Parts of the URL that start with a colon match
@@ -101,7 +101,7 @@ main = scotty 3000 $ do
     -- Look up a request header
     get "/header" $ do
         agent <- header "User-Agent"
-        maybe (raise UserAgentNotFound) text agent
+        maybe (throw UserAgentNotFound) text agent
 
     -- Make a request to this URI, then type a line in the terminal, which
     -- will be the response. Using ctrl-c will cause getLine to fail.

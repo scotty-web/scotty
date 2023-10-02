@@ -16,7 +16,7 @@ import Network.Wai
 
 import Control.Monad (when)
 import           Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.IO.Unlift (MonadUnliftIO(..))
+import UnliftIO (MonadUnliftIO(..))
 import Control.Exception (Exception (..), SomeException (..), IOException, SomeAsyncException (..))
 import qualified Control.Exception as EUnsafe (fromException, throw, throwIO, catch)
 
