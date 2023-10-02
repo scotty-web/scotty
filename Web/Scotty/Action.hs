@@ -133,19 +133,25 @@ someExceptionHandler :: MonadIO m => ErrorHandler m
 someExceptionHandler = Handler $ \case
   (_ :: E.SomeException) -> status status500
 
-
 -- | Throw a "500 Server Error" 'StatusError', which can be caught with 'rescue'.
+--
 -- Uncaught exceptions turn into HTTP 500 responses.
 raise :: (MonadIO m) =>
          T.Text -- ^ Error text
       -> ActionT m a
 raise  = raiseStatus status500
 
--- | Throw a 'StatusError' exception that has an associated HTTP error code and can be caught with 'rescue'. Uncaught exceptions turn into HTTP responses corresponding to the given status.
+-- | Throw a 'StatusError' exception that has an associated HTTP error code and can be caught with 'rescue'.
+--
+-- Uncaught exceptions turn into HTTP responses corresponding to the given status.
 raiseStatus :: Monad m => Status -> T.Text -> ActionT m a
 raiseStatus s = E.throw . StatusError s
 
--- | Throw an exception. A user-defined 'Handler' will then have to define its interpretation and a translation to HTTP error codes.
+-- | Throw an exception which can be caught within the scope of the current Action with 'rescue' or 'catch'.
+--
+-- If the exception is not caught locally, another option is to implement a global 'Handler' (with 'defaultHandler') that defines its interpretation and a translation to HTTP error codes.
+--
+-- Uncaught exceptions turn into HTTP 500 responses.
 throw :: (MonadIO m, E.Exception e) => e -> ActionT m a
 throw = E.throw
 
