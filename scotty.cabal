@@ -7,7 +7,7 @@ License:             BSD3
 License-file:        LICENSE
 Author:              Andrew Farmer <xichekolas@gmail.com>
 Maintainer:          The Scotty maintainers
-Copyright:           (c) 2012-Present Andrew Farmer and the Scotty maintainers
+Copyright:           (c) 2012-Present, Andrew Farmer and the Scotty contributors
 Category:            Web
 Stability:           experimental
 Build-type:          Simple
@@ -19,8 +19,6 @@ Description:
     &#123;-&#35; LANGUAGE OverloadedStrings &#35;-&#125;
     .
     import Web.Scotty
-    .
-    import Data.Monoid (mconcat)
     .
     main = scotty 3000 $
     &#32;&#32;get &#34;/:word&#34; $ do
