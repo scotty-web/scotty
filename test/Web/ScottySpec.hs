@@ -147,7 +147,7 @@ spec = do
           Scotty.get "/a" $ redirect "/b"
               ) $ do
         it "Responds with a 302 Redirect" $ do
-          get "/a" `shouldRespondWith` 302
+          get "/a" `shouldRespondWith` 302 { matchHeaders = ["Location" <:> "/b"] }
 
     describe "captureParam" $ do
       withApp (
@@ -178,6 +178,12 @@ spec = do
               ) $ do
         it "responds with 500 Server Error if the parameter cannot be found in the capture" $ do
           get "/search/potato" `shouldRespondWith` 500
+      context "recover from missing parameter exception" $ do
+        withApp (Scotty.get "/search/:q" $
+                 (captureParam "z" >>= text) `rescue` (\(_::StatusError) -> text "z")
+                ) $ do
+          it "catches a StatusError" $ do
+            get "/search/xxx" `shouldRespondWith` 200 { matchBody = "z"}
 
     describe "queryParam" $ do
       withApp (Scotty.matchAny "/search" $ queryParam "query" >>= text) $ do
@@ -190,20 +196,29 @@ spec = do
           get "/search?query=42" `shouldRespondWith` 200
         it "responds with 400 Bad Request if the query parameter cannot be parsed at the right type" $ do
           get "/search?query=potato" `shouldRespondWith` 400
+      context "recover from type mismatch parameter exception" $ do
+        withApp (Scotty.get "/search" $
+                 (queryParam "z" >>= (\v -> json (v :: Int))) `rescue` (\(_::StatusError) -> text "z")
+                ) $ do
+          it "catches a StatusError" $ do
+            get "/search?query=potato" `shouldRespondWith` 200 { matchBody = "z"}
 
     describe "formParam" $ do
-      withApp (Scotty.matchAny "/search" $ formParam "query" >>= text) $ do
+      let
+        postForm p bdy = request "POST" p [("Content-Type","application/x-www-form-urlencoded")] bdy
+      withApp (Scotty.post "/search" $ formParam "query" >>= text) $ do
         it "returns form parameter with given name" $ do
-          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=haskell" `shouldRespondWith` "haskell"
+          postForm "/search" "query=haskell" `shouldRespondWith` "haskell"
+
         it "replaces non UTF-8 bytes with Unicode replacement character" $ do
-          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=\xe9" `shouldRespondWith` "\xfffd"
-      withApp (Scotty.matchAny "/search" (do
+          postForm "/search" "query=\xe9" `shouldRespondWith` "\xfffd"
+      withApp (Scotty.post "/search" (do
                                              v <- formParam "query"
                                              json (v :: Int))) $ do
         it "responds with 200 OK if the form parameter can be parsed at the right type" $ do
-          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=42" `shouldRespondWith` 200
+          postForm "/search" "query=42" `shouldRespondWith` 200
         it "responds with 400 Bad Request if the form parameter cannot be parsed at the right type" $ do
-          request "POST" "/search" [("Content-Type","application/x-www-form-urlencoded")] "query=potato" `shouldRespondWith` 400
+          postForm "/search" "query=potato" `shouldRespondWith` 400
 
       withApp (do
                   Scotty.post "/" $ next
@@ -212,7 +227,13 @@ spec = do
                     json p
               ) $ do
         it "preserves the body of a POST request even after 'next' (#147)" $ do
-          request "POST" "/" [("Content-Type","application/x-www-form-urlencoded")] "p=42" `shouldRespondWith` "42"
+          postForm "/" "p=42" `shouldRespondWith` "42"
+      context "recover from type mismatch parameter exception" $ do
+        withApp (Scotty.post "/search" $
+                 (formParam "z" >>= (\v -> json (v :: Int))) `rescue` (\(_::StatusError) -> text "z")
+                ) $ do
+          it "catches a StatusError" $ do
+            postForm "/search" "z=potato" `shouldRespondWith` 200 { matchBody = "z"}
 
 
     describe "text" $ do
