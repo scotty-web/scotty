@@ -13,9 +13,7 @@ import Control.Concurrent.STM
 import Control.Monad.IO.Unlift (MonadUnliftIO(..))
 import Control.Monad.Reader
 
-import Data.Default.Class
 import Data.String
-import Data.Text.Lazy (Text)
 
 import Network.Wai.Middleware.RequestLogger
 
@@ -26,8 +24,8 @@ import Web.Scotty.Trans
 
 newtype AppState = AppState { tickCount :: Int }
 
-instance Default AppState where
-    def = AppState 0
+defaultAppState :: AppState
+defaultAppState = AppState 0
 
 -- Why 'ReaderT (TVar AppState)' rather than 'StateT AppState'?
 -- With a state transformer, 'runActionToIO' (below) would have
@@ -57,7 +55,7 @@ modify f = ask >>= liftIO . atomically . flip modifyTVar' f
 
 main :: IO ()
 main = do
-    sync <- newTVarIO def
+    sync <- newTVarIO defaultAppState
         -- 'runActionToIO' is called once per action.
     let runActionToIO m = runReaderT (runWebM m) sync
 

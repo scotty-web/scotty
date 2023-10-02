@@ -37,7 +37,7 @@ main = scotty 3000 $ do
     get "/" $ text "foobar"
     get "/" $ text "barfoo"
 
-    -- Using a parameter in the query string. If it has
+    -- Using a parameter in the query string. Since it has
     -- not been given, a 500 page is generated.
     get "/foo" $ do
         v <- captureParam "fooparam"
@@ -72,7 +72,7 @@ main = scotty 3000 $ do
     -- Files are streamed directly to the client.
     get "/404" $ file "404.html"
 
-    -- You can stop execution of this action and keep pattern matching routes.
+    -- 'next' stops execution of the current action and keeps pattern matching routes.
     get "/random" $ do
         void next
         redirect "http://www.we-never-go-here.com"
@@ -106,6 +106,8 @@ main = scotty 3000 $ do
     -- Make a request to this URI, then type a line in the terminal, which
     -- will be the response. Using ctrl-c will cause getLine to fail.
     -- This demonstrates that IO exceptions are lifted into ActionM exceptions.
+    --
+    -- (#310) we don't catch async exceptions, so ctrl-c just exits the program
     get "/iofail" $ do
         msg <- liftIO $ liftM fromString getLine
         text msg

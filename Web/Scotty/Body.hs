@@ -20,7 +20,7 @@ import           Network.Wai (Request(..), getRequestBodyChunk)
 import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, BackEnd, lbsBackEnd, sinkRequestBody)
 import           Web.Scotty.Action
 import           Web.Scotty.Internal.Types (BodyInfo(..), BodyChunkBuffer(..), BodyPartiallyStreamed(..), RouteOptions(..))
-import           Web.Scotty.Util
+import           Web.Scotty.Util (readRequestBody, strictByteStringToLazyText)
 
 -- | Make a new BodyInfo with readProgress at 0 and an empty BodyChunkBuffer.
 newBodyInfo :: (MonadIO m) => Request -> m BodyInfo

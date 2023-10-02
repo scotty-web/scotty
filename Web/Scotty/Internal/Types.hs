@@ -29,7 +29,7 @@ import qualified Control.Monad.Fail as Fail
 import           Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.IO.Unlift (MonadUnliftIO(..))
 import           Control.Monad.Reader (MonadReader(..), ReaderT, mapReaderT, asks)
-import           Control.Monad.State.Strict (MonadState(..), State, StateT, mapStateT)
+import           Control.Monad.State.Strict (MonadState(..), State, StateT(..), mapStateT, execState)
 import           Control.Monad.Trans.Class (MonadTrans(..))
 import           Control.Monad.Trans.Control (MonadBaseControl, StM, liftBaseWith, restoreM, ComposeSt, defaultLiftBaseWith, defaultRestoreM, MonadTransControl, StT, liftWith, restoreT)
 import           Control.Monad.Trans.Except
@@ -49,7 +49,7 @@ import qualified Network.Wai as Wai
 import           Network.Wai.Handler.Warp (Settings, defaultSettings)
 import           Network.Wai.Parse (FileInfo)
 
-import Web.Scotty.Exceptions (Handler, tryAny)
+import Web.Scotty.Exceptions (Handler, catch)
 
 import           Prelude ()
 import "base-compat-batteries" Prelude.Compat
@@ -136,6 +136,14 @@ data ActionError
   deriving (Show, Typeable)
 instance E.Exception ActionError
 
+tryNext :: MonadUnliftIO m => m a -> m Bool
+tryNext io = catch (io >> pure True) $ \e ->
+  case e of
+    Next -> pure False
+    _ -> pure True
+
+
+
 -- | Specializes a 'Handler' to the 'ActionT' monad
 type ErrorHandler m = Handler (ActionT m) ()
 
@@ -199,10 +207,15 @@ newtype ActionT m a = ActionT { runAM :: ReaderT ActionEnv m a }
 instance (MonadUnliftIO m) => Alternative (ActionT m) where
   empty = E.throw Next
   a <|> b = do
-    e <- tryAny a
-    case e of
-      Left _ -> b
-      Right ra -> pure ra
+    ok <- tryActionError a
+    if ok then a else b
+instance (MonadUnliftIO m) => MonadPlus (ActionT m) where
+  mzero = empty
+  mplus = (<|>)
+
+-- | an ActionError is thrown if e.g. a query parameter is not found, or 'next' is called
+tryActionError :: MonadUnliftIO m => m a -> m Bool
+tryActionError io = catch (io >> pure True) (\(_ :: ActionError) -> pure False)
 
 instance (Semigroup a) => Semigroup (ScottyT m a) where
   x <> y = (<>) <$> x <*> y

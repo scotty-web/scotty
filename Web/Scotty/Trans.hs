@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings, RankNTypes #-}
+{-# language LambdaCase #-}
 -- | It should be noted that most of the code snippets below depend on the
 -- OverloadedStrings language pragma.
 --
@@ -11,7 +12,7 @@
 -- the comments on each of these functions for more information.
 module Web.Scotty.Trans
     ( -- * scotty-to-WAI
-      scottyT, scottyAppT, scottyOptsT, scottySocketT, Options(..), Scotty.defaultOptions
+      scottyT, scottyAppT, scottyOptsT, scottySocketT, Options(..), defaultOptions
       -- * Defining Middleware and Routes
       --
       -- | 'Middleware' and routes are run in the order in which they
@@ -50,26 +51,23 @@ import Control.Monad (when)
 import Control.Monad.State.Strict (execState, modify)
 import Control.Monad.IO.Class
 
--- import Data.Default.Class (def)
-
-import Network.HTTP.Types (status404, status500)
+import Network.HTTP.Types (status404)
 import Network.Socket (Socket)
-import Network.Wai
+import qualified Network.Wai as W (Application, Middleware, Response, responseBuilder)
 import Network.Wai.Handler.Warp (Port, runSettings, runSettingsSocket, setPort, getPort)
 
 import Web.Scotty.Action
 import Web.Scotty.Route
-import Web.Scotty.Internal.Types hiding (Application, Middleware)
+import Web.Scotty.Internal.Types (ActionT(..), ScottyT(..), defaultScottyState, Application, RoutePattern, Options(..), defaultOptions, RouteOptions(..), defaultRouteOptions, ErrorHandler, Kilobytes, File, addMiddleware, setHandler, updateMaxRequestBodySize, routes, middlewares, ScottyException(..))
 import Web.Scotty.Util (socketDescription)
-import qualified Web.Scotty.Internal.Types as Scotty
 import Web.Scotty.Body (newBodyInfo)
-import Web.Scotty.Exceptions (Handler(..))
+import Web.Scotty.Exceptions (Handler(..), catches)
 
 -- | Run a scotty application using the warp server.
 -- NB: scotty p === scottyT p id
 scottyT :: (Monad m, MonadIO n)
         => Port
-        -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
+        -> (m W.Response -> IO W.Response) -- ^ Run monad 'm' into 'IO', called at each action.
         -> ScottyT m ()
         -> n ()
 scottyT p = scottyOptsT $ defaultOptions { settings = setPort p (settings defaultOptions) }
@@ -78,7 +76,7 @@ scottyT p = scottyOptsT $ defaultOptions { settings = setPort p (settings defaul
 -- NB: scottyOpts opts === scottyOptsT opts id
 scottyOptsT :: (Monad m, MonadIO n)
             => Options
-            -> (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
+            -> (m W.Response -> IO W.Response) -- ^ Run monad 'm' into 'IO', called at each action.
             -> ScottyT m ()
             -> n ()
 scottyOptsT opts runActionToIO s = do
@@ -92,7 +90,7 @@ scottyOptsT opts runActionToIO s = do
 scottySocketT :: (Monad m, MonadIO n)
               => Options
               -> Socket
-              -> (m Response -> IO Response)
+              -> (m W.Response -> IO W.Response)
               -> ScottyT m ()
               -> n ()
 scottySocketT opts sock runActionToIO s = do
@@ -105,35 +103,44 @@ scottySocketT opts sock runActionToIO s = do
 -- run with any WAI handler.
 -- NB: scottyApp === scottyAppT id
 scottyAppT :: (Monad m, Monad n)
-           => (m Response -> IO Response) -- ^ Run monad 'm' into 'IO', called at each action.
+           => (m W.Response -> IO W.Response) -- ^ Run monad 'm' into 'IO', called at each action.
            -> ScottyT m ()
-           -> n Application
+           -> n W.Application
 scottyAppT runActionToIO defs = do
     let s = execState (runS defs) defaultScottyState
     let rapp req callback = do
           bodyInfo <- newBodyInfo req
-          runActionToIO (applyAll notFoundApp ([midd bodyInfo | midd <- routes s]) req) >>= callback
+          resp <- runActionToIO (applyAll notFoundApp ([midd bodyInfo | midd <- routes s]) req) `catches` [scottyExceptionHandler]
+          callback resp
     return $ applyAll rapp (middlewares s)
 
 applyAll :: Foldable t => a -> t (a -> a) -> a
 applyAll = foldl (flip ($))
 
-notFoundApp :: Monad m => Scotty.Application m
-notFoundApp _ = return $ responseBuilder status404 [("Content-Type","text/html")]
+notFoundApp :: Monad m => Application m
+notFoundApp _ = return $ W.responseBuilder status404 [("Content-Type","text/html")]
                        $ fromByteString "<h1>404: File Not Found!</h1>"
 
 -- | Global handler for user-defined exceptions.
-defaultHandler :: (Monad m) => (ErrorHandler m) -> ScottyT m ()
+defaultHandler :: (Monad m) => ErrorHandler m -> ScottyT m ()
 defaultHandler f = ScottyT $ modify $ setHandler $ Just f
+
+-- | Exception handler in charge of 'ScottyException'
+scottyExceptionHandler :: MonadIO m => Handler m W.Response
+scottyExceptionHandler = Handler $ \case
+  RequestException ebody s -> do
+    return $ W.responseBuilder s [] (fromByteString ebody)
+
 
 -- | Use given middleware. Middleware is nested such that the first declared
 -- is the outermost middleware (it has first dibs on the request and last action
 -- on the response). Every middleware is run on each request.
-middleware :: Middleware -> ScottyT m ()
+middleware :: W.Middleware -> ScottyT m ()
 middleware = ScottyT . modify . addMiddleware
 
 -- | Set global size limit for the request body. Requests with body size exceeding the limit will not be
 -- processed and an HTTP response 413 will be returned to the client. Size limit needs to be greater than 0, 
--- otherwise the application will terminate on start. 
-setMaxRequestBodySize :: Kilobytes -> ScottyT m ()
-setMaxRequestBodySize i = assert (i > 0) $ ScottyT . modify . updateMaxRequestBodySize $ defaultRouteOptions { maxRequestBodySize = Just i } 
+-- otherwise the application will terminate on start.
+setMaxRequestBodySize :: Kilobytes -- ^ Request size limit
+                      -> ScottyT m ()
+setMaxRequestBodySize i = assert (i > 0) $ ScottyT . modify . updateMaxRequestBodySize $ defaultRouteOptions { maxRequestBodySize = Just i }

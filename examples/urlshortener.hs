@@ -28,7 +28,7 @@ import Text.Blaze.Html5.Attributes
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 
 -- TODO:
--- Implement some kind of session and/or cookies
+-- Implement some kind of session (#317) and/or cookies
 -- Add links
 
 data SessionError = UrlHashNotFound Int deriving (Typeable, Exception)

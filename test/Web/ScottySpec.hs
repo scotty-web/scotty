@@ -5,7 +5,6 @@ import           Test.Hspec
 import           Test.Hspec.Wai
 
 import           Control.Applicative
-import qualified Control.Exception as E
 import           Control.Monad
 import           Data.Char
 import           Data.String
@@ -85,33 +84,28 @@ spec = do
 
     describe "defaultHandler" $ do
       withApp (do
-                  let h = Handler (\(e :: E.ArithException) -> text (TL.pack $ show e))
+                  let h = Handler (\(e :: E.ArithException) -> status status500 >> text (TL.pack $ show e))
                   defaultHandler h
-                  Scotty.get "/" (liftAndCatchIO $ E.throwIO E.DivideByZero)) $ do
+                  Scotty.get "/" (raise E.DivideByZero)) $ do
         it "sets custom exception handler" $ do
           get "/" `shouldRespondWith` "divide by zero" {matchStatus = 500}
       withApp (do
-                  let h = Handler (\(e :: E.ArithException) -> status status503)
+                  let h = Handler (\(_ :: E.ArithException) -> status status503)
                   defaultHandler h
                   Scotty.get "/" (liftAndCatchIO $ E.throwIO E.DivideByZero)) $ do
         it "allows to customize the HTTP status code" $ do
           get "/" `shouldRespondWith` "" {matchStatus = 503}
 
       context "when not specified" $ do
-        withApp (Scotty.get "/" $ liftAndCatchIO $ E.throwIO E.DivideByZero) $ do
+        withApp (Scotty.get "/" $ raise E.DivideByZero) $ do
           it "returns 500 on exceptions" $ do
-            get "/" `shouldRespondWith` "<h1>500 Internal Server Error</h1>divide by zero" {matchStatus = 500}
+            get "/" `shouldRespondWith` "" {matchStatus = 500}
 
 
     describe "setMaxRequestBodySize" $ do
       let
         large = TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..4500]::[Integer])]
         smol = TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..50]::[Integer])]
-      context "(counterexample)" $
-        withApp (Scotty.post "/" $ status status200) $ do
-          it "doesn't throw an uncaught exception if the body is large" $ do
-            request "POST" "/" [("Content-Type","multipart/form-data; boundary=--33")]
-              large `shouldRespondWith` 200
       withApp (Scotty.setMaxRequestBodySize 1 >> Scotty.matchAny "/upload" (do status status200)) $ do
         it "should return 200 OK if the request body size is below 1 KB" $ do
           request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
@@ -119,6 +113,12 @@ spec = do
         it "should return 413 (Content Too Large) if the request body size is above 1 KB" $ do
           request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
             large `shouldRespondWith` 413
+      context "(counterexample)" $
+        withApp (Scotty.post "/" $ status status200) $ do
+          it "doesn't throw an uncaught exception if the body is large" $ do
+            request "POST" "/" [("Content-Type","multipart/form-data; boundary=--33")]
+              large `shouldRespondWith` 200
+
 
   describe "ActionM" $ do
     context "MonadBaseControl instance" $ do
@@ -127,13 +127,16 @@ spec = do
             get "/" `shouldRespondWith` 200
         withApp (Scotty.get "/" $ EL.throwIO E.DivideByZero) $ do
           it "returns 500 on uncaught exceptions" $ do
-            get "/" `shouldRespondWith` "<h1>500 Internal Server Error</h1>divide by zero" {matchStatus = 500}
+            get "/" `shouldRespondWith` "" {matchStatus = 500}
 
-    withApp (Scotty.get "/dictionary" $ empty <|> queryParam "word1" <|> empty <|> queryParam "word2" >>= text) $
-      it "has an Alternative instance" $ do
-        get "/dictionary?word1=haskell"   `shouldRespondWith` "haskell"
-        get "/dictionary?word2=scotty"    `shouldRespondWith` "scotty"
-        get "/dictionary?word1=a&word2=b" `shouldRespondWith` "a"
+    context "Alternative instance" $ do
+      withApp (Scotty.get "/dictionary" $ empty <|> queryParam "word1" >>= text) $
+        it "empty throws Next" $ do
+          get "/dictionary?word1=x" `shouldRespondWith` "x"
+      withApp (Scotty.get "/dictionary" $ queryParam "word1" <|> empty <|> queryParam "word2" >>= text) $
+        it "<|> skips the left route if that fails" $ do
+          get "/dictionary?word2=y" `shouldRespondWith` "y"
+          get "/dictionary?word1=a&word2=b" `shouldRespondWith` "a"
 
     describe "captureParam" $ do
       withApp (

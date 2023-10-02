@@ -7,7 +7,7 @@ module Web.Scotty.Route
     ) where
 
 import           Control.Arrow ((***))
-import Control.Concurrent.STM (STM, TVar, atomically, newTVarIO)
+import Control.Concurrent.STM (newTVarIO)
 import           Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.IO.Unlift (MonadUnliftIO(..))
 import qualified Control.Monad.State as MS

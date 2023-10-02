@@ -5,6 +5,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE LambdaCase #-}
+{-# language ScopedTypeVariables #-}
 {-# options_ghc -Wno-unused-imports #-}
 module Web.Scotty.Action
     ( addHeader
@@ -92,32 +93,25 @@ import Web.Scotty.Exceptions (Handler(..), catch, catches, catchesOptionally, ca
 
 import Network.Wai.Internal (ResponseReceived(..))
 
--- | Nothing indicates route failed (due to Next) and pattern matching should continue.
--- Just indicates a successful response.
+-- | Evaluate a route, catch all exceptions (user-defined ones, internal and all remaining, in this order)
+--   and construct the 'Response'
+--
+-- 'Nothing' indicates route failed (due to Next) and pattern matching should try the next available route.
+-- 'Just' indicates a successful response.
 runAction :: MonadUnliftIO m =>
-             Maybe (ErrorHandler m) -- ^ if present, this handler is in charge of user-defined exceptions
-          -> ActionEnv -> ActionT m () -> m (Maybe Response)
+             Maybe (ErrorHandler m) -- ^ this handler (if present) is in charge of user-defined exceptions
+          -> ActionEnv
+          -> ActionT m () -- ^ Route action to be evaluated
+          -> m (Maybe Response)
 runAction mh env action = do
   let
     handlers = [
-      scottyExceptionHandler
-      , actionErrorHandler
+      actionErrorHandler -- ActionError e.g. Next, Redirect
+      , someExceptionHandler -- all remaining exceptions
                ]
   ok <- flip runReaderT env $ runAM $ tryNext (catchesOptionally action mh handlers )
   res <- getResponse env
   return $ bool Nothing (Just $ mkResponse res) ok
-
-
-{-|
-* ActionError should only be caught by runAction
-* handlers should not throw ActionError (= do not export ActionError constructors)
--}
-
-tryNext :: MonadUnliftIO m => m a -> m Bool
-tryNext io = catch (io >> pure True) $ \e ->
-  case e of
-    Next -> pure False
-    _ -> pure True
 
 -- | Exception handler in charge of 'ActionError'. Rethrowing 'Next' here is caught by 'tryNext'
 actionErrorHandler :: MonadIO m => ErrorHandler m
@@ -133,31 +127,16 @@ actionErrorHandler = Handler $ \case
   Next -> next
   Finish -> return ()
 
--- | Exception handler in charge of 'ScottyException'
-scottyExceptionHandler :: MonadIO m => ErrorHandler m
-scottyExceptionHandler = Handler $ \case
-  RequestException ebody s -> do
-    raiseStatus s (strictByteStringToLazyText ebody)
+-- | Uncaught exceptions turn into HTTP 500 Server Error codes
+someExceptionHandler :: MonadIO m => ErrorHandler m
+someExceptionHandler = Handler $ \case
+  (_ :: E.SomeException) -> status status500
 
--- -- defH :: (Monad m) => ErrorHandler e m -> ActionError -> ActionT e m ()
--- defH :: MonadUnliftIO m => Maybe (AErr -> ActionT m ()) -> ActionError -> ActionT m ()
--- defH _          (Redirect url)    = do
---     status status302
---     setHeader "Location" url
--- defH Nothing    (ActionError s e)   = do
---     status s
---     let code = T.pack $ show $ statusCode s
---     let msg = T.fromStrict $ STE.decodeUtf8 $ statusMessage s
---     html $ mconcat ["<h1>", code, " ", msg, "</h1>", T.pack (show e)]
--- defH h@(Just f) (ActionError _ e)   = f e `catch` (defH h) -- so handlers can throw exceptions themselves -- TODO
--- defH _          Next              = next      -- rethrow 'Next'
--- defH _          Finish            = return () -- stop
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
 -- turn into HTTP 500 responses.
--- raise :: (Monad m) => AErr -> ActionT m a
 raise :: (MonadIO m, E.Exception e) => e -> ActionT m a
-raise = E.throw -- raiseStatus status500
+raise = E.throw
 
 -- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions turn into HTTP responses corresponding to the given status.
 raiseStatus :: (Monad m) => Status -> T.Text -> ActionT m a

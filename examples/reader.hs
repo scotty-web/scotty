@@ -9,7 +9,7 @@ module Main where
 
 import Control.Monad.Reader (MonadIO, MonadReader, ReaderT, asks, lift, runReaderT)
 import Control.Monad.IO.Unlift (MonadUnliftIO(..))
-import Data.Text.Lazy (Text, pack)
+import Data.Text.Lazy (pack)
 import Prelude ()
 import Prelude.Compat
 import Web.Scotty.Trans (ScottyT, defaultOptions, get, scottyOptsT, text)
