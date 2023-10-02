@@ -1,13 +1,13 @@
 Name:                scotty
-Version:             0.12.1
+Version:             0.20
 Synopsis:            Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp
 Homepage:            https://github.com/scotty-web/scotty
 Bug-reports:         https://github.com/scotty-web/scotty/issues
 License:             BSD3
 License-file:        LICENSE
 Author:              Andrew Farmer <xichekolas@gmail.com>
-Maintainer:          Andrew Farmer <xichekolas@gmail.com> and the Scotty maintainers
-Copyright:           (c) 2012-Present Andrew Farmer
+Maintainer:          The Scotty maintainers
+Copyright:           (c) 2012-Present Andrew Farmer and the Scotty maintainers
 Category:            Web
 Stability:           experimental
 Build-type:          Simple

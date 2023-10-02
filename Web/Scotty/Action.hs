@@ -188,7 +188,6 @@ redirect = E.throw . Redirect
 -- exception. Any code after the call to finish will not be run.
 --
 -- /Since: 0.10.3/
--- finish :: (ScottyError e, Monad m) => ActionT e m a
 finish :: (Monad m) => ActionT m a
 finish = E.throw Finish
 
