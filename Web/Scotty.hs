@@ -112,7 +112,7 @@ setMaxRequestBodySize = Trans.setMaxRequestBodySize
 raise :: Text -> ActionM a
 raise = Trans.raise
 
--- | Throw an exception that has an associated HTTP error code. Uncaught exceptions turn into HTTP responses corresponding to the given status.
+-- | Throw a 'StatusError' exception that has an associated HTTP error code and can be caught with 'rescue'. Uncaught exceptions turn into HTTP responses corresponding to the given status.
 raiseStatus :: Status -> Text -> ActionM a
 raiseStatus = Trans.raiseStatus
 
@@ -122,6 +122,9 @@ throw = Trans.throw
 
 -- | Abort execution of this action and continue pattern matching routes.
 -- Like an exception, any code after 'next' is not executed.
+--
+-- NB : Internally, this is implemented with an exception that can only be
+-- caught by the library, but not by the user.
 --
 -- As an example, these two routes overlap. The only way the second one will
 -- ever run is if the first one calls 'next'.
@@ -152,7 +155,7 @@ next = Trans.next
 finish :: ActionM a
 finish = Trans.finish
 
--- | Catch an exception.
+-- | Catch an exception e.g. a 'StatusError' or a user-defined exception.
 --
 -- > raise JustKidding `rescue` (\msg -> text msg)
 rescue :: E.Exception e => ActionM a -> (e -> ActionM a) -> ActionM a

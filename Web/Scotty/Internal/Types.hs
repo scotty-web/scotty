@@ -48,7 +48,7 @@ import qualified Network.Wai as Wai
 import           Network.Wai.Handler.Warp (Settings, defaultSettings)
 import           Network.Wai.Parse (FileInfo)
 
-import Web.Scotty.Exceptions (Handler, catch)
+import Web.Scotty.Exceptions (Handler(..), catch, catches)
 
 import           Prelude ()
 import "base-compat-batteries" Prelude.Compat
@@ -140,7 +140,6 @@ data ActionError
   = AERedirect Text -- ^ Redirect
   | AENext -- ^ Stop processing this route and skip to the next one
   | AEFinish -- ^ Stop processing the request
-  | AEStatusError StatusError -- ^ e.g. 422 Unprocessable Entity when JSON body parsing fails
   deriving (Show, Typeable)
 instance E.Exception ActionError
 
@@ -220,15 +219,18 @@ newtype ActionT m a = ActionT { runAM :: ReaderT ActionEnv m a }
 instance (MonadUnliftIO m) => Alternative (ActionT m) where
   empty = E.throw AENext
   a <|> b = do
-    ok <- tryActionError a
+    ok <- tryAnyStatus a
     if ok then a else b
 instance (MonadUnliftIO m) => MonadPlus (ActionT m) where
   mzero = empty
   mplus = (<|>)
 
--- | an ActionError is thrown if e.g. a query parameter is not found, or 'next' is called
-tryActionError :: MonadUnliftIO m => m a -> m Bool
-tryActionError io = catch (io >> pure True) (\(_ :: ActionError) -> pure False)
+-- | catches either ActionError (thrown by 'next') or 'StatusError' (thrown if e.g. a query parameter is not found)
+tryAnyStatus :: MonadUnliftIO m => m a -> m Bool
+tryAnyStatus io = (io >> pure True) `catches` [h1, h2]
+  where
+    h1 = Handler $ \(_ :: ActionError) -> pure False
+    h2 = Handler $ \(_ :: StatusError) -> pure False
 
 instance (Semigroup a) => Semigroup (ScottyT m a) where
   x <> y = (<>) <$> x <*> y
@@ -277,6 +279,5 @@ data RoutePattern = Capture   Text
 
 instance IsString RoutePattern where
     fromString = Capture . pack
-
 
 

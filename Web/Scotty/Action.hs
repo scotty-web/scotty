@@ -107,30 +107,30 @@ runAction :: MonadUnliftIO m =>
 runAction mh env action = do
   let
     handlers = [
-      statusErrorHandler -- StatusError
-      , actionErrorHandler -- ActionError e.g. Next, Redirect
-      , someExceptionHandler -- all remaining exceptions
+      statusErrorHandler, -- StatusError
+      actionErrorHandler, -- ActionError i.e. Next, Finish, Redirect
+      someExceptionHandler -- all remaining exceptions
                ]
   ok <- flip runReaderT env $ runAM $ tryNext (catchesOptionally action mh handlers )
   res <- getResponse env
   return $ bool Nothing (Just $ mkResponse res) ok
 
--- | Catches 'StatusError' and rethrows it wrapped inside an 'ActionError' for the next handler stage.
+-- | Catches 'StatusError' and produces an appropriate HTTP response.
 statusErrorHandler :: MonadIO m => ErrorHandler m
 statusErrorHandler = Handler $ \case
-  s@StatusError{} -> E.throw $ AEStatusError s
+  StatusError s e -> do
+    status s
+    let code = T.pack $ show $ statusCode s
+    let msg = T.fromStrict $ STE.decodeUtf8 $ statusMessage s
+    html $ mconcat ["<h1>", code, " ", msg, "</h1>", e]
 
--- | Exception handler in charge of 'ActionError'. Rethrowing 'Next' here is caught by 'tryNext'
+-- | Exception handler in charge of 'ActionError'. Rethrowing 'Next' here is caught by 'tryNext'.
+-- All other cases of 'ActionError' are converted to HTTP responses.
 actionErrorHandler :: MonadIO m => ErrorHandler m
 actionErrorHandler = Handler $ \case
   AERedirect url -> do
     status status302
     setHeader "Location" url
-  AEStatusError (StatusError s e) -> do
-    status s
-    let code = T.pack $ show $ statusCode s
-    let msg = T.fromStrict $ STE.decodeUtf8 $ statusMessage s
-    html $ mconcat ["<h1>", code, " ", msg, "</h1>", e]
   AENext -> next
   AEFinish -> return ()
 
@@ -147,7 +147,7 @@ raise :: (MonadIO m) =>
       -> ActionT m a
 raise  = raiseStatus status500
 
--- | Throw an exception that has an associated HTTP error code. Uncaught exceptions turn into HTTP responses corresponding to the given status.
+-- | Throw a 'StatusError' exception that has an associated HTTP error code and can be caught with 'rescue'. Uncaught exceptions turn into HTTP responses corresponding to the given status.
 raiseStatus :: Monad m => Status -> T.Text -> ActionT m a
 raiseStatus s = E.throw . StatusError s
 
@@ -157,6 +157,9 @@ throw = E.throw
 
 -- | Abort execution of this action and continue pattern matching routes.
 -- Like an exception, any code after 'next' is not executed.
+--
+-- NB : Internally, this is implemented with an exception that can only be
+-- caught by the library, but not by the user.
 --
 -- As an example, these two routes overlap. The only way the second one will
 -- ever run is if the first one calls 'next'.
@@ -172,7 +175,7 @@ throw = E.throw
 next :: Monad m => ActionT m a
 next = E.throw AENext
 
--- | Catch an exception.
+-- | Catch an exception e.g. a 'StatusError' or a user-defined exception.
 --
 -- > raise JustKidding `rescue` (\msg -> text msg)
 rescue :: (MonadUnliftIO m, E.Exception e) => ActionT m a -> (e -> ActionT m a) -> ActionT m a
