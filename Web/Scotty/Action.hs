@@ -49,6 +49,7 @@ module Web.Scotty.Action
 
 import           Blaze.ByteString.Builder   (fromLazyByteString)
 
+import Control.Applicative (Alternative(..))
 import qualified Control.Exception          as E
 import           Control.Monad              (when)
 import           Control.Monad.IO.Class     (MonadIO(..))
@@ -327,6 +328,21 @@ paramWith ty f err k = do
               CaptureParam -> next
               _ -> raiseStatus err (T.unwords ["Cannot parse", v, "as a", T.pack (show ty), "parameter"])
         in either (const $ handleParseError ty) return $ parseParam v
+
+-- | Look up a parameter with the possibility of lookup or parsing failure.
+--
+-- We return the result in an 'Alternative' functor to allow for various use cases : 'Maybe', 'Validation', etc.
+--
+-- /Since: FIXME/
+paramWithAlt :: (Monad m, Alternative f, Parsable b) =>
+                (ActionEnv -> [Param])
+             -> T.Text -- ^ parameter name
+             -> ActionT m (f b)
+paramWithAlt f k = do
+    val <- ActionT $ (lookup k . f) <$> ask
+    case val of
+      Nothing -> pure empty
+      Just v -> either (const $ pure empty) (pure . pure) $ parseParam v
 
 -- | Get all parameters from capture, form and query (in that order).
 params :: Monad m => ActionT m [Param]
