@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# language DerivingVia #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -207,6 +206,10 @@ defaultScottyResponse = SR status200 [] (ContentBuilder mempty)
 
 newtype ActionT m a = ActionT { runAM :: ReaderT ActionEnv m a }
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadReader ActionEnv, MonadTrans, MonadThrow, MonadCatch, MonadBase b, MonadBaseControl b, MonadTransControl, MonadUnliftIO)
+-- | Modeled after the behaviour in scotty < 0.20, 'fail' throws a 'StatusError' with code 500 ("Server Error"), which can be caught with 'E.catch' or 'rescue'.
+instance (MonadIO m) => MonadFail (ActionT m) where
+  fail = E.throw . StatusError status500 . pack
+-- | 'empty' throws 'ActionError' 'AENext', whereas '(<|>)' catches any 'ActionError's or 'StatusError's in the first action and proceeds to the second one.
 instance (MonadUnliftIO m) => Alternative (ActionT m) where
   empty = E.throw AENext
   a <|> b = do
