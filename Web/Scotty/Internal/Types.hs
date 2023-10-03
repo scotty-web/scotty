@@ -169,6 +169,11 @@ data ActionEnv = Env { envReq       :: Request
 getResponse :: MonadIO m => ActionEnv -> m ScottyResponse
 getResponse ae = liftIO $ readTVarIO (envResponse ae)
 
+getResponseAction :: (MonadIO m) => ActionT m ScottyResponse
+getResponseAction = do
+  ae <- ask
+  getResponse ae
+
 modifyResponse :: (MonadIO m) => (ScottyResponse -> ScottyResponse) -> ActionT m ()
 modifyResponse f = do
   tv <- asks envResponse

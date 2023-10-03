@@ -34,13 +34,15 @@ module Web.Scotty.Trans
       -- | Note: only one of these should be present in any given route
       -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json, stream, raw, nested
+      -- ** Accessing the fields of the Response
+    , getResponseHeaders, getResponseStatus, getResponseContent
       -- ** Exceptions
     , raise, raiseStatus, throw, rescue, next, finish, defaultHandler, liftAndCatchIO
     , StatusError(..)
       -- * Parsing Parameters
     , Param, Parsable(..), readEither
       -- * Types
-    , RoutePattern, File, Kilobytes, ErrorHandler, Handler(..)
+    , RoutePattern, File, Content(..), Kilobytes, ErrorHandler, Handler(..)
       -- * Monad Transformers
     , ScottyT, ActionT
     , ScottyState, defaultScottyState
@@ -60,7 +62,7 @@ import Network.Wai.Handler.Warp (Port, runSettings, runSettingsSocket, setPort, 
 
 import Web.Scotty.Action
 import Web.Scotty.Route
-import Web.Scotty.Internal.Types (ActionT(..), ScottyT(..), defaultScottyState, Application, RoutePattern, Options(..), defaultOptions, RouteOptions(..), defaultRouteOptions, ErrorHandler, Kilobytes, File, addMiddleware, setHandler, updateMaxRequestBodySize, routes, middlewares, ScottyException(..), ScottyState, defaultScottyState, StatusError(..))
+import Web.Scotty.Internal.Types (ActionT(..), ScottyT(..), defaultScottyState, Application, RoutePattern, Options(..), defaultOptions, RouteOptions(..), defaultRouteOptions, ErrorHandler, Kilobytes, File, addMiddleware, setHandler, updateMaxRequestBodySize, routes, middlewares, ScottyException(..), ScottyState, defaultScottyState, StatusError(..), Content(..))
 import Web.Scotty.Util (socketDescription)
 import Web.Scotty.Body (newBodyInfo)
 import Web.Scotty.Exceptions (Handler(..), catches)
