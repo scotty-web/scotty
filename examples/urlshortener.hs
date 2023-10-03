@@ -16,9 +16,6 @@ import Data.Typeable (Typeable)
 import Network.Wai.Middleware.RequestLogger
 import Network.Wai.Middleware.Static
 
-import Prelude ()
-import Prelude.Compat
-
 import qualified Text.Blaze.Html5 as H
 import Text.Blaze.Html5.Attributes
 -- Note:

@@ -12,9 +12,6 @@ import Data.Typeable
 import Network.HTTP.Types
 import Network.Wai.Middleware.RequestLogger
 
-import Prelude ()
-import Prelude.Compat
-
 import System.Random
 
 import Web.Scotty.Trans
