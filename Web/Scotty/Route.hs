@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances,
              OverloadedStrings, RankNTypes, ScopedTypeVariables #-}
-{-# language PackageImports #-}
 module Web.Scotty.Route
     ( get, post, put, delete, patch, options, addroute, matchAny, notFound,
       capture, regex, function, literal
@@ -21,9 +20,6 @@ import qualified Data.Text as TS
 
 import           Network.HTTP.Types
 import           Network.Wai (Request(..))
-
-import           Prelude ()
-import "base-compat-batteries" Prelude.Compat
 
 import qualified Text.Regex as Regex
 

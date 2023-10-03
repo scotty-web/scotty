@@ -18,8 +18,6 @@ import Data.Text.Lazy (pack)
 import Data.Text.Lazy.Encoding (decodeUtf8)
 import Data.String (fromString)
 import Data.Typeable (Typeable)
-import Prelude ()
-import Prelude.Compat
 
 data Err = Boom | UserAgentNotFound | NeverReached deriving (Show, Typeable, Exception)
 

@@ -1,4 +1,3 @@
-{-# LANGUAGE PackageImports #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DerivingStrategies #-}
@@ -44,8 +43,6 @@ import           Network.Wai.Parse (FileInfo)
 
 import Web.Scotty.Exceptions (Handler(..), catch, catches)
 
-import           Prelude ()
-import "base-compat-batteries" Prelude.Compat
 
 --------------------- Options -----------------------
 data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner

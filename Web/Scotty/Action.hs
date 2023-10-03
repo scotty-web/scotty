@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PackageImports #-}
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
@@ -78,9 +77,6 @@ import           Network.HTTP.Types.Status
 import           Network.Wai (Request, Response, StreamingBody, Application, requestHeaders)
 
 import           Numeric.Natural
-
-import           Prelude ()
-import "base-compat-batteries" Prelude.Compat
 
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, strictByteStringToLazyText)

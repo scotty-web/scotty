@@ -17,9 +17,6 @@ import Data.String
 
 import Network.Wai.Middleware.RequestLogger
 
-import Prelude ()
-import Prelude.Compat
-
 import Web.Scotty.Trans
 
 newtype AppState = AppState { tickCount :: Int }
