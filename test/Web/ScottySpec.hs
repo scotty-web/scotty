@@ -147,7 +147,7 @@ spec = do
           get "/" `shouldRespondWith` 500
       withApp (Scotty.get "/" $ (fail "boom!") `rescue` (\(_ :: StatusError) -> text "ok")) $
         it "can catch the StatusError thrown by fail" $ do
-          get "/" `shouldRespondWith` 200
+          get "/" `shouldRespondWith` 200 { matchBody = "ok"}
 
     describe "redirect" $ do
       withApp (

@@ -19,6 +19,7 @@ import qualified Control.Exception as E
 import           Control.Monad (MonadPlus(..))
 import           Control.Monad.Base (MonadBase)
 import           Control.Monad.Catch (MonadCatch, MonadThrow)
+import           Control.Monad.Error.Class (MonadError(..))
 import           Control.Monad.IO.Class (MonadIO(..))
 import UnliftIO (MonadUnliftIO(..))
 import           Control.Monad.Reader (MonadReader(..), ReaderT, asks)
@@ -206,6 +207,11 @@ defaultScottyResponse = SR status200 [] (ContentBuilder mempty)
 
 newtype ActionT m a = ActionT { runAM :: ReaderT ActionEnv m a }
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadReader ActionEnv, MonadTrans, MonadThrow, MonadCatch, MonadBase b, MonadBaseControl b, MonadTransControl, MonadUnliftIO)
+
+-- | Models the invariant that only 'StatusError's can be thrown and caught.
+instance (MonadUnliftIO m) => MonadError StatusError (ActionT m) where
+  throwError = E.throw
+  catchError = catch
 -- | Modeled after the behaviour in scotty < 0.20, 'fail' throws a 'StatusError' with code 500 ("Server Error"), which can be caught with 'E.catch' or 'rescue'.
 instance (MonadIO m) => MonadFail (ActionT m) where
   fail = E.throw . StatusError status500 . pack
