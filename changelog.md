@@ -1,5 +1,7 @@
 ## next [????.??.??]
 
+* remove dependencies on 'base-compat' and 'base-compat-batteries' (#318)
+
 ## 0.20 [2023.10.02]
 * Drop support for GHC < 8.10 and modernise the CI pipeline (#300).
 * Adds a new `nested` handler that allows you to place an entire WAI Application under a Scotty route (#233).
