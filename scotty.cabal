@@ -1,5 +1,5 @@
 Name:                scotty
-Version:             0.20
+Version:             0.20.1
 Synopsis:            Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp
 Homepage:            https://github.com/scotty-web/scotty
 Bug-reports:         https://github.com/scotty-web/scotty/issues
@@ -69,7 +69,7 @@ Library
                        Web.Scotty.Util
   default-language:    Haskell2010
   build-depends:       aeson                 >= 0.6.2.1  && < 2.3,
-                       base                  >= 4.6      && < 5,
+                       base                  >= 4.14     && < 5,
                        blaze-builder         >= 0.3.3.0  && < 0.5,
                        bytestring            >= 0.10.0.2 && < 0.12,
                        case-insensitive      >= 1.0.0.1  && < 1.3,
