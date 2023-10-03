@@ -1,5 +1,7 @@
 ## next [????.??.??]
 
+* add getResponseHeaders, getResponseStatus, getResponseContent (#214)
+
 ## 0.20.1 [2023.10.03]
 
 * remove dependencies on 'base-compat' and 'base-compat-batteries' (#318)
