@@ -255,7 +255,8 @@ queryParam = Trans.queryParam
 
 -- | Look up a capture parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
 --
--- NB : Doesn't throw exceptions.
+-- NB : Doesn't throw exceptions. In particular, route pattern matching will not continue, so developers
+-- must 'raiseStatus' or 'throw' to signal something went wrong.
 --
 -- /Since: FIXME/
 captureParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
@@ -263,7 +264,7 @@ captureParamMaybe = Trans.captureParamMaybe
 
 -- | Look up a form parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
 --
--- NB : Doesn't throw exceptions.
+-- NB : Doesn't throw exceptions, so developers must 'raiseStatus' or 'throw' to signal something went wrong.
 --
 -- /Since: FIXME/
 formParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
@@ -271,7 +272,7 @@ formParamMaybe = Trans.formParamMaybe
 
 -- | Look up a query parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
 --
--- NB : Doesn't throw exceptions.
+-- NB : Doesn't throw exceptions, so developers must 'raiseStatus' or 'throw' to signal something went wrong.
 --
 -- /Since: FIXME/
 queryParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)

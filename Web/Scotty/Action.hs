@@ -315,7 +315,8 @@ queryParam = paramWith QueryParam envQueryParams status400
 
 -- | Look up a capture parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
 --
--- NB : Doesn't throw exceptions.
+-- NB : Doesn't throw exceptions. In particular, route pattern matching will not continue, so developers
+-- must 'raiseStatus' or 'throw' to signal something went wrong.
 --
 -- /Since: FIXME/
 captureParamMaybe :: (Parsable a, Monad m) => T.Text -> ActionT m (Maybe a)
@@ -323,7 +324,7 @@ captureParamMaybe = paramWithMaybe envCaptureParams
 
 -- | Look up a form parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
 --
--- NB : Doesn't throw exceptions.
+-- NB : Doesn't throw exceptions, so developers must 'raiseStatus' or 'throw' to signal something went wrong.
 --
 -- /Since: FIXME/
 formParamMaybe :: (Parsable a, Monad m) => T.Text -> ActionT m (Maybe a)
@@ -331,7 +332,7 @@ formParamMaybe = paramWithMaybe envFormParams
 
 -- | Look up a query parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
 --
--- NB : Doesn't throw exceptions.
+-- NB : Doesn't throw exceptions, so developers must 'raiseStatus' or 'throw' to signal something went wrong.
 --
 -- /Since: FIXME/
 queryParamMaybe :: (Parsable a, Monad m) => T.Text -> ActionT m (Maybe a)
