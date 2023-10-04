@@ -241,17 +241,17 @@ spec = do
           Scotty.get "/a/:q" $ do
             mx <- captureParamMaybe "q"
             case mx of
-              Just (_ :: Int) -> status status500
-              Nothing -> status status200
+              Just (_ :: Int) -> status status200
+              Nothing -> status status500
           Scotty.get "/b/:q" $ do
             mx <- captureParamMaybe "z"
             case mx of
               Just (_ :: TL.Text) -> text "impossible" >> status status500
               Nothing -> status status200
               ) $ do
-        it "responds with 200 OK if the parameter cannot be parsed at the right type, 500 otherwise" $ do
-          get "/a/potato" `shouldRespondWith` 200
-          get "/a/42" `shouldRespondWith` 500
+        it "responds with 200 OK if the parameter can be parsed at the right type, 500 otherwise" $ do
+          get "/a/potato" `shouldRespondWith` 500
+          get "/a/42" `shouldRespondWith` 200
         it "responds with 200 OK if the parameter is not found" $ do
           get "/b/potato" `shouldRespondWith` 200
 
