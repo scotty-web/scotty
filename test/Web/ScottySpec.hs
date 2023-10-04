@@ -235,6 +235,19 @@ spec = do
           it "catches a StatusError" $ do
             postForm "/search" "z=potato" `shouldRespondWith` 200 { matchBody = "z"}
 
+    describe "captureParamMaybe" $ do
+      withApp (
+        do
+          Scotty.get "/search/:q" $ do
+            mx <- captureParamMaybe "z"
+            case mx of
+              Just (_ :: TL.Text) -> status status500
+              Nothing -> status status200
+              ) $ do
+        it "responds with 200 OK if the parameter is not found" $ do
+          -- get "/search/42" `shouldRespondWith` 200 { matchBody = "int" }
+          get "/search/potato" `shouldRespondWith` 200
+
 
     describe "text" $ do
       let modernGreekText :: IsString a => a

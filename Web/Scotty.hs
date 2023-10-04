@@ -20,6 +20,7 @@ module Web.Scotty
     , request, header, headers, body, bodyReader
     , param, params
     , captureParam, formParam, queryParam
+    , captureParamMaybe, formParamMaybe, queryParamMaybe
     , captureParams, formParams, queryParams
     , jsonData, files
       -- ** Modifying the Response and Redirecting
@@ -226,6 +227,8 @@ param = Trans.param
 -- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 500 ("Internal Server Error") to the client.
 --
 -- * If the parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
+--
+-- /Since: 0.20/
 captureParam :: Trans.Parsable a => Text -> ActionM a
 captureParam = Trans.captureParam
 
@@ -234,6 +237,8 @@ captureParam = Trans.captureParam
 -- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
 --
 -- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
+--
+-- /Since: 0.20/
 formParam :: Trans.Parsable a => Text -> ActionM a
 formParam = Trans.formParam
 
@@ -242,8 +247,38 @@ formParam = Trans.formParam
 -- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
 --
 -- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
+--
+-- /Since: 0.20/
 queryParam :: Trans.Parsable a => Text -> ActionM a
 queryParam = Trans.queryParam
+
+
+-- | Look up a capture parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
+--
+-- NB : Doesn't throw exceptions.
+--
+-- /Since: FIXME/
+captureParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
+captureParamMaybe = Trans.captureParamMaybe
+
+-- | Look up a form parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
+--
+-- NB : Doesn't throw exceptions.
+--
+-- /Since: FIXME/
+formParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
+formParamMaybe = Trans.formParamMaybe
+
+-- | Look up a query parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
+--
+-- NB : Doesn't throw exceptions.
+--
+-- /Since: FIXME/
+queryParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
+queryParamMaybe = Trans.queryParamMaybe
+
+
+
 
 -- | Get all parameters from capture, form and query (in that order).
 params :: ActionM [Param]
