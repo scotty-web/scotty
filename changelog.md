@@ -1,6 +1,7 @@
 ## next [????.??.??]
 
 * remove dependencies on 'base-compat' and 'base-compat-batteries' (#318)
+* add `captureParamMaybe`, `formParamMaybe`, `queryParamMaybe` (#322)
 
 ## 0.20 [2023.10.02]
 * Drop support for GHC < 8.10 and modernise the CI pipeline (#300).
