@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [master]
+  workflow_dispatch:
 
 defaults:
   run:
@@ -40,7 +41,7 @@ jobs:
       name: Setup Haskell
       with:
         ghc-version: ${{ matrix.ghc }}
-        cabal-version: ${{ matrix.cabal }}
+        cabal-version: "latest"
     - uses: actions/cache@v1
       name: Cache ~/.cabal/store
       with:
