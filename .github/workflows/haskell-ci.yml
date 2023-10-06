@@ -27,8 +27,10 @@ jobs:
           ./get-tested --ubuntu --macos scotty.cabal >> $GITHUB_OUTPUT
   cabal:
     name: ${{ matrix.os }} / ghc ${{ matrix.ghc }}
+    needs: generateMatrix  
     runs-on: ${{ matrix.os }}
     strategy:
+      matrix: ${{ fromJSON(needs.generateMatrix.outputs.matrix) }}
       fail-fast: false
 
     steps:
