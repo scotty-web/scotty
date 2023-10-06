@@ -1,7 +1,15 @@
 ## next [????.??.??]
 
-* remove dependencies on 'base-compat' and 'base-compat-batteries' (#318)
+* add getResponseHeaders, getResponseStatus, getResponseContent (#214)
 * add `captureParamMaybe`, `formParamMaybe`, `queryParamMaybe` (#322)
+
+## 0.20.1 [2023.10.03]
+
+* remove dependencies on 'base-compat' and 'base-compat-batteries' (#318)
+* re-add MonadFail (ActionT m) instance (#325)
+* re-add MonadError (ActionT m) instance, but the error type is now specialized to 'StatusError' (#325)
+* raise lower bound on base ( > 4.14 ) to reflect support for GHC >= 8.10 (#325).
+
 
 ## 0.20 [2023.10.02]
 * Drop support for GHC < 8.10 and modernise the CI pipeline (#300).
@@ -15,8 +23,10 @@
 Breaking:
 
 * (#310) Introduce `unliftio` as a dependency, and base exception handling on `catch`.
-** Clarify the exception handling mechanism of ActionT, ScottyT. `rescue` changes signature to use proper `Exception` types rather than strings.
-** All ActionT methods (`text`, `html` etc.) have now a MonadIO constraint on the base monad rather than Monad because the response is constructed in a TVar inside ActionEnv. `rescue` has a MonadUnliftIO constraint. The Alternative instance of ActionT also is based on MonadUnliftIO because `<|>` is implemented in terms of `catch`. `ScottyT` and `ActionT` do not have an exception type parameter anymore.
+* (#310) Clarify the exception handling mechanism of ActionT, ScottyT. `rescue` changes signature to use proper `Exception` types rather than strings. Remove `ScottyError` typeclass.
+* (#310) All ActionT methods (`text`, `html` etc.) have now a MonadIO constraint on the base monad rather than Monad because the response is constructed in a TVar inside ActionEnv. `rescue` has a MonadUnliftIO constraint. The Alternative instance of ActionT also is based on MonadUnliftIO because `<|>` is implemented in terms of `catch`. `ScottyT` and `ActionT` do not have an exception type parameter anymore.
+* (#310) MonadError e (ActionT m) instance removed
+* (#310) MonadFail (ActionT m) instance is missing by mistake.
 
 ## 0.12.1 [2022.11.17]
 * Fix CPP bug that prevented tests from building on Windows.

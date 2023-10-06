@@ -44,6 +44,9 @@ module Web.Scotty.Action
     , status
     , stream
     , text
+    , getResponseStatus
+    , getResponseHeaders
+    , getResponseContent
     , Param
     , Parsable(..)
       -- private to Scotty
@@ -399,6 +402,20 @@ paramsWith f = ActionT (f <$> ask)
 {-# DEPRECATED getParams "(#204) Not a good idea to treat all parameters identically" #-}
 getParams :: ActionEnv -> [Param]
 getParams e = envCaptureParams e <> envFormParams e <> envQueryParams e
+
+
+-- === access the fields of the Response being constructed
+
+-- | Access the HTTP 'Status' of the Response
+getResponseStatus :: (MonadIO m) => ActionT m Status
+getResponseStatus = srStatus <$> getResponseAction
+-- | Access the HTTP headers of the Response
+getResponseHeaders :: (MonadIO m) => ActionT m ResponseHeaders
+getResponseHeaders = srHeaders <$> getResponseAction
+-- | Access the content of the Response
+getResponseContent :: (MonadIO m) => ActionT m Content
+getResponseContent = srContent <$> getResponseAction
+
 
 -- | Minimum implemention: 'parseParam'
 class Parsable a where

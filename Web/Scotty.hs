@@ -30,13 +30,15 @@ module Web.Scotty
       -- | Note: only one of these should be present in any given route
       -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json, stream, raw
+      -- ** Accessing the fields of the Response
+    , getResponseHeaders, getResponseStatus, getResponseContent
       -- ** Exceptions
     , raise, raiseStatus, throw, rescue, next, finish, defaultHandler, liftAndCatchIO
     , StatusError(..)
       -- * Parsing Parameters
     , Param, Trans.Parsable(..), Trans.readEither
       -- * Types
-    , ScottyM, ActionM, RoutePattern, File, Kilobytes, Handler(..)
+    , ScottyM, ActionM, RoutePattern, File, Content(..), Kilobytes, Handler(..)
     , ScottyState, defaultScottyState
     ) where
 
@@ -48,12 +50,12 @@ import qualified Data.ByteString as BS
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Text.Lazy (Text)
 
-import Network.HTTP.Types (Status, StdMethod)
+import Network.HTTP.Types (Status, StdMethod, ResponseHeaders)
 import Network.Socket (Socket)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 
-import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, StatusError(..))
+import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, StatusError(..), Content(..))
 import Web.Scotty.Exceptions (Handler(..))
 
 type ScottyM = ScottyT IO
@@ -341,6 +343,18 @@ stream = Trans.stream
 raw :: ByteString -> ActionM ()
 raw = Trans.raw
 
+
+-- | Access the HTTP 'Status' of the Response
+getResponseStatus :: ActionM Status
+getResponseStatus = Trans.getResponseStatus
+-- | Access the HTTP headers of the Response
+getResponseHeaders :: ActionM ResponseHeaders
+getResponseHeaders = Trans.getResponseHeaders
+-- | Access the content of the Response
+getResponseContent :: ActionM Content
+getResponseContent = Trans.getResponseContent
+
+
 -- | get = 'addroute' 'GET'
 get :: RoutePattern -> ActionM () -> ScottyM ()
 get = Trans.get
@@ -439,3 +453,7 @@ function = Trans.function
 -- | Build a route that requires the requested path match exactly, without captures.
 literal :: String -> RoutePattern
 literal = Trans.literal
+
+
+
+

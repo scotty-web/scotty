@@ -141,6 +141,14 @@ spec = do
           get "/dictionary?word2=y" `shouldRespondWith` "y"
           get "/dictionary?word1=a&word2=b" `shouldRespondWith` "a"
 
+    context "MonadFail instance" $ do
+      withApp (Scotty.get "/" $ fail "boom!") $ do
+        it "returns 500 if not caught" $
+          get "/" `shouldRespondWith` 500
+      withApp (Scotty.get "/" $ (fail "boom!") `rescue` (\(_ :: StatusError) -> text "ok")) $
+        it "can catch the StatusError thrown by fail" $ do
+          get "/" `shouldRespondWith` 200 { matchBody = "ok"}
+
     describe "redirect" $ do
       withApp (
         do
