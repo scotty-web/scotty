@@ -35,7 +35,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-      if: github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.ref == 'refs/heads/master'
+    #  if: github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.ref == 'refs/heads/master'
     - uses: haskell/actions/setup@v2
       id: setup-haskell-cabal
       name: Setup Haskell
