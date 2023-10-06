@@ -4,7 +4,6 @@ on:
   pull_request:
   push:
     branches: [master]
-  workflow_dispatch:
 
 defaults:
   run:
@@ -35,7 +34,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    #  if: github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.ref == 'refs/heads/master'
+      if: github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.ref == 'refs/heads/master'
     - uses: haskell/actions/setup@v2
       id: setup-haskell-cabal
       name: Setup Haskell
@@ -53,7 +52,6 @@ jobs:
         ghc -V
     - name: Build
       run: |
-        ls
         cabal configure --haddock-all --enable-tests --enable-benchmarks --benchmark-option=-l
         cabal build all --write-ghc-environment-files=always
     - name: Test
