@@ -25,6 +25,7 @@ module Web.Scotty.Trans
     , request, header, headers, body, bodyReader
     , param, params
     , captureParam, formParam, queryParam
+    , captureParamMaybe, formParamMaybe, queryParamMaybe
     , captureParams, formParams, queryParams
     , jsonData, files
       -- ** Modifying the Response and Redirecting

@@ -24,6 +24,9 @@ module Web.Scotty.Action
     , captureParam
     , formParam
     , queryParam
+    , captureParamMaybe
+    , formParamMaybe
+    , queryParamMaybe
     , params
     , captureParams
     , formParams
@@ -282,29 +285,61 @@ param k = do
         Just v  -> either (const next) return $ parseParam v
 {-# DEPRECATED param "(#204) Not a good idea to treat all parameters identically. Use captureParam, formParam and queryParam instead. "#-}
 
--- | Get a capture parameter.
+-- | Look up a capture parameter.
 --
 -- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 500 ("Internal Server Error") to the client.
 --
 -- * If the parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
+--
+-- /Since: 0.20/
 captureParam :: (Parsable a, Monad m) => T.Text -> ActionT m a
 captureParam = paramWith CaptureParam envCaptureParams status500
 
--- | Get a form parameter.
+
+-- | Look up a form parameter.
 --
 -- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
 --
 -- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
+--
+-- /Since: 0.20/
 formParam :: (Parsable a, Monad m) => T.Text -> ActionT m a
 formParam = paramWith FormParam envFormParams status400
 
--- | Get a query parameter.
+-- | Look up a query parameter.
 --
 -- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
 --
 -- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
+--
+-- /Since: 0.20/
 queryParam :: (Parsable a, Monad m) => T.Text -> ActionT m a
 queryParam = paramWith QueryParam envQueryParams status400
+
+-- | Look up a capture parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
+--
+-- NB : Doesn't throw exceptions. In particular, route pattern matching will not continue, so developers
+-- must 'raiseStatus' or 'throw' to signal something went wrong.
+--
+-- /Since: FIXME/
+captureParamMaybe :: (Parsable a, Monad m) => T.Text -> ActionT m (Maybe a)
+captureParamMaybe = paramWithMaybe envCaptureParams
+
+-- | Look up a form parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
+--
+-- NB : Doesn't throw exceptions, so developers must 'raiseStatus' or 'throw' to signal something went wrong.
+--
+-- /Since: FIXME/
+formParamMaybe :: (Parsable a, Monad m) => T.Text -> ActionT m (Maybe a)
+formParamMaybe = paramWithMaybe envFormParams
+
+-- | Look up a query parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
+--
+-- NB : Doesn't throw exceptions, so developers must 'raiseStatus' or 'throw' to signal something went wrong.
+--
+-- /Since: FIXME/
+queryParamMaybe :: (Parsable a, Monad m) => T.Text -> ActionT m (Maybe a)
+queryParamMaybe = paramWithMaybe envQueryParams
 
 data ParamType = CaptureParam
                | FormParam
@@ -330,6 +365,21 @@ paramWith ty f err k = do
               CaptureParam -> next
               _ -> raiseStatus err (T.unwords ["Cannot parse", v, "as a", T.pack (show ty), "parameter"])
         in either (const $ handleParseError ty) return $ parseParam v
+
+-- | Look up a parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
+--
+-- NB : Doesn't throw exceptions.
+--
+-- /Since: FIXME/
+paramWithMaybe :: (Monad m, Parsable b) =>
+                  (ActionEnv -> [Param])
+               -> T.Text -- ^ parameter name
+               -> ActionT m (Maybe b)
+paramWithMaybe f k = do
+    val <- ActionT $ (lookup k . f) <$> ask
+    case val of
+      Nothing -> pure Nothing
+      Just v -> either (const $ pure Nothing) (pure . Just) $ parseParam v
 
 -- | Get all parameters from capture, form and query (in that order).
 params :: Monad m => ActionT m [Param]

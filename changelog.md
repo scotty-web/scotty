@@ -1,6 +1,7 @@
 ## next [????.??.??]
 
 * add getResponseHeaders, getResponseStatus, getResponseContent (#214)
+* add `captureParamMaybe`, `formParamMaybe`, `queryParamMaybe` (#322)
 
 ## 0.20.1 [2023.10.03]
 
@@ -8,6 +9,7 @@
 * re-add MonadFail (ActionT m) instance (#325)
 * re-add MonadError (ActionT m) instance, but the error type is now specialized to 'StatusError' (#325)
 * raise lower bound on base ( > 4.14 ) to reflect support for GHC >= 8.10 (#325).
+
 
 ## 0.20 [2023.10.02]
 * Drop support for GHC < 8.10 and modernise the CI pipeline (#300).
