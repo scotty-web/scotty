@@ -64,7 +64,6 @@ Library
                        Web.Scotty.Cookie
   other-modules:       Web.Scotty.Action
                        Web.Scotty.Body
-                       Web.Scotty.Exceptions
                        Web.Scotty.Route
                        Web.Scotty.Util
   default-language:    Haskell2010

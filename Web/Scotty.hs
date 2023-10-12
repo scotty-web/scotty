@@ -56,7 +56,7 @@ import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 
 import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, StatusError(..), Content(..))
-import Web.Scotty.Exceptions (Handler(..))
+import UnliftIO.Exception (Handler(..))
 
 type ScottyM = ScottyT IO
 type ActionM = ActionT IO
