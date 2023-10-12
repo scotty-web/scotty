@@ -217,7 +217,7 @@ newtype ActionT m a = ActionT { runAM :: ReaderT ActionEnv m a }
 instance (MonadUnliftIO m) => MonadError StatusError (ActionT m) where
   throwError = E.throw
   catchError = catch
--- | Modeled after the behaviour in scotty < 0.20, 'fail' throws a 'StatusError' with code 500 ("Server Error"), which can be caught with 'E.catch' or 'rescue'.
+-- | Modeled after the behaviour in scotty < 0.20, 'fail' throws a 'StatusError' with code 500 ("Server Error"), which can be caught with 'E.catch'.
 instance (MonadIO m) => MonadFail (ActionT m) where
   fail = E.throw . StatusError status500 . pack
 -- | 'empty' throws 'ActionError' 'AENext', whereas '(<|>)' catches any 'ActionError's or 'StatusError's in the first action and proceeds to the second one.

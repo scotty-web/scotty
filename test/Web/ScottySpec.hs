@@ -92,7 +92,7 @@ spec = do
       withApp (do
                   let h = Handler (\(_ :: E.ArithException) -> status status503)
                   defaultHandler h
-                  Scotty.get "/" (liftAndCatchIO $ E.throwIO E.DivideByZero)) $ do
+                  Scotty.get "/" (liftIO $ E.throwIO E.DivideByZero)) $ do
         it "allows to customize the HTTP status code" $ do
           get "/" `shouldRespondWith` "" {matchStatus = 503}
 
@@ -145,7 +145,7 @@ spec = do
       withApp (Scotty.get "/" $ fail "boom!") $ do
         it "returns 500 if not caught" $
           get "/" `shouldRespondWith` 500
-      withApp (Scotty.get "/" $ (fail "boom!") `rescue` (\(_ :: StatusError) -> text "ok")) $
+      withApp (Scotty.get "/" $ (fail "boom!") `catch` (\(_ :: StatusError) -> text "ok")) $
         it "can catch the StatusError thrown by fail" $ do
           get "/" `shouldRespondWith` 200 { matchBody = "ok"}
 
@@ -188,7 +188,7 @@ spec = do
           get "/search/potato" `shouldRespondWith` 500
       context "recover from missing parameter exception" $ do
         withApp (Scotty.get "/search/:q" $
-                 (captureParam "z" >>= text) `rescue` (\(_::StatusError) -> text "z")
+                 (captureParam "z" >>= text) `catch` (\(_::StatusError) -> text "z")
                 ) $ do
           it "catches a StatusError" $ do
             get "/search/xxx" `shouldRespondWith` 200 { matchBody = "z"}
@@ -206,7 +206,7 @@ spec = do
           get "/search?query=potato" `shouldRespondWith` 400
       context "recover from type mismatch parameter exception" $ do
         withApp (Scotty.get "/search" $
-                 (queryParam "z" >>= (\v -> json (v :: Int))) `rescue` (\(_::StatusError) -> text "z")
+                 (queryParam "z" >>= (\v -> json (v :: Int))) `catch` (\(_::StatusError) -> text "z")
                 ) $ do
           it "catches a StatusError" $ do
             get "/search?query=potato" `shouldRespondWith` 200 { matchBody = "z"}
@@ -238,7 +238,7 @@ spec = do
           postForm "/" "p=42" `shouldRespondWith` "42"
       context "recover from type mismatch parameter exception" $ do
         withApp (Scotty.post "/search" $
-                 (formParam "z" >>= (\v -> json (v :: Int))) `rescue` (\(_::StatusError) -> text "z")
+                 (formParam "z" >>= (\v -> json (v :: Int))) `catch` (\(_::StatusError) -> text "z")
                 ) $ do
           it "catches a StatusError" $ do
             postForm "/search" "z=potato" `shouldRespondWith` 200 { matchBody = "z"}

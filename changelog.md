@@ -2,6 +2,7 @@
 
 * add getResponseHeaders, getResponseStatus, getResponseContent (#214)
 * add `captureParamMaybe`, `formParamMaybe`, `queryParamMaybe` (#322)
+* deprecate `rescue` and `liftAndCatchIO`
 
 ## 0.20.1 [2023.10.03]
 

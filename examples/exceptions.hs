@@ -58,4 +58,4 @@ main = scottyT 3000 id $ do -- note, we aren't using any additional transformer 
         i <- liftIO randomIO
         let catchOne Forbidden = html "<h1>Forbidden was randomly thrown, but we caught it."
             catchOne other     = throw other
-        throw (if rBool then Forbidden else NotFound i) `rescue` catchOne
+        throw (if rBool then Forbidden else NotFound i) `catch` catchOne

@@ -34,6 +34,7 @@ module Web.Scotty
     , getResponseHeaders, getResponseStatus, getResponseContent
       -- ** Exceptions
     , raise, raiseStatus, throw, rescue, next, finish, defaultHandler, liftAndCatchIO
+    , liftIO, catch
     , StatusError(..)
       -- * Parsing Parameters
     , Param, Trans.Parsable(..), Trans.readEither
@@ -45,6 +46,7 @@ module Web.Scotty
 import qualified Web.Scotty.Trans as Trans
 
 import qualified Control.Exception          as E
+import Control.Monad.IO.Class
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString as BS
 import Data.ByteString.Lazy.Char8 (ByteString)
@@ -56,7 +58,7 @@ import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 
 import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, StatusError(..), Content(..))
-import UnliftIO.Exception (Handler(..))
+import UnliftIO.Exception (Handler(..), catch)
 
 type ScottyM = ScottyT IO
 type ActionM = ActionT IO
@@ -107,19 +109,19 @@ nested = Trans.nested
 setMaxRequestBodySize :: Kilobytes -> ScottyM ()
 setMaxRequestBodySize = Trans.setMaxRequestBodySize
 
--- | Throw a "500 Server Error" 'StatusError', which can be caught with 'rescue'.
+-- | Throw a "500 Server Error" 'StatusError', which can be caught with 'catch'.
 --
 -- Uncaught exceptions turn into HTTP 500 responses.
 raise :: Text -> ActionM a
 raise = Trans.raise
 
--- | Throw a 'StatusError' exception that has an associated HTTP error code and can be caught with 'rescue'.
+-- | Throw a 'StatusError' exception that has an associated HTTP error code and can be caught with 'catch'.
 --
 -- Uncaught exceptions turn into HTTP responses corresponding to the given status.
 raiseStatus :: Status -> Text -> ActionM a
 raiseStatus = Trans.raiseStatus
 
--- | Throw an exception which can be caught within the scope of the current Action with 'rescue' or 'catch'.
+-- | Throw an exception which can be caught within the scope of the current Action with 'catch'.
 --
 -- If the exception is not caught locally, another option is to implement a global 'Handler' (with 'defaultHandler') that defines its interpretation and a translation to HTTP error codes.
 --
@@ -164,13 +166,15 @@ finish = Trans.finish
 
 -- | Catch an exception e.g. a 'StatusError' or a user-defined exception.
 --
--- > raise JustKidding `rescue` (\msg -> text msg)
+-- > raise JustKidding `catch` (\msg -> text msg)
 rescue :: E.Exception e => ActionM a -> (e -> ActionM a) -> ActionM a
 rescue = Trans.rescue
+{-# DEPRECATED rescue "Use catch instead" #-}
 
 -- | Like 'liftIO', but catch any IO exceptions and turn them into Scotty exceptions.
 liftAndCatchIO :: IO a -> ActionM a
 liftAndCatchIO = Trans.liftAndCatchIO
+{-# DEPRECATED liftAndCatchIO "Use liftIO instead" #-}
 
 -- | Redirect to given URL. Like throwing an uncatchable exception. Any code after the call to redirect
 -- will not be run.
@@ -215,7 +219,7 @@ jsonData = Trans.jsonData
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
--- * Raises an exception which can be caught by 'rescue' if parameter is not found.
+-- * Raises an exception which can be caught by 'catch' if parameter is not found.
 --
 -- * If parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
 --   This means captures are somewhat typed, in that a route won't match if a correctly typed
@@ -226,7 +230,7 @@ param = Trans.param
 
 -- | Get a capture parameter.
 --
--- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 500 ("Internal Server Error") to the client.
+-- * Raises an exception which can be caught by 'catch' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 500 ("Internal Server Error") to the client.
 --
 -- * If the parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
 --
@@ -236,7 +240,7 @@ captureParam = Trans.captureParam
 
 -- | Get a form parameter.
 --
--- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
+-- * Raises an exception which can be caught by 'catch' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
 --
 -- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
 --
@@ -246,7 +250,7 @@ formParam = Trans.formParam
 
 -- | Get a query parameter.
 --
--- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
+-- * Raises an exception which can be caught by 'catch' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
 --
 -- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
 --
