@@ -87,7 +87,9 @@ import           Numeric.Natural
 
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, strictByteStringToLazyText)
+
 import UnliftIO.Exception (Handler(..), catch, catches)
+
 
 import Network.Wai.Internal (ResponseReceived(..))
 

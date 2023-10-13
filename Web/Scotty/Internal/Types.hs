@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -242,40 +241,19 @@ instance (Semigroup a) => Semigroup (ScottyT m a) where
 
 instance
   ( Monoid a
-#if !(MIN_VERSION_base(4,11,0))
-  , Semigroup a
-#endif
-#if !(MIN_VERSION_base(4,8,0))
-  , Functor m
-#endif
   ) => Monoid (ScottyT m a) where
   mempty = return mempty
-#if !(MIN_VERSION_base(4,11,0))
-  mappend = (<>)
-#endif
 
 instance
   ( Monad m
-#if !(MIN_VERSION_base(4,8,0))
-  , Functor m
-#endif
   , Semigroup a
   ) => Semigroup (ActionT m a) where
   x <> y = (<>) <$> x <*> y
 
 instance
   ( Monad m, Monoid a
-#if !(MIN_VERSION_base(4,11,0))
-  , Semigroup a
-#endif
-#if !(MIN_VERSION_base(4,8,0))
-  , Functor m
-#endif
   ) => Monoid (ActionT m a) where
   mempty = return mempty
-#if !(MIN_VERSION_base(4,11,0))
-  mappend = (<>)
-#endif
 
 ------------------ Scotty Routes --------------------
 data RoutePattern = Capture   Text
