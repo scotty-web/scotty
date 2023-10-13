@@ -66,7 +66,7 @@ import Web.Scotty.Route
 import Web.Scotty.Internal.Types (ActionT(..), ScottyT(..), defaultScottyState, Application, RoutePattern, Options(..), defaultOptions, RouteOptions(..), defaultRouteOptions, ErrorHandler, Kilobytes, File, addMiddleware, setHandler, updateMaxRequestBodySize, routes, middlewares, ScottyException(..), ScottyState, defaultScottyState, StatusError(..), Content(..))
 import Web.Scotty.Util (socketDescription)
 import Web.Scotty.Body (newBodyInfo)
-import Web.Scotty.Exceptions (Handler(..), catches)
+import UnliftIO.Exception (Handler(..), catches)
 
 -- | Run a scotty application using the warp server.
 -- NB: scotty p === scottyT p id

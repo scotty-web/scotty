@@ -40,7 +40,7 @@ import qualified Network.Wai as Wai
 import           Network.Wai.Handler.Warp (Settings, defaultSettings)
 import           Network.Wai.Parse (FileInfo)
 
-import Web.Scotty.Exceptions (Handler(..), catch, catches)
+import UnliftIO.Exception (Handler(..), catch, catches)
 
 
 --------------------- Options -----------------------

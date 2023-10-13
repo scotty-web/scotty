@@ -69,6 +69,7 @@ import qualified Data.ByteString.Char8      as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive       as CI
 import           Data.Int
+import           Data.Maybe                 (maybeToList)
 import qualified Data.Text                  as ST
 import qualified Data.Text.Encoding         as STE
 import qualified Data.Text.Lazy             as T
@@ -86,7 +87,7 @@ import           Numeric.Natural
 
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, strictByteStringToLazyText)
-import Web.Scotty.Exceptions (Handler(..), catch, catchesOptionally, tryAny)
+import UnliftIO.Exception (Handler(..), catch, catches, tryAny)
 
 import Network.Wai.Internal (ResponseReceived(..))
 
@@ -101,13 +102,11 @@ runAction :: MonadUnliftIO m =>
           -> ActionT m () -- ^ Route action to be evaluated
           -> m (Maybe Response)
 runAction mh env action = do
-  let
-    handlers = [
-      statusErrorHandler, -- StatusError
-      actionErrorHandler, -- ActionError i.e. Next, Finish, Redirect
-      someExceptionHandler -- all remaining exceptions
-               ]
-  ok <- flip runReaderT env $ runAM $ tryNext (catchesOptionally action mh handlers )
+  ok <- flip runReaderT env $ runAM $ tryNext $ action `catches` concat
+    [ [actionErrorHandler]
+    , maybeToList mh
+    , [statusErrorHandler, someExceptionHandler]
+    ]
   res <- getResponse env
   return $ bool Nothing (Just $ mkResponse res) ok
 
