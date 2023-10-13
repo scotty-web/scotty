@@ -87,7 +87,9 @@ import           Numeric.Natural
 
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, strictByteStringToLazyText)
-import UnliftIO.Exception (Handler(..), catch, catches, tryAny)
+
+import UnliftIO.Exception (Handler(..), catch, catches)
+
 
 import Network.Wai.Internal (ResponseReceived(..))
 
@@ -134,7 +136,7 @@ someExceptionHandler :: MonadIO m => ErrorHandler m
 someExceptionHandler = Handler $ \case
   (_ :: E.SomeException) -> status status500
 
--- | Throw a "500 Server Error" 'StatusError', which can be caught with 'rescue'.
+-- | Throw a "500 Server Error" 'StatusError', which can be caught with 'catch'.
 --
 -- Uncaught exceptions turn into HTTP 500 responses.
 raise :: (MonadIO m) =>
@@ -142,13 +144,13 @@ raise :: (MonadIO m) =>
       -> ActionT m a
 raise  = raiseStatus status500
 
--- | Throw a 'StatusError' exception that has an associated HTTP error code and can be caught with 'rescue'.
+-- | Throw a 'StatusError' exception that has an associated HTTP error code and can be caught with 'catch'.
 --
 -- Uncaught exceptions turn into HTTP responses corresponding to the given status.
 raiseStatus :: Monad m => Status -> T.Text -> ActionT m a
 raiseStatus s = E.throw . StatusError s
 
--- | Throw an exception which can be caught within the scope of the current Action with 'rescue' or 'catch'.
+-- | Throw an exception which can be caught within the scope of the current Action with 'catch'.
 --
 -- If the exception is not caught locally, another option is to implement a global 'Handler' (with 'defaultHandler') that defines its interpretation and a translation to HTTP error codes.
 --
@@ -178,16 +180,15 @@ next = E.throw AENext
 
 -- | Catch an exception e.g. a 'StatusError' or a user-defined exception.
 --
--- > raise JustKidding `rescue` (\msg -> text msg)
+-- > raise JustKidding `catch` (\msg -> text msg)
 rescue :: (MonadUnliftIO m, E.Exception e) => ActionT m a -> (e -> ActionT m a) -> ActionT m a
 rescue = catch
+{-# DEPRECATED rescue "Use catch instead" #-}
 
 -- | Catch any synchronous IO exceptions
 liftAndCatchIO :: MonadIO m => IO a -> ActionT m a
-liftAndCatchIO io = liftIO $ do
-  r <- tryAny io
-  either E.throwIO pure r
-
+liftAndCatchIO = liftIO
+{-# DEPRECATED liftAndCatchIO "Use liftIO instead" #-}
 
 -- | Redirect to given URL. Like throwing an uncatchable exception. Any code after the call to redirect
 -- will not be run.
@@ -271,7 +272,7 @@ jsonData = do
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
--- * Raises an exception which can be caught by 'rescue' if parameter is not found.
+-- * Raises an exception which can be caught by 'catch' if parameter is not found.
 --
 -- * If parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
 --   This means captures are somewhat typed, in that a route won't match if a correctly typed
@@ -286,7 +287,7 @@ param k = do
 
 -- | Look up a capture parameter.
 --
--- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 500 ("Internal Server Error") to the client.
+-- * Raises an exception which can be caught by 'catch' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 500 ("Internal Server Error") to the client.
 --
 -- * If the parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
 --
@@ -297,7 +298,7 @@ captureParam = paramWith CaptureParam envCaptureParams status500
 
 -- | Look up a form parameter.
 --
--- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
+-- * Raises an exception which can be caught by 'catch' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
 --
 -- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
 --
@@ -307,7 +308,7 @@ formParam = paramWith FormParam envFormParams status400
 
 -- | Look up a query parameter.
 --
--- * Raises an exception which can be caught by 'rescue' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
+-- * Raises an exception which can be caught by 'catch' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
 --
 -- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
 --
@@ -548,6 +549,6 @@ nested app = do
   -- Is MVar really the best choice here? Not sure.
   r <- request
   ref <- liftIO $ newEmptyMVar
-  _ <- liftAndCatchIO $ app r (\res -> putMVar ref res >> return ResponseReceived)
-  res <- liftAndCatchIO $ readMVar ref
+  _ <- liftIO $ app r (\res -> putMVar ref res >> return ResponseReceived)
+  res <- liftIO $ readMVar ref
   rawResponse res

@@ -58,7 +58,7 @@ main = scotty 3000 $ do
     -- Of course you can catch your own errors.
     get "/rescue" $ do
         (do void $ throw Boom; redirect "http://www.we-never-go-here.com")
-        `rescue` (\(e :: Err) -> text $ "we recovered from " `mappend` pack (show e))
+        `catch` (\(e :: Err) -> text $ "we recovered from " `mappend` pack (show e))
 
     -- Parts of the URL that start with a colon match
     -- any string, and capture that value as a parameter.
