@@ -79,21 +79,23 @@ import qualified Data.ByteString.Lazy as BSL (toStrict)
 -- cookie
 import Web.Cookie (SetCookie, setCookieName , setCookieValue, setCookiePath, setCookieExpires, setCookieMaxAge, setCookieDomain, setCookieHttpOnly, setCookieSecure, setCookieSameSite, renderSetCookie, defaultSetCookie, CookiesText, parseCookiesText, SameSiteOption, sameSiteStrict, sameSiteNone, sameSiteLax)
 -- scotty
-import Web.Scotty.Trans (ActionT, addHeader, header)
+import Web.Scotty.Action (ActionT, addHeader, header)
 -- time
 import Data.Time.Clock.POSIX ( posixSecondsToUTCTime )
 -- text
 import Data.Text (Text)
 import qualified Data.Text.Encoding as T (encodeUtf8)
-import qualified Data.Text.Lazy.Encoding as TL (encodeUtf8, decodeUtf8)
-
-
+import Web.Scotty.Util (decodeUtf8Lenient)
 
 -- | Set a cookie, with full access to its options (see 'SetCookie')
 setCookie :: (MonadIO m)
           => SetCookie
           -> ActionT m ()
-setCookie c = addHeader "Set-Cookie" (TL.decodeUtf8 . toLazyByteString $ renderSetCookie c)
+setCookie c = addHeader "Set-Cookie"
+  $ decodeUtf8Lenient
+  $ BSL.toStrict
+  $ toLazyByteString
+  $ renderSetCookie c
 
 
 -- | 'makeSimpleCookie' and 'setCookie' combined.
@@ -114,7 +116,7 @@ getCookie c = lookup c <$> getCookies
 getCookies :: (Monad m)
            => ActionT m CookiesText
 getCookies = (maybe [] parse) <$> header "Cookie"
-    where parse = parseCookiesText . BSL.toStrict . TL.encodeUtf8
+    where parse = parseCookiesText . T.encodeUtf8
 
 -- | Browsers don't directly delete a cookie, but setting its expiry to a past date (e.g. the UNIX epoch) ensures that the cookie will be invalidated (whether and when it will be actually deleted by the browser seems to be browser-dependent).
 deleteCookie :: (MonadIO m)

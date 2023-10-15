@@ -22,23 +22,23 @@ module Web.Scotty.Trans
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, header, headers, body, bodyReader
+    , request, Lazy.header, Lazy.headers, body, bodyReader
     , param, params
     , captureParam, formParam, queryParam
     , captureParamMaybe, formParamMaybe, queryParamMaybe
     , captureParams, formParams, queryParams
     , jsonData, files
       -- ** Modifying the Response and Redirecting
-    , status, addHeader, setHeader, redirect
+    , status, Lazy.addHeader, Lazy.setHeader, Lazy.redirect
       -- ** Setting Response Body
       --
       -- | Note: only one of these should be present in any given route
       -- definition, as they completely replace the current 'Response' body.
-    , text, html, file, json, stream, raw, nested
+    , Lazy.text, Lazy.html, file, json, stream, raw, nested
       -- ** Accessing the fields of the Response
     , getResponseHeaders, getResponseStatus, getResponseContent
       -- ** Exceptions
-    , raise, raiseStatus, throw, rescue, next, finish, defaultHandler, liftAndCatchIO
+    , Lazy.raise, Lazy.raiseStatus, throw, rescue, next, finish, defaultHandler, liftAndCatchIO
     , liftIO, catch
     , StatusError(..)
       -- * Parsing Parameters
@@ -64,7 +64,8 @@ import Network.Wai.Handler.Warp (Port, runSettings, runSettingsSocket, setPort, 
 
 import Web.Scotty.Action
 import Web.Scotty.Route
-import Web.Scotty.Internal.Types (ActionT(..), ScottyT(..), defaultScottyState, Application, RoutePattern, Options(..), defaultOptions, RouteOptions(..), defaultRouteOptions, ErrorHandler, Kilobytes, File, addMiddleware, setHandler, updateMaxRequestBodySize, routes, middlewares, ScottyException(..), ScottyState, defaultScottyState, StatusError(..), Content(..))
+import Web.Scotty.Internal.Types (ScottyT(..), defaultScottyState, Application, RoutePattern, Options(..), defaultOptions, RouteOptions(..), defaultRouteOptions, ErrorHandler, Kilobytes, File, addMiddleware, setHandler, updateMaxRequestBodySize, routes, middlewares, ScottyException(..), ScottyState, defaultScottyState, StatusError(..), Content(..))
+import Web.Scotty.Trans.Lazy as Lazy
 import Web.Scotty.Util (socketDescription)
 import Web.Scotty.Body (newBodyInfo)
 
@@ -152,3 +153,4 @@ middleware = ScottyT . modify . addMiddleware
 setMaxRequestBodySize :: Kilobytes -- ^ Request size limit
                       -> ScottyT m ()
 setMaxRequestBodySize i = assert (i > 0) $ ScottyT . modify . updateMaxRequestBodySize $ defaultRouteOptions { maxRequestBodySize = Just i }
+

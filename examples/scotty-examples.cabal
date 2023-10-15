@@ -122,6 +122,7 @@ executable scotty-upload
                        bytestring,
                        filepath,
                        scotty,
+                       text,
                        transformers,
                        wai-extra,
                        wai-middleware-static

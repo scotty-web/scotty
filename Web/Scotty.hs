@@ -50,7 +50,7 @@ import Control.Monad.IO.Class
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString as BS
 import Data.ByteString.Lazy.Char8 (ByteString)
-import Data.Text.Lazy (Text)
+import Data.Text.Lazy (Text, toStrict)
 
 import Network.HTTP.Types (Status, StdMethod, ResponseHeaders)
 import Network.Socket (Socket)
@@ -227,7 +227,7 @@ jsonData = Trans.jsonData
 --   This means captures are somewhat typed, in that a route won't match if a correctly typed
 --   capture cannot be parsed.
 param :: Trans.Parsable a => Text -> ActionM a
-param = Trans.param
+param = Trans.param . toStrict
 {-# DEPRECATED param "(#204) Not a good idea to treat all parameters identically. Use captureParam, formParam and queryParam instead. "#-}
 
 -- | Get a capture parameter.
@@ -238,7 +238,7 @@ param = Trans.param
 --
 -- /Since: 0.20/
 captureParam :: Trans.Parsable a => Text -> ActionM a
-captureParam = Trans.captureParam
+captureParam = Trans.captureParam . toStrict
 
 -- | Get a form parameter.
 --
@@ -248,7 +248,7 @@ captureParam = Trans.captureParam
 --
 -- /Since: 0.20/
 formParam :: Trans.Parsable a => Text -> ActionM a
-formParam = Trans.formParam
+formParam = Trans.formParam . toStrict
 
 -- | Get a query parameter.
 --
@@ -258,7 +258,7 @@ formParam = Trans.formParam
 --
 -- /Since: 0.20/
 queryParam :: Trans.Parsable a => Text -> ActionM a
-queryParam = Trans.queryParam
+queryParam = Trans.queryParam . toStrict
 
 
 -- | Look up a capture parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
@@ -268,7 +268,7 @@ queryParam = Trans.queryParam
 --
 -- /Since: FIXME/
 captureParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
-captureParamMaybe = Trans.captureParamMaybe
+captureParamMaybe = Trans.captureParamMaybe . toStrict
 
 -- | Look up a form parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
 --
@@ -276,7 +276,7 @@ captureParamMaybe = Trans.captureParamMaybe
 --
 -- /Since: FIXME/
 formParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
-formParamMaybe = Trans.formParamMaybe
+formParamMaybe = Trans.formParamMaybe . toStrict
 
 -- | Look up a query parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
 --
@@ -284,7 +284,7 @@ formParamMaybe = Trans.formParamMaybe
 --
 -- /Since: FIXME/
 queryParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
-queryParamMaybe = Trans.queryParamMaybe
+queryParamMaybe = Trans.queryParamMaybe . toStrict
 
 
 

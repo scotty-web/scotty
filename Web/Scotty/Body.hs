@@ -20,7 +20,7 @@ import           Network.Wai (Request(..), getRequestBodyChunk)
 import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, BackEnd, lbsBackEnd, sinkRequestBody)
 import           Web.Scotty.Action (Param)
 import           Web.Scotty.Internal.Types (BodyInfo(..), BodyChunkBuffer(..), BodyPartiallyStreamed(..), RouteOptions(..))
-import           Web.Scotty.Util (readRequestBody, strictByteStringToLazyText)
+import           Web.Scotty.Util (readRequestBody, strictByteStringToLazyText, decodeUtf8Lenient)
 
 -- | Make a new BodyInfo with readProgress at 0 and an empty BodyChunkBuffer.
 newBodyInfo :: (MonadIO m) => Request -> m BodyInfo
@@ -47,7 +47,7 @@ getFormParamsAndFilesAction req bodyInfo opts = do
       bs <- getBodyAction bodyInfo opts
       let wholeBody = BL.toChunks bs
       (formparams, fs) <- parseRequestBody wholeBody W.lbsBackEnd req -- NB this loads the whole body into memory
-      let convert (k, v) = (strictByteStringToLazyText k, strictByteStringToLazyText v)
+      let convert (k, v) = (decodeUtf8Lenient k, decodeUtf8Lenient v)
       return (convert <$> formparams, fs)
     else
     return ([], [])
