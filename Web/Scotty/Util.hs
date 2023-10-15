@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
 module Web.Scotty.Util
     ( lazyTextToStrictByteString
@@ -23,7 +24,7 @@ import Network.HTTP.Types
 import qualified Data.ByteString as B
 import qualified Data.Text as TP (Text, pack)
 import qualified Data.Text.Lazy as TL
-import qualified Data.Text.Encoding as ES
+import           Data.Text.Encoding as ES
 import qualified Data.Text.Encoding.Error as ES
 
 import Web.Scotty.Internal.Types
@@ -34,8 +35,10 @@ lazyTextToStrictByteString = ES.encodeUtf8 . TL.toStrict
 strictByteStringToLazyText :: B.ByteString -> TL.Text
 strictByteStringToLazyText = TL.fromStrict . ES.decodeUtf8With ES.lenientDecode
 
+#if !MIN_VERSION_text(2,0,0)
 decodeUtf8Lenient :: B.ByteString -> TP.Text
 decodeUtf8Lenient = ES.decodeUtf8With ES.lenientDecode
+#endif
 
 -- Note: we currently don't support responseRaw, which may be useful
 -- for websockets. However, we always read the request body, which
