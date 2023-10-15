@@ -30,7 +30,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS8 (ByteString)
 import           Data.Default.Class (Default, def)
 import           Data.String (IsString(..))
-import           Data.Text.Lazy (Text, pack)
+import           Data.Text (Text, pack)
 import           Data.Typeable (Typeable)
 
 import           Network.HTTP.Types

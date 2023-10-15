@@ -2,6 +2,7 @@
 module Web.Scotty.Util
     ( lazyTextToStrictByteString
     , strictByteStringToLazyText
+    , decodeUtf8Lenient
     , mkResponse
     , replace
     , add
@@ -20,7 +21,7 @@ import qualified Control.Exception as EUnsafe (throw)
 import Network.HTTP.Types
 
 import qualified Data.ByteString as B
-import qualified Data.Text as TP (pack)
+import qualified Data.Text as TP (Text, pack)
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Encoding as ES
 import qualified Data.Text.Encoding.Error as ES
@@ -33,7 +34,8 @@ lazyTextToStrictByteString = ES.encodeUtf8 . TL.toStrict
 strictByteStringToLazyText :: B.ByteString -> TL.Text
 strictByteStringToLazyText = TL.fromStrict . ES.decodeUtf8With ES.lenientDecode
 
-
+decodeUtf8Lenient :: B.ByteString -> TP.Text
+decodeUtf8Lenient = ES.decodeUtf8With ES.lenientDecode
 
 -- Note: we currently don't support responseRaw, which may be useful
 -- for websockets. However, we always read the request body, which

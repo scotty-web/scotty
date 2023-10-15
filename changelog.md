@@ -3,6 +3,7 @@
 * add getResponseHeaders, getResponseStatus, getResponseContent (#214)
 * add `captureParamMaybe`, `formParamMaybe`, `queryParamMaybe` (#322)
 * deprecate `rescue` and `liftAndCatchIO`
+* add `Web.Scotty.Trans.Strict` and `Web.Scotty.Trans.Lazy`
 
 ## 0.20.1 [2023.10.03]
 

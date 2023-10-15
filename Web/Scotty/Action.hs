@@ -16,6 +16,7 @@ module Web.Scotty.Action
     , header
     , headers
     , html
+    , htmlLazy
     , liftAndCatchIO
     , json
     , jsonData
@@ -44,11 +45,13 @@ module Web.Scotty.Action
     , status
     , stream
     , text
+    , textLazy
     , getResponseStatus
     , getResponseHeaders
     , getResponseContent
     , Param
     , Parsable(..)
+    , ActionT
       -- private to Scotty
     , runAction
     ) where
@@ -70,10 +73,10 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive       as CI
 import           Data.Int
 import           Data.Maybe                 (maybeToList)
-import qualified Data.Text                  as ST
-import qualified Data.Text.Encoding         as STE
-import qualified Data.Text.Lazy             as T
-import           Data.Text.Lazy.Encoding    (encodeUtf8)
+import qualified Data.Text                  as T
+import           Data.Text.Encoding         as STE
+import qualified Data.Text.Lazy             as TL
+import qualified Data.Text.Lazy.Encoding    as TLE
 import           Data.Word
 
 import           Network.HTTP.Types
@@ -86,10 +89,8 @@ import           Network.Wai (Request, Response, StreamingBody, Application, req
 import           Numeric.Natural
 
 import           Web.Scotty.Internal.Types
-import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, strictByteStringToLazyText)
-
-import UnliftIO.Exception (Handler(..), catch, catches)
-
+import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, decodeUtf8Lenient)
+import           UnliftIO.Exception (Handler(..), catch, catches)
 
 import Network.Wai.Internal (ResponseReceived(..))
 
@@ -118,7 +119,7 @@ statusErrorHandler = Handler $ \case
   StatusError s e -> do
     status s
     let code = T.pack $ show $ statusCode s
-    let msg = T.fromStrict $ STE.decodeUtf8 $ statusMessage s
+    let msg = decodeUtf8Lenient $ statusMessage s
     html $ mconcat ["<h1>", code, " ", msg, "</h1>", e]
 
 -- | Exception handler in charge of 'ActionError'. Rethrowing 'Next' here is caught by 'tryNext'.
@@ -220,14 +221,14 @@ files = ActionT $ envFiles <$> ask
 header :: (Monad m) => T.Text -> ActionT m (Maybe T.Text)
 header k = do
     hs <- requestHeaders <$> request
-    return $ fmap strictByteStringToLazyText $ lookup (CI.mk (lazyTextToStrictByteString k)) hs
+    return $ fmap decodeUtf8Lenient $ lookup (CI.mk (encodeUtf8 k)) hs
 
 -- | Get all the request headers. Header names are case-insensitive.
 headers :: (Monad m) => ActionT m [(T.Text, T.Text)]
 headers = do
     hs <- requestHeaders <$> request
-    return [ ( strictByteStringToLazyText (CI.original k)
-             , strictByteStringToLazyText v)
+    return [ ( decodeUtf8Lenient (CI.original k)
+             , decodeUtf8Lenient v)
            | (k,v) <- hs ]
 
 -- | Get the request body.
@@ -282,7 +283,7 @@ param k = do
     val <- ActionT $ (lookup k . getParams) <$> ask
     case val of
         Nothing -> raiseStatus status500 $ "Param: " <> k <> " not found!" -- FIXME
-        Just v  -> either (const next) return $ parseParam v
+        Just v  -> either (const next) return $ parseParam (TL.fromStrict v)
 {-# DEPRECATED param "(#204) Not a good idea to treat all parameters identically. Use captureParam, formParam and queryParam instead. "#-}
 
 -- | Look up a capture parameter.
@@ -364,7 +365,7 @@ paramWith ty f err k = do
         let handleParseError = \case
               CaptureParam -> next
               _ -> raiseStatus err (T.unwords ["Cannot parse", v, "as a", T.pack (show ty), "parameter"])
-        in either (const $ handleParseError ty) return $ parseParam v
+        in either (const $ handleParseError ty) return $ parseParam $ TL.fromStrict v
 
 -- | Look up a parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
 --
@@ -379,7 +380,7 @@ paramWithMaybe f k = do
     val <- ActionT $ (lookup k . f) <$> ask
     case val of
       Nothing -> pure Nothing
-      Just v -> either (const $ pure Nothing) (pure . Just) $ parseParam v
+      Just v -> either (const $ pure Nothing) (pure . Just) $ parseParam $ TL.fromStrict v
 
 -- | Get all parameters from capture, form and query (in that order).
 params :: Monad m => ActionT m [Param]
@@ -420,39 +421,39 @@ getResponseContent = srContent <$> getResponseAction
 -- | Minimum implemention: 'parseParam'
 class Parsable a where
     -- | Take a 'T.Text' value and parse it as 'a', or fail with a message.
-    parseParam :: T.Text -> Either T.Text a
+    parseParam :: TL.Text -> Either TL.Text a
 
     -- | Default implementation parses comma-delimited lists.
     --
     -- > parseParamList t = mapM parseParam (T.split (== ',') t)
-    parseParamList :: T.Text -> Either T.Text [a]
-    parseParamList t = mapM parseParam (T.split (== ',') t)
+    parseParamList :: TL.Text -> Either TL.Text [a]
+    parseParamList t = mapM parseParam (TL.split (== ',') t)
 
 -- No point using 'read' for Text, ByteString, Char, and String.
-instance Parsable T.Text where parseParam = Right
-instance Parsable ST.Text where parseParam = Right . T.toStrict
+instance Parsable T.Text where parseParam = Right . TL.toStrict
+instance Parsable TL.Text where parseParam = Right
 instance Parsable B.ByteString where parseParam = Right . lazyTextToStrictByteString
-instance Parsable BL.ByteString where parseParam = Right . encodeUtf8
+instance Parsable BL.ByteString where parseParam = Right . TLE.encodeUtf8
 -- | Overrides default 'parseParamList' to parse String.
 instance Parsable Char where
-    parseParam t = case T.unpack t of
+    parseParam t = case TL.unpack t of
                     [c] -> Right c
                     _   -> Left "parseParam Char: no parse"
-    parseParamList = Right . T.unpack -- String
+    parseParamList = Right . TL.unpack -- String
 -- | Checks if parameter is present and is null-valued, not a literal '()'.
 -- If the URI requested is: '/foo?bar=()&baz' then 'baz' will parse as (), where 'bar' will not.
 instance Parsable () where
-    parseParam t = if T.null t then Right () else Left "parseParam Unit: no parse"
+    parseParam t = if TL.null t then Right () else Left "parseParam Unit: no parse"
 
 instance (Parsable a) => Parsable [a] where parseParam = parseParamList
 
 instance Parsable Bool where
-    parseParam t = if t' == T.toCaseFold "true"
+    parseParam t = if t' == TL.toCaseFold "true"
                    then Right True
-                   else if t' == T.toCaseFold "false"
+                   else if t' == TL.toCaseFold "false"
                         then Right False
                         else Left "parseParam Bool: no parse"
-        where t' = T.toCaseFold t
+        where t' = TL.toCaseFold t
 
 instance Parsable Double where parseParam = readEither
 instance Parsable Float where parseParam = readEither
@@ -474,8 +475,8 @@ instance Parsable Natural where parseParam = readEither
 -- | Useful for creating 'Parsable' instances for things that already implement 'Read'. Ex:
 --
 -- > instance Parsable Int where parseParam = readEither
-readEither :: Read a => T.Text -> Either T.Text a
-readEither t = case [ x | (x,"") <- reads (T.unpack t) ] of
+readEither :: Read a => TL.Text -> Either TL.Text a
+readEither t = case [ x | (x,"") <- reads (TL.unpack t) ] of
                 [x] -> Right x
                 []  -> Left "readEither: no parse"
                 _   -> Left "readEither: ambiguous parse"
@@ -489,7 +490,7 @@ changeHeader :: MonadIO m
              => (CI.CI B.ByteString -> B.ByteString -> [(HeaderName, B.ByteString)] -> [(HeaderName, B.ByteString)])
              -> T.Text -> T.Text -> ActionT m ()
 changeHeader f k =
-  modifyResponse . setHeaderWith . f (CI.mk $ lazyTextToStrictByteString k) . lazyTextToStrictByteString
+  modifyResponse . setHeaderWith . f (CI.mk $ encodeUtf8 k) . encodeUtf8
 
 -- | Add to the response headers. Header names are case-insensitive.
 addHeader :: MonadIO m => T.Text -> T.Text -> ActionT m ()
@@ -505,14 +506,28 @@ setHeader = changeHeader replace
 text :: (MonadIO m) => T.Text -> ActionT m ()
 text t = do
     changeHeader addIfNotPresent "Content-Type" "text/plain; charset=utf-8"
-    raw $ encodeUtf8 t
+    raw $ BL.fromStrict $ encodeUtf8 t
+
+-- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
+-- header to \"text/plain; charset=utf-8\" if it has not already been set.
+textLazy :: (MonadIO m) => TL.Text -> ActionT m ()
+textLazy t = do
+    changeHeader addIfNotPresent "Content-Type" "text/plain; charset=utf-8"
+    raw $ TLE.encodeUtf8 t
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
 -- header to \"text/html; charset=utf-8\" if it has not already been set.
 html :: (MonadIO m) => T.Text -> ActionT m ()
 html t = do
     changeHeader addIfNotPresent "Content-Type" "text/html; charset=utf-8"
-    raw $ encodeUtf8 t
+    raw $ BL.fromStrict $ encodeUtf8 t
+
+  -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
+-- header to \"text/html; charset=utf-8\" if it has not already been set.
+htmlLazy :: (MonadIO m) => TL.Text -> ActionT m ()
+htmlLazy t = do
+    changeHeader addIfNotPresent "Content-Type" "text/html; charset=utf-8"
+    raw $ TLE.encodeUtf8 t
 
 -- | Send a file as the response. Doesn't set the \"Content-Type\" header, so you probably
 -- want to do that on your own with 'setHeader'. Setting a status code will have no effect

@@ -15,8 +15,7 @@ import qualified Data.ByteString.Char8 as B
 
 import           Data.Maybe (fromMaybe)
 import           Data.String (fromString)
-import qualified Data.Text.Lazy as T
-import qualified Data.Text as TS
+import qualified Data.Text as T
 
 import           Network.HTTP.Types
 import           Network.Wai (Request(..))
@@ -25,7 +24,7 @@ import qualified Text.Regex as Regex
 
 import           Web.Scotty.Action
 import           Web.Scotty.Internal.Types (RoutePattern(..), RouteOptions, ActionEnv(..), ActionT, ScottyState(..), ScottyT(..), ErrorHandler, Middleware, BodyInfo, handler, addRoute, defaultScottyResponse)
-import           Web.Scotty.Util (strictByteStringToLazyText)
+import           Web.Scotty.Util (decodeUtf8Lenient)
 import Web.Scotty.Body (cloneBodyInfo, getBodyAction, getBodyChunkAction, getFormParamsAndFilesAction)
 
 -- | get = 'addroute' 'GET'
@@ -130,7 +129,7 @@ matchRoute (Capture pat)  req = go (T.split (=='/') pat) (compress $ T.split (==
 
 -- Pretend we are at the top level.
 path :: Request -> T.Text
-path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo
+path = T.cons '/' . T.intercalate "/" . pathInfo
 
 -- | Parse the request and construct the initial 'ActionEnv' with a default 200 OK response
 mkEnv :: MonadIO m => BodyInfo -> Request -> [Param] -> RouteOptions -> m ActionEnv
@@ -138,13 +137,13 @@ mkEnv bodyInfo req captureps opts = do
   (formps, bodyFiles) <- liftIO $ getFormParamsAndFilesAction req bodyInfo opts
   let
     queryps = parseEncodedParams $ rawQueryString req
-    bodyFiles' = [ (strictByteStringToLazyText k, fi) | (k,fi) <- bodyFiles ]
+    bodyFiles' = [ (decodeUtf8Lenient k, fi) | (k,fi) <- bodyFiles ]
   responseInit <- liftIO $ newTVarIO defaultScottyResponse
   return $ Env req captureps formps queryps (getBodyAction bodyInfo opts) (getBodyChunkAction bodyInfo) bodyFiles' responseInit
 
 
 parseEncodedParams :: B.ByteString -> [Param]
-parseEncodedParams bs = [ (T.fromStrict k, T.fromStrict $ fromMaybe "" v) | (k,v) <- parseQueryText bs ]
+parseEncodedParams bs = [ (k, fromMaybe "" v) | (k,v) <- parseQueryText bs ]
 
 -- | Match requests using a regular expression.
 --   Named captures are not yet supported.
