@@ -21,7 +21,7 @@ import           Control.Monad.Catch (MonadCatch, MonadThrow)
 import           Control.Monad.Error.Class (MonadError(..))
 import           Control.Monad.IO.Class (MonadIO(..))
 import UnliftIO (MonadUnliftIO(..))
-import           Control.Monad.Reader (MonadReader(..), ReaderT, asks)
+import           Control.Monad.Reader (MonadReader(..), ReaderT, asks, mapReaderT)
 import           Control.Monad.State.Strict (State, StateT(..))
 import           Control.Monad.Trans.Class (MonadTrans(..))
 import           Control.Monad.Trans.Control (MonadBaseControl, MonadTransControl)
@@ -170,12 +170,12 @@ getResponse ae = liftIO $ readTVarIO (envResponse ae)
 
 getResponseAction :: (MonadIO m) => ActionT m ScottyResponse
 getResponseAction = do
-  ae <- ask
+  ae <- ActionT ask
   getResponse ae
 
 modifyResponse :: (MonadIO m) => (ScottyResponse -> ScottyResponse) -> ActionT m ()
 modifyResponse f = do
-  tv <- asks envResponse
+  tv <- ActionT $ asks envResponse
   liftIO $ atomically $ modifyTVar' tv f
 
 data BodyPartiallyStreamed = BodyPartiallyStreamed deriving (Show, Typeable)
@@ -210,7 +210,11 @@ defaultScottyResponse = SR status200 [] (ContentBuilder mempty)
 
 
 newtype ActionT m a = ActionT { runAM :: ReaderT ActionEnv m a }
-  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadReader ActionEnv, MonadTrans, MonadThrow, MonadCatch, MonadBase b, MonadBaseControl b, MonadTransControl, MonadUnliftIO)
+  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadThrow, MonadCatch, MonadBase b, MonadBaseControl b, MonadTransControl, MonadUnliftIO)
+
+instance MonadReader r m => MonadReader r (ActionT m) where
+  ask = ActionT $ lift ask
+  local f = ActionT . mapReaderT (local f) . runAM
 
 -- | Models the invariant that only 'StatusError's can be thrown and caught.
 instance (MonadUnliftIO m) => MonadError StatusError (ActionT m) where
