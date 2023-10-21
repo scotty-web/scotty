@@ -4,6 +4,7 @@
 * add `captureParamMaybe`, `formParamMaybe`, `queryParamMaybe` (#322)
 * deprecate `rescue` and `liftAndCatchIO`
 * add `Web.Scotty.Trans.Strict` and `Web.Scotty.Trans.Lazy`
+* Reverted the `MonadReader` instance of `ActionT` so that it inherits the base monad
 
 ## 0.20.1 [2023.10.03]
 
