@@ -5,6 +5,7 @@
 * deprecate `rescue` and `liftAndCatchIO`
 * add `Web.Scotty.Trans.Strict` and `Web.Scotty.Trans.Lazy`
 * Reverted the `MonadReader` instance of `ActionT` so that it inherits the base monad
+* renamed `captureParam`, `captureParamMaybe`, and `captureParams` to `pathParam`, `pathParamMaybe`, `pathParams` respectively, keeping the old names as their synonyms
 
 ## 0.20.1 [2023.10.03]
 

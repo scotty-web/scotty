@@ -33,7 +33,7 @@ main = scotty 3000 $ do
                 H.input H.! type_ "submit" H.! value "set a cookie"
 
     post "/set-a-cookie" $ do
-        name'  <- captureParam "name"
-        value' <- captureParam "value"
+        name'  <- pathParam "name"
+        value' <- pathParam "value"
         setSimpleCookie name' value'
         redirect "/"

@@ -22,13 +22,16 @@ module Web.Scotty.Action
     , jsonData
     , next
     , param
+    , pathParam
     , captureParam
     , formParam
     , queryParam
+    , pathParamMaybe
     , captureParamMaybe
     , formParamMaybe
     , queryParamMaybe
     , params
+    , pathParams
     , captureParams
     , formParams
     , queryParams
@@ -169,12 +172,12 @@ throw = E.throw
 -- ever run is if the first one calls 'next'.
 --
 -- > get "/foo/:bar" $ do
--- >   w :: Text <- captureParam "bar"
+-- >   w :: Text <- pathParam "bar"
 -- >   unless (w == "special") next
 -- >   text "You made a request to /foo/special"
 -- >
 -- > get "/foo/:baz" $ do
--- >   w <- captureParam "baz"
+-- >   w <- pathParam "baz"
 -- >   text $ "You made a request to: " <> w
 next :: Monad m => ActionT m a
 next = E.throw AENext
@@ -286,15 +289,19 @@ param k = do
         Just v  -> either (const next) return $ parseParam (TL.fromStrict v)
 {-# DEPRECATED param "(#204) Not a good idea to treat all parameters identically. Use captureParam, formParam and queryParam instead. "#-}
 
--- | Look up a capture parameter.
+-- | Synonym for 'pathParam'
+captureParam :: (Parsable a, Monad m) => T.Text -> ActionT m a
+captureParam = pathParam
+
+-- | Look up a path parameter.
 --
 -- * Raises an exception which can be caught by 'catch' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 500 ("Internal Server Error") to the client.
 --
 -- * If the parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
 --
 -- /Since: 0.20/
-captureParam :: (Parsable a, Monad m) => T.Text -> ActionT m a
-captureParam = paramWith CaptureParam envCaptureParams status500
+pathParam :: (Parsable a, Monad m) => T.Text -> ActionT m a
+pathParam = paramWith PathParam envPathParams status500
 
 
 -- | Look up a form parameter.
@@ -317,6 +324,15 @@ formParam = paramWith FormParam envFormParams status400
 queryParam :: (Parsable a, Monad m) => T.Text -> ActionT m a
 queryParam = paramWith QueryParam envQueryParams status400
 
+-- | Look up a path parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
+--
+-- NB : Doesn't throw exceptions. In particular, route pattern matching will not continue, so developers
+-- must 'raiseStatus' or 'throw' to signal something went wrong.
+--
+-- /Since: FIXME/
+pathParamMaybe :: (Parsable a, Monad m) => T.Text -> ActionT m (Maybe a)
+pathParamMaybe = paramWithMaybe envPathParams
+
 -- | Look up a capture parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
 --
 -- NB : Doesn't throw exceptions. In particular, route pattern matching will not continue, so developers
@@ -324,7 +340,7 @@ queryParam = paramWith QueryParam envQueryParams status400
 --
 -- /Since: FIXME/
 captureParamMaybe :: (Parsable a, Monad m) => T.Text -> ActionT m (Maybe a)
-captureParamMaybe = paramWithMaybe envCaptureParams
+captureParamMaybe = paramWithMaybe envPathParams
 
 -- | Look up a form parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
 --
@@ -342,12 +358,12 @@ formParamMaybe = paramWithMaybe envFormParams
 queryParamMaybe :: (Parsable a, Monad m) => T.Text -> ActionT m (Maybe a)
 queryParamMaybe = paramWithMaybe envQueryParams
 
-data ParamType = CaptureParam
+data ParamType = PathParam
                | FormParam
                | QueryParam
 instance Show ParamType where
   show = \case
-    CaptureParam -> "capture"
+    PathParam -> "path"
     FormParam -> "form"
     QueryParam -> "query"
 
@@ -363,7 +379,7 @@ paramWith ty f err k = do
       Nothing -> raiseStatus err (T.unwords [T.pack (show ty), "parameter:", k, "not found!"])
       Just v ->
         let handleParseError = \case
-              CaptureParam -> next
+              PathParam -> next
               _ -> raiseStatus err (T.unwords ["Cannot parse", v, "as a", T.pack (show ty), "parameter"])
         in either (const $ handleParseError ty) return $ parseParam $ TL.fromStrict v
 
@@ -382,14 +398,19 @@ paramWithMaybe f k = do
       Nothing -> pure Nothing
       Just v -> either (const $ pure Nothing) (pure . Just) $ parseParam $ TL.fromStrict v
 
--- | Get all parameters from capture, form and query (in that order).
+-- | Get all parameters from path, form and query (in that order).
 params :: Monad m => ActionT m [Param]
 params = paramsWith getParams
-{-# DEPRECATED params "(#204) Not a good idea to treat all parameters identically. Use captureParams, formParams and queryParams instead. "#-}
+{-# DEPRECATED params "(#204) Not a good idea to treat all parameters identically. Use pathParams, formParams and queryParams instead. "#-}
+  
+-- | Get path parameters
+pathParams :: Monad m => ActionT m [Param]
+pathParams = paramsWith envPathParams
 
--- | Get capture parameters
+-- | Get path parameters
 captureParams :: Monad m => ActionT m [Param]
-captureParams = paramsWith envCaptureParams
+captureParams = paramsWith envPathParams
+
 -- | Get form parameters
 formParams :: Monad m => ActionT m [Param]
 formParams = paramsWith envFormParams
@@ -402,7 +423,7 @@ paramsWith f = ActionT (f <$> ask)
 
 {-# DEPRECATED getParams "(#204) Not a good idea to treat all parameters identically" #-}
 getParams :: ActionEnv -> [Param]
-getParams e = envCaptureParams e <> envFormParams e <> envQueryParams e
+getParams e = envPathParams e <> envFormParams e <> envQueryParams e
 
 
 -- === access the fields of the Response being constructed
