@@ -22,7 +22,7 @@ Description:
     .
     main = scotty 3000 $
     &#32;&#32;get &#34;/:word&#34; $ do
-    &#32;&#32;&#32;&#32;beam <- captureParam &#34;word&#34;
+    &#32;&#32;&#32;&#32;beam <- pathParam &#34;word&#34;
     &#32;&#32;&#32;&#32;html $ mconcat [&#34;&#60;h1&#62;Scotty, &#34;, beam, &#34; me up!&#60;/h1&#62;&#34;]
   @
   .

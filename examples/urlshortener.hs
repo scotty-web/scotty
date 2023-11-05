@@ -49,7 +49,7 @@ main = do
                         H.input H.! type_ "submit"
 
     post "/shorten" $ do
-        url <- captureParam "url"
+        url <- formParam "url"
         liftIO $ modifyMVar_ m $ \(i,db) -> return (i+1, M.insert i (T.pack url) db)
         redirect "/list"
 

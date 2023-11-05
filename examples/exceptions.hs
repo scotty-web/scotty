@@ -49,7 +49,7 @@ main = scottyT 3000 id $ do -- note, we aren't using any additional transformer 
                        ]
 
     get "/switch/:val" $ do
-        v <- captureParam "val"
+        v <- pathParam "val"
         _ <- if even v then throw Forbidden else throw (NotFound v)
         text "this will never be reached"
 

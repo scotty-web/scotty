@@ -156,7 +156,7 @@ type Param = (Text, Text)
 type File = (Text, FileInfo LBS8.ByteString)
 
 data ActionEnv = Env { envReq       :: Request
-                     , envCaptureParams :: [Param]
+                     , envPathParams :: [Param]
                      , envFormParams    :: [Param]
                      , envQueryParams :: [Param]
                      , envBody      :: IO LBS8.ByteString

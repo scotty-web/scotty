@@ -19,9 +19,9 @@ module Web.Scotty
       -- ** Accessing the Request, Captures, and Query Parameters
     , request, header, headers, body, bodyReader
     , param, params
-    , captureParam, formParam, queryParam
-    , captureParamMaybe, formParamMaybe, queryParamMaybe
-    , captureParams, formParams, queryParams
+    , pathParam, captureParam, formParam, queryParam
+    , pathParamMaybe, captureParamMaybe, formParamMaybe, queryParamMaybe
+    , pathParams, captureParams, formParams, queryParams
     , jsonData, files
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
@@ -141,12 +141,12 @@ throw = Trans.throw
 -- ever run is if the first one calls 'next'.
 --
 -- > get "/foo/:bar" $ do
--- >   w :: Text <- captureParam "bar"
+-- >   w :: Text <- pathParam "bar"
 -- >   unless (w == "special") next
 -- >   text "You made a request to /foo/special"
 -- >
 -- > get "/foo/:baz" $ do
--- >   w <- captureParam "baz"
+-- >   w <- pathParam "baz"
 -- >   text $ "You made a request to: " <> w
 next :: ActionM ()
 next = Trans.next
@@ -158,7 +158,7 @@ next = Trans.next
 -- content the text message.
 --
 -- > get "/foo/:bar" $ do
--- >   w :: Text <- captureParam "bar"
+-- >   w :: Text <- pathParam "bar"
 -- >   unless (w == "special") finish
 -- >   text "You made a request to /foo/special"
 --
@@ -228,17 +228,21 @@ jsonData = Trans.jsonData
 --   capture cannot be parsed.
 param :: Trans.Parsable a => Text -> ActionM a
 param = Trans.param . toStrict
-{-# DEPRECATED param "(#204) Not a good idea to treat all parameters identically. Use captureParam, formParam and queryParam instead. "#-}
+{-# DEPRECATED param "(#204) Not a good idea to treat all parameters identically. Use pathParam, formParam and queryParam instead. "#-}
 
--- | Get a capture parameter.
+-- | Synonym for 'pathParam'
+captureParam :: Trans.Parsable a => Text -> ActionM a
+captureParam = Trans.captureParam . toStrict
+
+-- | Get a path parameter.
 --
 -- * Raises an exception which can be caught by 'catch' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 500 ("Internal Server Error") to the client.
 --
 -- * If the parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
 --
--- /Since: 0.20/
-captureParam :: Trans.Parsable a => Text -> ActionM a
-captureParam = Trans.captureParam . toStrict
+-- /Since: 0.21/
+pathParam :: Trans.Parsable a => Text -> ActionM a
+pathParam = Trans.pathParam . toStrict
 
 -- | Get a form parameter.
 --
@@ -261,14 +265,18 @@ queryParam :: Trans.Parsable a => Text -> ActionM a
 queryParam = Trans.queryParam . toStrict
 
 
--- | Look up a capture parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
+-- | Look up a path parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
 --
 -- NB : Doesn't throw exceptions. In particular, route pattern matching will not continue, so developers
 -- must 'raiseStatus' or 'throw' to signal something went wrong.
 --
 -- /Since: FIXME/
+pathParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
+pathParamMaybe = Trans.pathParamMaybe . toStrict
+
+-- | Synonym for 'pathParamMaybe'
 captureParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
-captureParamMaybe = Trans.captureParamMaybe . toStrict
+captureParamMaybe = Trans.pathParamMaybe . toStrict
 
 -- | Look up a form parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
 --
@@ -289,14 +297,17 @@ queryParamMaybe = Trans.queryParamMaybe . toStrict
 
 
 
--- | Get all parameters from capture, form and query (in that order).
+-- | Get all parameters from path, form and query (in that order).
 params :: ActionM [Param]
 params = Trans.params
-{-# DEPRECATED params "(#204) Not a good idea to treat all parameters identically. Use captureParams, formParams and queryParams instead. "#-}
+{-# DEPRECATED params "(#204) Not a good idea to treat all parameters identically. Use pathParams, formParams and queryParams instead. "#-}
 
--- | Get capture parameters
+-- | Synonym for 'pathParams'
 captureParams :: ActionM [Param]
 captureParams = Trans.captureParams
+-- | Get path parameters
+pathParams :: ActionM [Param]
+pathParams = Trans.pathParams
 -- | Get form parameters
 formParams :: ActionM [Param]
 formParams = Trans.formParams

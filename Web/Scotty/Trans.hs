@@ -24,9 +24,9 @@ module Web.Scotty.Trans
       -- ** Accessing the Request, Captures, and Query Parameters
     , request, Lazy.header, Lazy.headers, body, bodyReader
     , param, params
-    , captureParam, formParam, queryParam
-    , captureParamMaybe, formParamMaybe, queryParamMaybe
-    , captureParams, formParams, queryParams
+    , pathParam, captureParam, formParam, queryParam
+    , pathParamMaybe, captureParamMaybe, formParamMaybe, queryParamMaybe
+    , pathParams, captureParams, formParams, queryParams
     , jsonData, files
       -- ** Modifying the Response and Redirecting
     , status, Lazy.addHeader, Lazy.setHeader, Lazy.redirect
