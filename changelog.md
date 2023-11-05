@@ -6,6 +6,8 @@
 * add `Web.Scotty.Trans.Strict` and `Web.Scotty.Trans.Lazy`
 * Reverted the `MonadReader` instance of `ActionT` so that it inherits the base monad
 * renamed `captureParam`, `captureParamMaybe`, and `captureParams` to `pathParam`, `pathParamMaybe`, `pathParams` respectively, keeping the old names as their synonyms
+* Scotty's API such as `queryParam` now throws `ScottyException` rather than `StatusException`.
+  Uncaught exceptions are handled by `scottyExceptionHandler`, resembling the existing behaviour
 
 ## 0.20.1 [2023.10.03]
 
