@@ -56,7 +56,7 @@ spec = do
           it ("properly handles extra slash routes for " ++ method ++ " requests") $ do
             makeRequest "//scotty" `shouldRespondWith` 200
 
-        withApp (route "/:paramName" $ param "paramName" >>= text) $ do
+        withApp (route "/:paramName" $ captureParam "paramName" >>= text) $ do
           it ("captures route parameters for " ++ method ++ " requests with url encoded '/' in path") $ do
             makeRequest "/a%2Fb" `shouldRespondWith` "a/b"
             
