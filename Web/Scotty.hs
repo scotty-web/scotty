@@ -7,17 +7,22 @@
 -- the comments on each of these functions for more information.
 module Web.Scotty
     ( -- * scotty-to-WAI
-      scotty, scottyApp, scottyOpts, scottySocket, Options(..)
+      scotty, scottyApp, scottyOpts, scottySocket, Options(..), defaultOptions
       -- * Defining Middleware and Routes
       --
       -- | 'Middleware' and routes are run in the order in which they
       -- are defined. All middleware is run first, followed by the first
       -- route that matches. If no route matches, a 404 response is given.
-    , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound, setMaxRequestBodySize
+    , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound, nested, setMaxRequestBodySize
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
-    , request, header, headers, body, bodyReader, param, params, jsonData, files
+    , request, header, headers, body, bodyReader
+    , param, params
+    , pathParam, captureParam, formParam, queryParam
+    , pathParamMaybe, captureParamMaybe, formParamMaybe, queryParamMaybe
+    , pathParams, captureParams, formParams, queryParams
+    , jsonData, files
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
       -- ** Setting Response Body
@@ -25,31 +30,40 @@ module Web.Scotty
       -- | Note: only one of these should be present in any given route
       -- definition, as they completely replace the current 'Response' body.
     , text, html, file, json, stream, raw
+      -- ** Accessing the fields of the Response
+    , getResponseHeaders, getResponseStatus, getResponseContent
       -- ** Exceptions
-    , raise, raiseStatus, rescue, next, finish, defaultHandler, liftAndCatchIO
+    , raise, raiseStatus, throw, rescue, next, finish, defaultHandler, liftAndCatchIO
+    , liftIO, catch
+    , StatusError(..)
       -- * Parsing Parameters
     , Param, Trans.Parsable(..), Trans.readEither
       -- * Types
-    , ScottyM, ActionM, RoutePattern, File, Kilobytes
+    , ScottyM, ActionM, RoutePattern, File, Content(..), Kilobytes, Handler(..)
+    , ScottyState, defaultScottyState
     ) where
 
--- With the exception of this, everything else better just import types.
 import qualified Web.Scotty.Trans as Trans
 
+import qualified Control.Exception          as E
+import Control.Monad.IO.Class
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString as BS
 import Data.ByteString.Lazy.Char8 (ByteString)
-import Data.Text.Lazy (Text)
+import Data.Text.Lazy (Text, toStrict)
 
-import Network.HTTP.Types (Status, StdMethod)
+import Network.HTTP.Types (Status, StdMethod, ResponseHeaders)
 import Network.Socket (Socket)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 
-import Web.Scotty.Internal.Types (ScottyT, ActionT, Param, RoutePattern, Options, File, Kilobytes)
+import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, StatusError(..), Content(..))
 
-type ScottyM = ScottyT Text IO
-type ActionM = ActionT Text IO
+import UnliftIO.Exception (Handler(..), catch)
+
+
+type ScottyM = ScottyT IO
+type ActionM = ActionT IO
 
 -- | Run a scotty application using the warp server.
 scotty :: Port -> ScottyM () -> IO ()
@@ -71,16 +85,8 @@ scottySocket opts sock = Trans.scottySocketT opts sock id
 scottyApp :: ScottyM () -> IO Application
 scottyApp = Trans.scottyAppT id
 
--- | Global handler for uncaught exceptions.
---
--- Uncaught exceptions normally become 500 responses.
--- You can use this to selectively override that behavior.
---
--- Note: IO exceptions are lifted into Scotty exceptions by default.
--- This has security implications, so you probably want to provide your
--- own defaultHandler in production which does not send out the error
--- strings as 500 responses.
-defaultHandler :: (Text -> ActionM ()) -> ScottyM ()
+-- | Global handler for user-defined exceptions.
+defaultHandler :: ErrorHandler IO -> ScottyM ()
 defaultHandler = Trans.defaultHandler
 
 -- | Use given middleware. Middleware is nested such that the first declared
@@ -89,36 +95,60 @@ defaultHandler = Trans.defaultHandler
 middleware :: Middleware -> ScottyM ()
 middleware = Trans.middleware
 
+-- | Nest a whole WAI application inside a Scotty handler.
+-- Note: You will want to ensure that this route fully handles the response,
+-- as there is no easy delegation as per normal Scotty actions.
+-- Also, you will have to carefully ensure that you are expecting the correct routes,
+-- this could require stripping the current prefix, or adding the prefix to your
+-- application's handlers if it depends on them. One potential use-case for this
+-- is hosting a web-socket handler under a specific route.
+nested :: Application -> ActionM ()
+nested = Trans.nested
+
 -- | Set global size limit for the request body. Requests with body size exceeding the limit will not be
 -- processed and an HTTP response 413 will be returned to the client. Size limit needs to be greater than 0, 
 -- otherwise the application will terminate on start. 
 setMaxRequestBodySize :: Kilobytes -> ScottyM ()
 setMaxRequestBodySize = Trans.setMaxRequestBodySize
 
--- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions
--- turn into HTTP 500 responses.
+-- | Throw a "500 Server Error" 'StatusError', which can be caught with 'catch'.
+--
+-- Uncaught exceptions turn into HTTP 500 responses.
 raise :: Text -> ActionM a
 raise = Trans.raise
 
--- | Throw an exception, which can be caught with 'rescue'. Uncaught exceptions turn into HTTP responses corresponding to the given status.
+-- | Throw a 'StatusError' exception that has an associated HTTP error code and can be caught with 'catch'.
+--
+-- Uncaught exceptions turn into HTTP responses corresponding to the given status.
 raiseStatus :: Status -> Text -> ActionM a
 raiseStatus = Trans.raiseStatus
 
+-- | Throw an exception which can be caught within the scope of the current Action with 'catch'.
+--
+-- If the exception is not caught locally, another option is to implement a global 'Handler' (with 'defaultHandler') that defines its interpretation and a translation to HTTP error codes.
+--
+-- Uncaught exceptions turn into HTTP 500 responses.
+throw :: (E.Exception e) => e -> ActionM a
+throw = Trans.throw
+
 -- | Abort execution of this action and continue pattern matching routes.
 -- Like an exception, any code after 'next' is not executed.
+--
+-- NB : Internally, this is implemented with an exception that can only be
+-- caught by the library, but not by the user.
 --
 -- As an example, these two routes overlap. The only way the second one will
 -- ever run is if the first one calls 'next'.
 --
 -- > get "/foo/:bar" $ do
--- >   w :: Text <- param "bar"
+-- >   w :: Text <- pathParam "bar"
 -- >   unless (w == "special") next
 -- >   text "You made a request to /foo/special"
 -- >
 -- > get "/foo/:baz" $ do
--- >   w <- param "baz"
+-- >   w <- pathParam "baz"
 -- >   text $ "You made a request to: " <> w
-next :: ActionM a
+next :: ActionM ()
 next = Trans.next
 
 -- | Abort execution of this action. Like an exception, any code after 'finish'
@@ -128,7 +158,7 @@ next = Trans.next
 -- content the text message.
 --
 -- > get "/foo/:bar" $ do
--- >   w :: Text <- param "bar"
+-- >   w :: Text <- pathParam "bar"
 -- >   unless (w == "special") finish
 -- >   text "You made a request to /foo/special"
 --
@@ -136,15 +166,17 @@ next = Trans.next
 finish :: ActionM a
 finish = Trans.finish
 
--- | Catch an exception thrown by 'raise'.
+-- | Catch an exception e.g. a 'StatusError' or a user-defined exception.
 --
--- > raise "just kidding" `rescue` (\msg -> text msg)
-rescue :: ActionM a -> (Text -> ActionM a) -> ActionM a
+-- > raise JustKidding `catch` (\msg -> text msg)
+rescue :: E.Exception e => ActionM a -> (e -> ActionM a) -> ActionM a
 rescue = Trans.rescue
+{-# DEPRECATED rescue "Use catch instead" #-}
 
 -- | Like 'liftIO', but catch any IO exceptions and turn them into Scotty exceptions.
 liftAndCatchIO :: IO a -> ActionM a
 liftAndCatchIO = Trans.liftAndCatchIO
+{-# DEPRECATED liftAndCatchIO "Use liftIO instead" #-}
 
 -- | Redirect to given URL. Like throwing an uncatchable exception. Any code after the call to redirect
 -- will not be run.
@@ -189,17 +221,100 @@ jsonData = Trans.jsonData
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
--- * Raises an exception which can be caught by 'rescue' if parameter is not found.
+-- * Raises an exception which can be caught by 'catch' if parameter is not found.
 --
--- * If parameter is found, but 'read' fails to parse to the correct type, 'next' is called.
+-- * If parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
 --   This means captures are somewhat typed, in that a route won't match if a correctly typed
 --   capture cannot be parsed.
 param :: Trans.Parsable a => Text -> ActionM a
-param = Trans.param
+param = Trans.param . toStrict
+{-# DEPRECATED param "(#204) Not a good idea to treat all parameters identically. Use pathParam, formParam and queryParam instead. "#-}
 
--- | Get all parameters from capture, form and query (in that order).
+-- | Synonym for 'pathParam'
+captureParam :: Trans.Parsable a => Text -> ActionM a
+captureParam = Trans.captureParam . toStrict
+
+-- | Get a path parameter.
+--
+-- * Raises an exception which can be caught by 'catch' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 500 ("Internal Server Error") to the client.
+--
+-- * If the parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
+--
+-- /Since: 0.21/
+pathParam :: Trans.Parsable a => Text -> ActionM a
+pathParam = Trans.pathParam . toStrict
+
+-- | Get a form parameter.
+--
+-- * Raises an exception which can be caught by 'catch' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
+--
+-- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
+--
+-- /Since: 0.20/
+formParam :: Trans.Parsable a => Text -> ActionM a
+formParam = Trans.formParam . toStrict
+
+-- | Get a query parameter.
+--
+-- * Raises an exception which can be caught by 'catch' if parameter is not found. If the exception is not caught, scotty will return a HTTP error code 400 ("Bad Request") to the client.
+--
+-- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
+--
+-- /Since: 0.20/
+queryParam :: Trans.Parsable a => Text -> ActionM a
+queryParam = Trans.queryParam . toStrict
+
+
+-- | Look up a path parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
+--
+-- NB : Doesn't throw exceptions. In particular, route pattern matching will not continue, so developers
+-- must 'raiseStatus' or 'throw' to signal something went wrong.
+--
+-- /Since: FIXME/
+pathParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
+pathParamMaybe = Trans.pathParamMaybe . toStrict
+
+-- | Synonym for 'pathParamMaybe'
+captureParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
+captureParamMaybe = Trans.pathParamMaybe . toStrict
+
+-- | Look up a form parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
+--
+-- NB : Doesn't throw exceptions, so developers must 'raiseStatus' or 'throw' to signal something went wrong.
+--
+-- /Since: FIXME/
+formParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
+formParamMaybe = Trans.formParamMaybe . toStrict
+
+-- | Look up a query parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
+--
+-- NB : Doesn't throw exceptions, so developers must 'raiseStatus' or 'throw' to signal something went wrong.
+--
+-- /Since: FIXME/
+queryParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
+queryParamMaybe = Trans.queryParamMaybe . toStrict
+
+
+
+
+-- | Get all parameters from path, form and query (in that order).
 params :: ActionM [Param]
 params = Trans.params
+{-# DEPRECATED params "(#204) Not a good idea to treat all parameters identically. Use pathParams, formParams and queryParams instead. "#-}
+
+-- | Synonym for 'pathParams'
+captureParams :: ActionM [Param]
+captureParams = Trans.captureParams
+-- | Get path parameters
+pathParams :: ActionM [Param]
+pathParams = Trans.pathParams
+-- | Get form parameters
+formParams :: ActionM [Param]
+formParams = Trans.formParams
+-- | Get query parameters
+queryParams :: ActionM [Param]
+queryParams = Trans.queryParams
+
 
 -- | Set the HTTP response status. Default is 200.
 status :: Status -> ActionM ()
@@ -244,6 +359,18 @@ stream = Trans.stream
 -- \"Content-Type\" header, so you probably want to do that on your own with 'setHeader'.
 raw :: ByteString -> ActionM ()
 raw = Trans.raw
+
+
+-- | Access the HTTP 'Status' of the Response
+getResponseStatus :: ActionM Status
+getResponseStatus = Trans.getResponseStatus
+-- | Access the HTTP headers of the Response
+getResponseHeaders :: ActionM ResponseHeaders
+getResponseHeaders = Trans.getResponseHeaders
+-- | Access the content of the Response
+getResponseContent :: ActionM Content
+getResponseContent = Trans.getResponseContent
+
 
 -- | get = 'addroute' 'GET'
 get :: RoutePattern -> ActionM () -> ScottyM ()
@@ -343,3 +470,7 @@ function = Trans.function
 -- | Build a route that requires the requested path match exactly, without captures.
 literal :: String -> RoutePattern
 literal = Trans.literal
+
+
+
+

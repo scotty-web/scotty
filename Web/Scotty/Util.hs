@@ -1,9 +1,9 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE LambdaCase #-}
 module Web.Scotty.Util
     ( lazyTextToStrictByteString
     , strictByteStringToLazyText
-    , setContent
-    , setHeaderWith
-    , setStatus
+    , decodeUtf8Lenient
     , mkResponse
     , replace
     , add
@@ -16,41 +16,39 @@ import Network.Socket (SockAddr(..), Socket, getSocketName, socketPort)
 import Network.Wai
 
 import Control.Monad (when)
-import Control.Exception (throw)
+import qualified Control.Exception as EUnsafe (throw)
+
 
 import Network.HTTP.Types
 
 import qualified Data.ByteString as B
-import qualified Data.Text as TP (pack)
-import qualified Data.Text.Lazy as T
-import qualified Data.Text.Encoding as ES
+import qualified Data.Text as TP (Text, pack)
+import qualified Data.Text.Lazy as TL
+import           Data.Text.Encoding as ES
 import qualified Data.Text.Encoding.Error as ES
 
 import Web.Scotty.Internal.Types
 
-lazyTextToStrictByteString :: T.Text -> B.ByteString
-lazyTextToStrictByteString = ES.encodeUtf8 . T.toStrict
+lazyTextToStrictByteString :: TL.Text -> B.ByteString
+lazyTextToStrictByteString = ES.encodeUtf8 . TL.toStrict
 
-strictByteStringToLazyText :: B.ByteString -> T.Text
-strictByteStringToLazyText = T.fromStrict . ES.decodeUtf8With ES.lenientDecode
+strictByteStringToLazyText :: B.ByteString -> TL.Text
+strictByteStringToLazyText = TL.fromStrict . ES.decodeUtf8With ES.lenientDecode
 
-setContent :: Content -> ScottyResponse -> ScottyResponse
-setContent c sr = sr { srContent = c }
-
-setHeaderWith :: ([(HeaderName, B.ByteString)] -> [(HeaderName, B.ByteString)]) -> ScottyResponse -> ScottyResponse
-setHeaderWith f sr = sr { srHeaders = f (srHeaders sr) }
-
-setStatus :: Status -> ScottyResponse -> ScottyResponse
-setStatus s sr = sr { srStatus = s }
+#if !MIN_VERSION_text(2,0,0)
+decodeUtf8Lenient :: B.ByteString -> TP.Text
+decodeUtf8Lenient = ES.decodeUtf8With ES.lenientDecode
+#endif
 
 -- Note: we currently don't support responseRaw, which may be useful
 -- for websockets. However, we always read the request body, which
 -- is incompatible with responseRaw responses.
 mkResponse :: ScottyResponse -> Response
 mkResponse sr = case srContent sr of
-                    ContentBuilder b  -> responseBuilder s h b
-                    ContentFile f     -> responseFile s h f Nothing
-                    ContentStream str -> responseStream s h str
+                    ContentBuilder  b   -> responseBuilder s h b
+                    ContentFile     f   -> responseFile s h f Nothing
+                    ContentStream   str -> responseStream s h str
+                    ContentResponse res -> res
     where s = srStatus sr
           h = srHeaders sr
 
@@ -76,18 +74,31 @@ socketDescription sock = do
     SockAddrUnix u -> return $ "unix socket " ++ u
     _              -> fmap (\port -> "port " ++ show port) $ socketPort sock
 
--- return request body or throw an exception if request body too big
-readRequestBody :: IO B.ByteString -> ([B.ByteString] -> IO [B.ByteString]) -> Maybe Kilobytes ->IO [B.ByteString]
+-- | return request body or throw a 'RequestException' if request body too big
+readRequestBody :: IO B.ByteString -- ^ body chunk reader
+                -> ([B.ByteString] -> IO [B.ByteString])
+                -> Maybe Kilobytes -- ^ max body size
+                -> IO [B.ByteString]
 readRequestBody rbody prefix maxSize = do
   b <- rbody
   if B.null b then
        prefix []
     else
       do
-        checkBodyLength maxSize 
+        checkBodyLength maxSize
         readRequestBody rbody (prefix . (b:)) maxSize
     where checkBodyLength :: Maybe Kilobytes ->  IO ()
-          checkBodyLength (Just maxSize') = prefix [] >>= \bodySoFar -> when (isBigger bodySoFar maxSize') readUntilEmpty
-          checkBodyLength Nothing = return ()
-          isBigger bodySoFar maxSize' = (B.length . B.concat $ bodySoFar) > maxSize' * 1024
-          readUntilEmpty = rbody >>= \b -> if B.null b then throw (RequestException (ES.encodeUtf8 . TP.pack $ "Request is too big Jim!") status413) else readUntilEmpty
+          checkBodyLength = \case
+            Just maxSize' -> do
+              bodySoFar <- prefix []
+              when (bodySoFar `isBigger` maxSize') readUntilEmpty
+            Nothing -> return ()
+          isBigger bodySoFar maxSize' = (B.length . B.concat $ bodySoFar) > maxSize' * 1024 -- XXX this looks both inefficient and wrong
+          readUntilEmpty = do
+            b <- rbody
+            if B.null b
+              then EUnsafe.throw (RequestException (ES.encodeUtf8 . TP.pack $ "Request is too big Jim!") status413)
+              else readUntilEmpty
+
+
+

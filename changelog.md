@@ -1,5 +1,37 @@
 ## next [????.??.??]
 
+* add getResponseHeaders, getResponseStatus, getResponseContent (#214)
+* add `captureParamMaybe`, `formParamMaybe`, `queryParamMaybe` (#322)
+* deprecate `rescue` and `liftAndCatchIO`
+* add `Web.Scotty.Trans.Strict` and `Web.Scotty.Trans.Lazy`
+* Reverted the `MonadReader` instance of `ActionT` so that it inherits the base monad
+* renamed `captureParam`, `captureParamMaybe`, and `captureParams` to `pathParam`, `pathParamMaybe`, `pathParams` respectively, keeping the old names as their synonyms
+
+## 0.20.1 [2023.10.03]
+
+* remove dependencies on 'base-compat' and 'base-compat-batteries' (#318)
+* re-add MonadFail (ActionT m) instance (#325)
+* re-add MonadError (ActionT m) instance, but the error type is now specialized to 'StatusError' (#325)
+* raise lower bound on base ( > 4.14 ) to reflect support for GHC >= 8.10 (#325).
+
+
+## 0.20 [2023.10.02]
+* Drop support for GHC < 8.10 and modernise the CI pipeline (#300).
+* Adds a new `nested` handler that allows you to place an entire WAI Application under a Scotty route (#233).
+* Disambiguate request parameters (#204). Adjust the `Env` type to have three `[Param]` fields instead of one, add `captureParam`, `formParam`, `queryParam` and the associated `captureParams`, `formParams`, `queryParams`. Add deprecation notices to `param` and `params`.
+* Add `Scotty.Cookie` module (#293).
+* Change body parsing behaviour such that calls to `next` don't result in POST request bodies disappearing (#147).
+* (Internal) Remove unused type `RequestBodyState` (#313)
+* Rewrite `ActionT` using the "ReaderT pattern" (#310) https://www.fpcomplete.com/blog/readert-design-pattern/
+
+Breaking:
+
+* (#310) Introduce `unliftio` as a dependency, and base exception handling on `catch`.
+* (#310) Clarify the exception handling mechanism of ActionT, ScottyT. `rescue` changes signature to use proper `Exception` types rather than strings. Remove `ScottyError` typeclass.
+* (#310) All ActionT methods (`text`, `html` etc.) have now a MonadIO constraint on the base monad rather than Monad because the response is constructed in a TVar inside ActionEnv. `rescue` has a MonadUnliftIO constraint. The Alternative instance of ActionT also is based on MonadUnliftIO because `<|>` is implemented in terms of `catch`. `ScottyT` and `ActionT` do not have an exception type parameter anymore.
+* (#310) MonadError e (ActionT m) instance removed
+* (#310) MonadFail (ActionT m) instance is missing by mistake.
+
 ## 0.12.1 [2022.11.17]
 * Fix CPP bug that prevented tests from building on Windows.
 * Allow building with `transformers-0.6.*` and `mtl-2.3.*`. Because the
