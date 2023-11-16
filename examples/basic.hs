@@ -1,20 +1,26 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# language DeriveAnyClass #-}
+{-# language ScopedTypeVariables #-}
 module Main (main) where
 
 import Web.Scotty
 
 import Network.Wai.Middleware.RequestLogger -- install wai-extra if you don't have this
 
+import Control.Exception (Exception(..))
 import Control.Monad
 import Control.Monad.Trans
 import System.Random (newStdGen, randomRs)
 
 import Network.HTTP.Types (status302)
 
+import Data.Text.Lazy (pack)
 import Data.Text.Lazy.Encoding (decodeUtf8)
 import Data.String (fromString)
-import Prelude ()
-import Prelude.Compat
+import Data.Typeable (Typeable)
+
+data Err = Boom | UserAgentNotFound | NeverReached deriving (Show, Typeable, Exception)
+
 
 main :: IO ()
 main = scotty 3000 $ do
@@ -29,14 +35,14 @@ main = scotty 3000 $ do
     get "/" $ text "foobar"
     get "/" $ text "barfoo"
 
-    -- Using a parameter in the query string. If it has
+    -- Using a parameter in the query string. Since it has
     -- not been given, a 500 page is generated.
     get "/foo" $ do
-        v <- param "fooparam"
+        v <- pathParam "fooparam"
         html $ mconcat ["<h1>", v, "</h1>"]
 
     -- An uncaught error becomes a 500 page.
-    get "/raise" $ raise "some error here"
+    get "/raise" $ throw Boom
 
     -- You can set status and headers directly.
     get "/redirect-custom" $ do
@@ -47,24 +53,24 @@ main = scotty 3000 $ do
     -- redirects preempt execution
     get "/redirect" $ do
         void $ redirect "http://www.google.com"
-        raise "this error is never reached"
+        throw NeverReached
 
     -- Of course you can catch your own errors.
     get "/rescue" $ do
-        (do void $ raise "a rescued error"; redirect "http://www.we-never-go-here.com")
-        `rescue` (\m -> text $ "we recovered from " `mappend` m)
+        (do void $ throw Boom; redirect "http://www.we-never-go-here.com")
+        `catch` (\(e :: Err) -> text $ "we recovered from " `mappend` pack (show e))
 
     -- Parts of the URL that start with a colon match
     -- any string, and capture that value as a parameter.
     -- URL captures take precedence over query string parameters.
     get "/foo/:bar/required" $ do
-        v <- param "bar"
+        v <- pathParam "bar"
         html $ mconcat ["<h1>", v, "</h1>"]
 
     -- Files are streamed directly to the client.
     get "/404" $ file "404.html"
 
-    -- You can stop execution of this action and keep pattern matching routes.
+    -- 'next' stops execution of the current action and keeps pattern matching routes.
     get "/random" $ do
         void next
         redirect "http://www.we-never-go-here.com"
@@ -75,7 +81,7 @@ main = scotty 3000 $ do
         json $ take 20 $ randomRs (1::Int,100) g
 
     get "/ints/:is" $ do
-        is <- param "is"
+        is <- pathParam "is"
         json $ [(1::Int)..10] ++ is
 
     get "/setbody" $ do
@@ -85,17 +91,21 @@ main = scotty 3000 $ do
                        ,"</form>"
                        ]
 
+    -- Read and decode the request body as UTF-8
     post "/readbody" $ do
         b <- body
         text $ decodeUtf8 b
 
+    -- Look up a request header
     get "/header" $ do
         agent <- header "User-Agent"
-        maybe (raise "User-Agent header not found!") text agent
+        maybe (throw UserAgentNotFound) text agent
 
     -- Make a request to this URI, then type a line in the terminal, which
     -- will be the response. Using ctrl-c will cause getLine to fail.
     -- This demonstrates that IO exceptions are lifted into ActionM exceptions.
+    --
+    -- (#310) we don't catch async exceptions, so ctrl-c just exits the program
     get "/iofail" $ do
         msg <- liftIO $ liftM fromString getLine
         text msg
