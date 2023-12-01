@@ -10,17 +10,26 @@ defaults:
     shell: bash
 
 jobs:
+  generateMatrix:                                                                                                       
+    name: "Generate matrix from cabal"                                                                                  
+    runs-on: ubuntu-latest                                                                                              
+    outputs:                                                                                                            
+      matrix: ${{ steps.set-matrix.outputs.matrix }}                                                                    
+    steps:                                                                                                              
+      - name: Checkout base repo                                                                                        
+        uses: actions/checkout@v2                                                                                       
+      - name: Extract the tested GHC versions                                                                           
+        id: set-matrix                                                                                                  
+        run: |                                                                                                          
+          wget https://github.com/Kleidukos/get-tested/releases/download/v0.1.5.0/get-tested-0.1.5.0-linux-amd64 -O get-tested
+          chmod +x get-tested                                                                                           
+          ./get-tested --ubuntu scotty.cabal >> $GITHUB_OUTPUT
   cabal:
     name: ${{ matrix.os }} / ghc ${{ matrix.ghc }}
+    needs: generateMatrix  
     runs-on: ${{ matrix.os }}
     strategy:
-      matrix:
-        include:
-          - { cabal: "3.10", os: ubuntu-latest,  ghc: "8.10.7" }
-          - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.0.2"  }
-          - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.2.8"  }
-          - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.4.6", allow-failure: true }
-          - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.6.2", allow-failure: true }
+      matrix: ${{ fromJSON(needs.generateMatrix.outputs.matrix) }}
       fail-fast: false
 
     steps:
