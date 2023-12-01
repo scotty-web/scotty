@@ -116,12 +116,14 @@ setMaxRequestBodySize = Trans.setMaxRequestBodySize
 -- Uncaught exceptions turn into HTTP 500 responses.
 raise :: Text -> ActionM a
 raise = Trans.raise
+{-# DEPRECATED raise "Throw an exception instead" #-}
 
 -- | Throw a 'StatusError' exception that has an associated HTTP error code and can be caught with 'catch'.
 --
 -- Uncaught exceptions turn into HTTP responses corresponding to the given status.
 raiseStatus :: Status -> Text -> ActionM a
 raiseStatus = Trans.raiseStatus
+{-# DEPRECATED raiseStatus "Use status, text, and finish instead" #-}
 
 -- | Throw an exception which can be caught within the scope of the current Action with 'catch'.
 --

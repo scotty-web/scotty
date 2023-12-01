@@ -180,12 +180,14 @@ raise :: (MonadIO m) =>
          T.Text -- ^ Error text
       -> ActionT m a
 raise  = raiseStatus status500
+{-# DEPRECATED raise "Throw an exception instead" #-}
 
 -- | Throw a 'StatusError' exception that has an associated HTTP error code and can be caught with 'catch'.
 --
 -- Uncaught exceptions turn into HTTP responses corresponding to the given status.
 raiseStatus :: Monad m => Status -> T.Text -> ActionT m a
 raiseStatus s = E.throw . StatusError s
+{-# DEPRECATED raiseStatus "Use status, text, and finish instead" #-}
 
 -- | Throw an exception which can be caught within the scope of the current Action with 'catch'.
 --

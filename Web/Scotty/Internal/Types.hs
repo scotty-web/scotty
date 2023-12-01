@@ -142,6 +142,7 @@ tryNext io = catch (io >> pure True) $ \e ->
 -- | E.g. when a parameter is not found in a query string (400 Bad Request) or when parsing a JSON body fails (422 Unprocessable Entity)
 data StatusError = StatusError Status Text deriving (Show, Typeable)
 instance E.Exception StatusError
+{-# DEPRECATED StatusError "If it is supposed to be caught, a proper exception type should be defined" #-}
 
 -- | Specializes a 'Handler' to the 'ActionT' monad
 type ErrorHandler m = Handler (ActionT m) ()
