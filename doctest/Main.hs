@@ -4,7 +4,8 @@ import Test.DocTest (doctest)
 
 main :: IO ()
 main = doctest [
-  "Web"
+  "Web/Scotty.hs"
+  , "Web/Scotty/Trans.hs"
   , "-XOverloadedStrings"
   , "-XLambdaCase"
   ]

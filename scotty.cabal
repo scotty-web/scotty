@@ -126,9 +126,14 @@ test-suite doctest
   main-is:             Main.hs
   type:                exitcode-stdio-1.0
   default-language:    Haskell2010
+  GHC-options:         -Wall -threaded -fno-warn-orphans
   hs-source-dirs:      doctest
   build-depends:       base
+                     , bytestring
                      , doctest
+                     , http-client
+                     , http-types
+                     , scotty
 
 benchmark weigh
   main-is:             Main.hs
