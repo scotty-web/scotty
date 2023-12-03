@@ -134,6 +134,8 @@ test-suite doctest
                      , http-client
                      , http-types
                      , scotty
+                     , text
+                     , wai
 
 benchmark weigh
   main-is:             Main.hs

@@ -61,22 +61,33 @@ import Network.Wai.Handler.Warp (Port)
 import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, ScottyException, StatusError(..), Content(..))
 import UnliftIO.Exception (Handler(..), catch)
 
-
--- $setup
--- >>> import Control.Monad.IO.Class (liftIO)
--- >>> import qualified Network.HTTP.Client as H
--- >>> import qualified Network.HTTP.Types as H
--- >>> import qualified Data.ByteString.Lazy.Char8 as LBS (unpack)
--- >>> import qualified Web.Scotty as S (scotty, get, text, pathParam)
--- >>> :{
---  let
---    curl :: MonadIO m => String -> m String
---    curl path = liftIO $ do
---      req0 <- H.parseRequest path
---      let req = req0 { H.method = "GET"}
---      mgr <- H.newManager H.defaultManagerSettings
---      (LBS.unpack . H.responseBody) <$> H.httpLbs req mgr
--- :}
+{- $setup
+>>> :{
+import Control.Monad.IO.Class (MonadIO(..))
+import qualified Network.HTTP.Client as H
+import qualified Network.HTTP.Types as H
+import qualified Network.Wai as W (httpVersion)
+import qualified Data.ByteString.Lazy.Char8 as LBS (unpack)
+import qualified Data.Text as T (pack)
+import Control.Concurrent (ThreadId, forkIO, killThread)
+import Control.Exception (bracket)
+import qualified Web.Scotty as S (ScottyM, scottyOpts, get, text, regex, pathParam, Options(..), defaultOptions)
+-- | GET an HTTP path
+curl :: MonadIO m =>
+        String -- ^ path
+     -> m String -- ^ response body
+curl path = liftIO $ do
+  req0 <- H.parseRequest path
+  let req = req0 { H.method = "GET"}
+  mgr <- H.newManager H.defaultManagerSettings
+  (LBS.unpack . H.responseBody) <$> H.httpLbs req mgr
+-- | Fork a process, run a Scotty server in it and run an action while the server is running. Kills the scotty thread once the inner action is done.
+withScotty :: S.ScottyM ()
+           -> IO a -- ^ inner action, e.g. 'curl "localhost:3000/"'
+           -> IO a
+withScotty serv act = bracket (forkIO $ S.scottyOpts (S.defaultOptions{ S.verbose = 0 }) serv) killThread (\_ -> act)
+:}
+-}
 
 type ScottyM = ScottyT IO
 type ActionM = ActionT IO
@@ -423,39 +434,37 @@ matchAny = Trans.matchAny
 notFound :: ActionM () -> ScottyM ()
 notFound = Trans.notFound
 
--- | Define a route with a 'StdMethod', 'Text' value representing the path spec,
--- and a body ('Action') which modifies the response.
---
--- > get "/" $ text "beam me up!"
---
--- The path spec can include values starting with a colon, which are interpreted
--- as /captures/. These are parameters that can be looked up with 'pathParam'.
---
--- >>> :{
--- let server = S.get "/foo/:bar" (S.pathParam "bar" >>= S.text)
---  in do
---       S.scotty 3000 server
---
---       curl "http://localhost:3000/foo/something"
--- :}
--- something
+{- | Define a route with a 'StdMethod', a route pattern representing the path spec,
+and an 'Action' which may modify the response.
+
+> get "/" $ text "beam me up!"
+
+The path spec can include values starting with a colon, which are interpreted
+as /captures/. These are parameters that can be looked up with 'pathParam'.
+
+>>> :{
+let server = S.get "/foo/:bar" (S.pathParam "bar" >>= S.text)
+ in do
+      withScotty server $ curl "http://localhost:3000/foo/something"
+:}
+"something"
+-}
 addroute :: StdMethod -> RoutePattern -> ActionM () -> ScottyM ()
 addroute = Trans.addroute
 
--- | Match requests using a regular expression.
---   Named captures are not yet supported.
---
--- >>> :{
--- let server = S.get (S.regex "^/f(.*)r$") $ do
---                 cap <- S.pathParam "1"
---                 S.text ["Capture:", cap]
---  in do
---       S.scotty 3000 server
---
---       curl "http://localhost:3000/foo/bar"
--- :}
--- Capture: oo/ba
---
+
+{- | Match requests using a regular expression.
+Named captures are not yet supported.
+
+>>> :{
+let server = S.get (S.regex "^/f(.*)r$") $ do
+                cap <- S.pathParam "1"
+                S.text cap
+ in do
+      withScotty server $ curl "http://localhost:3000/foo/bar"
+:}
+"oo/ba"
+-}
 regex :: String -> RoutePattern
 regex = Trans.regex
 
@@ -474,18 +483,20 @@ regex = Trans.regex
 capture :: String -> RoutePattern
 capture = Trans.capture
 
--- | Build a route based on a function which can match using the entire 'Request' object.
---   'Nothing' indicates the route does not match. A 'Just' value indicates
---   a successful match, optionally returning a list of key-value pairs accessible
---   by 'param'.
---
--- > get (function $ \req -> Just [("version", pack $ show $ httpVersion req)]) $ do
--- >     v <- param "version"
--- >     text v
---
--- >>> curl "http://localhost:3000/"
--- HTTP/1.1
---
+
+{- | Build a route based on a function which can match using the entire 'Request' object.
+'Nothing' indicates the route does not match. A 'Just' value indicates
+a successful match, optionally returning a list of key-value pairs accessible by 'param'.
+
+>>> :{
+let server = S.get (function $ \req -> Just [("version", T.pack $ show $ W.httpVersion req)]) $ do
+                v <- S.pathParam "version"
+                S.text v
+ in do
+      withScotty server $ curl "http://localhost:3000/"
+:}
+"HTTP/1.1"
+-}
 function :: (Request -> Maybe [Param]) -> RoutePattern
 function = Trans.function
 
