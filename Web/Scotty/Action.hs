@@ -569,7 +569,7 @@ html t = do
     changeHeader addIfNotPresent "Content-Type" "text/html; charset=utf-8"
     raw $ BL.fromStrict $ encodeUtf8 t
 
-  -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
+-- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
 -- header to \"text/html; charset=utf-8\" if it has not already been set.
 htmlLazy :: (MonadIO m) => TL.Text -> ActionT m ()
 htmlLazy t = do
