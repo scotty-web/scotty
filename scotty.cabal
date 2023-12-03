@@ -130,7 +130,7 @@ test-suite doctest
   hs-source-dirs:      doctest
   build-depends:       base
                      , bytestring
-                     , doctest
+                     , doctest >= 0.20.1
                      , http-client
                      , http-types
                      , scotty
