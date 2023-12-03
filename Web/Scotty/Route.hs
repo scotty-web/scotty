@@ -111,10 +111,8 @@ route :: (MonadUnliftIO m) =>
       -> Maybe (ErrorHandler m) -> Maybe StdMethod -> RoutePattern -> ActionT m () -> BodyInfo -> Middleware m
 route opts h method pat action bodyInfo app req =
   let tryNext = app req
-        {- |
-          We match all methods in the case where 'method' is 'Nothing'.
-          See https://github.com/scotty-web/scotty/issues/196 and 'matchAny'
-        -}
+      -- We match all methods in the case where 'method' is 'Nothing'.
+      -- See https://github.com/scotty-web/scotty/issues/196 and 'matchAny'
       methodMatches :: Bool
       methodMatches = maybe True (\x -> (Right x == parseMethod (requestMethod req))) method
 
