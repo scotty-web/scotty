@@ -106,6 +106,17 @@ spec = do
         withApp (Scotty.get "/" $ throw E.DivideByZero) $ do
           it "returns 500 on exceptions" $ do
             get "/" `shouldRespondWith` "" {matchStatus = 500}
+      context "only applies to endpoints defined after it (#237)" $ do
+        withApp (do
+                    let h = Handler (\(_ :: E.SomeException) -> status status503 >> text "ok")
+                    Scotty.get "/a" (throw E.DivideByZero)
+                    defaultHandler h
+                    Scotty.get "/b" (throw E.DivideByZero)
+                      ) $ do
+          it "doesn't catch an exception before the handler is set" $ do
+            get "/a" `shouldRespondWith` 500
+          it "catches an exception after the handler is set" $ do
+            get "/b" `shouldRespondWith` "ok" {matchStatus = 503}
 
 
     describe "setMaxRequestBodySize" $ do

@@ -2,13 +2,15 @@
 
 * add getResponseHeaders, getResponseStatus, getResponseContent (#214)
 * add `captureParamMaybe`, `formParamMaybe`, `queryParamMaybe` (#322)
-* deprecate `rescue` and `liftAndCatchIO`
-* add `Web.Scotty.Trans.Strict` and `Web.Scotty.Trans.Lazy`
-* Reverted the `MonadReader` instance of `ActionT` so that it inherits the base monad
-* renamed `captureParam`, `captureParamMaybe`, and `captureParams` to `pathParam`, `pathParamMaybe`, `pathParams` respectively, keeping the old names as their synonyms
+* deprecate `rescue` and `liftAndCatchIO` (#332)
+* add `Web.Scotty.Trans.Strict` and `Web.Scotty.Trans.Lazy` (#334)
+* Reverted the `MonadReader` instance of `ActionT` so that it inherits the base monad (#342)
+* renamed `captureParam`, `captureParamMaybe`, and `captureParams` to `pathParam`, `pathParamMaybe`, `pathParams` respectively, keeping the old names as their synonyms (#344)
 * Scotty's API such as `queryParam` now throws `ScottyException` rather than `StatusException`.
   Uncaught exceptions are handled by `scottyExceptionHandler`, resembling the existing behaviour
-* Deprecate `StatusError`, `raise` and `raiseStatus`
+* Deprecate `StatusError`, `raise` and `raiseStatus` (#351)
+* Add doctest, refactor some inline examples into doctests (#353)
+* document "`defaultHandler` only applies to endpoints defined after it" (#237)
 
 ## 0.20.1 [2023.10.03]
 
