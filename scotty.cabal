@@ -123,6 +123,21 @@ test-suite spec
   build-tool-depends:  hspec-discover:hspec-discover == 2.*
   GHC-options:         -Wall -threaded -fno-warn-orphans
 
+test-suite doctest
+  main-is:             Main.hs
+  type:                exitcode-stdio-1.0
+  default-language:    Haskell2010
+  GHC-options:         -Wall -threaded -fno-warn-orphans
+  hs-source-dirs:      doctest
+  build-depends:       base
+                     , bytestring
+                     , doctest >= 0.20.1
+                     , http-client
+                     , http-types
+                     , scotty
+                     , text
+                     , wai
+
 benchmark weigh
   main-is:             Main.hs
   type:                exitcode-stdio-1.0

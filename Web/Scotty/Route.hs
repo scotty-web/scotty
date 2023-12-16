@@ -27,6 +27,34 @@ import           Web.Scotty.Internal.Types (RoutePattern(..), RouteOptions, Acti
 import           Web.Scotty.Util (decodeUtf8Lenient)
 import Web.Scotty.Body (cloneBodyInfo, getBodyAction, getBodyChunkAction, getFormParamsAndFilesAction)
 
+{- $setup
+>>> :{
+import Control.Monad.IO.Class (MonadIO(..))
+import qualified Network.HTTP.Client as H
+import qualified Network.HTTP.Types as H
+import qualified Network.Wai as W (httpVersion)
+import qualified Data.ByteString.Lazy.Char8 as LBS (unpack)
+import qualified Data.Text as T (pack)
+import Control.Concurrent (ThreadId, forkIO, killThread)
+import Control.Exception (bracket)
+import qualified Web.Scotty as S (ScottyM, scottyOpts, get, text, regex, pathParam, Options(..), defaultOptions)
+-- | GET an HTTP path
+curl :: MonadIO m =>
+        String -- ^ path
+     -> m String -- ^ response body
+curl path = liftIO $ do
+  req0 <- H.parseRequest path
+  let req = req0 { H.method = "GET"}
+  mgr <- H.newManager H.defaultManagerSettings
+  (LBS.unpack . H.responseBody) <$> H.httpLbs req mgr
+-- | Fork a process, run a Scotty server in it and run an action while the server is running. Kills the scotty thread once the inner action is done.
+withScotty :: S.ScottyM ()
+           -> IO a -- ^ inner action, e.g. 'curl "localhost:3000/"'
+           -> IO a
+withScotty serv act = bracket (forkIO $ S.scottyOpts (S.defaultOptions{ S.verbose = 0 }) serv) killThread (\_ -> act)
+:}
+-}
+
 -- | get = 'addroute' 'GET'
 get :: (MonadUnliftIO m) => RoutePattern -> ActionT m () -> ScottyT m ()
 get = addroute GET
@@ -60,23 +88,21 @@ matchAny pat action = ScottyT $ MS.modify $ \s -> addRoute (route (routeOptions 
 notFound :: (MonadUnliftIO m) => ActionT m () -> ScottyT m ()
 notFound action = matchAny (Function (\req -> Just [("path", path req)])) (status status404 >> action)
 
--- | Define a route with a 'StdMethod', 'T.Text' value representing the path spec,
--- and a body ('Action') which modifies the response.
---
--- > addroute GET "/" $ text "beam me up!"
---
--- The path spec can include values starting with a colon, which are interpreted
--- as /captures/. These are named wildcards that can be looked up with 'captureParam'.
---
--- > addroute GET "/foo/:bar" $ do
--- >     v <- captureParam "bar"
--- >     text v
---
--- >>> curl http://localhost:3000/foo/something
--- something
---
--- NB: the 'RouteOptions' and the exception handler of the newly-created route will be
--- copied from the previously-created routes.
+{- | Define a route with a 'StdMethod', a route pattern representing the path spec,
+and an 'Action' which may modify the response.
+
+> get "/" $ text "beam me up!"
+
+The path spec can include values starting with a colon, which are interpreted
+as /captures/. These are parameters that can be looked up with 'pathParam'.
+
+>>> :{
+let server = S.get "/foo/:bar" (S.pathParam "bar" >>= S.text)
+ in do
+      withScotty server $ curl "http://localhost:3000/foo/something"
+:}
+"something"
+-}
 addroute :: (MonadUnliftIO m) => StdMethod -> RoutePattern -> ActionT m () -> ScottyT m ()
 addroute method pat action = ScottyT $ MS.modify $ \s -> addRoute (route (routeOptions s) (handler s) (Just method) pat action) s
 
@@ -85,10 +111,8 @@ route :: (MonadUnliftIO m) =>
       -> Maybe (ErrorHandler m) -> Maybe StdMethod -> RoutePattern -> ActionT m () -> BodyInfo -> Middleware m
 route opts h method pat action bodyInfo app req =
   let tryNext = app req
-        {- |
-          We match all methods in the case where 'method' is 'Nothing'.
-          See https://github.com/scotty-web/scotty/issues/196 and 'matchAny'
-        -}
+      -- We match all methods in the case where 'method' is 'Nothing'.
+      -- See https://github.com/scotty-web/scotty/issues/196 and 'matchAny'
       methodMatches :: Bool
       methodMatches = maybe True (\x -> (Right x == parseMethod (requestMethod req))) method
 
@@ -145,22 +169,22 @@ mkEnv bodyInfo req captureps opts = do
 parseEncodedParams :: B.ByteString -> [Param]
 parseEncodedParams bs = [ (k, fromMaybe "" v) | (k,v) <- parseQueryText bs ]
 
--- | Match requests using a regular expression.
---   Named captures are not yet supported.
---
--- > get (regex "^/f(.*)r$") $ do
--- >    path <- param "0"
--- >    cap <- param "1"
--- >    text $ mconcat ["Path: ", path, "\nCapture: ", cap]
---
--- >>> curl http://localhost:3000/foo/bar
--- Path: /foo/bar
--- Capture: oo/ba
---
+{- | Match requests using a regular expression.
+Named captures are not yet supported.
+
+>>> :{
+let server = S.get (S.regex "^/f(.*)r$") $ do
+                cap <- S.pathParam "1"
+                S.text cap
+ in do
+      withScotty server $ curl "http://localhost:3000/foo/bar"
+:}
+"oo/ba"
+-}
 regex :: String -> RoutePattern
-regex pattern = Function $ \ req -> fmap (map (T.pack . show *** T.pack) . zip [0 :: Int ..] . strip)
+regex pat = Function $ \ req -> fmap (map (T.pack . show *** T.pack) . zip [0 :: Int ..] . strip)
                                          (Regex.matchRegexAll rgx $ T.unpack $ path req)
-    where rgx = Regex.mkRegex pattern
+    where rgx = Regex.mkRegex pat
           strip (_, match, _, subs) = match : subs
 
 -- | Standard Sinatra-style route. Named captures are prepended with colons.
@@ -178,18 +202,19 @@ regex pattern = Function $ \ req -> fmap (map (T.pack . show *** T.pack) . zip [
 capture :: String -> RoutePattern
 capture = fromString
 
--- | Build a route based on a function which can match using the entire 'Request' object.
---   'Nothing' indicates the route does not match. A 'Just' value indicates
---   a successful match, optionally returning a list of key-value pairs accessible
---   by 'param'.
---
--- > get (function $ \req -> Just [("version", T.pack $ show $ httpVersion req)]) $ do
--- >     v <- param "version"
--- >     text v
---
--- >>> curl http://localhost:3000/
--- HTTP/1.1
---
+{- | Build a route based on a function which can match using the entire 'Request' object.
+'Nothing' indicates the route does not match. A 'Just' value indicates
+a successful match, optionally returning a list of key-value pairs accessible by 'param'.
+
+>>> :{
+let server = S.get (function $ \req -> Just [("version", T.pack $ show $ W.httpVersion req)]) $ do
+                v <- S.pathParam "version"
+                S.text v
+ in do
+      withScotty server $ curl "http://localhost:3000/"
+:}
+"HTTP/1.1"
+-}
 function :: (Request -> Maybe [Param]) -> RoutePattern
 function = Function
 
