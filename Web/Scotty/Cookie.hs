@@ -45,6 +45,9 @@ module Web.Scotty.Cookie (
     -- * Set cookie
       setCookie
     , setSimpleCookie
+    -- ** Sanitized values
+    , setCookie1
+    , setSimpleCookie1
     -- * Get cookie(s)
     , getCookie
     , getCookies
@@ -79,7 +82,7 @@ import qualified Data.ByteString.Lazy as BSL (toStrict)
 -- cookie
 import Web.Cookie (SetCookie, setCookieName , setCookieValue, setCookiePath, setCookieExpires, setCookieMaxAge, setCookieDomain, setCookieHttpOnly, setCookieSecure, setCookieSameSite, renderSetCookie, defaultSetCookie, CookiesText, parseCookiesText, SameSiteOption, sameSiteStrict, sameSiteNone, sameSiteLax)
 -- scotty
-import Web.Scotty.Action (ActionT, addHeader, header)
+import Web.Scotty.Action (ActionT, addHeader, header, addHeader1, setHeader, setHeader1)
 -- time
 import Data.Time.Clock.POSIX ( posixSecondsToUTCTime )
 -- text
@@ -91,12 +94,26 @@ import Web.Scotty.Util (decodeUtf8Lenient)
 setCookie :: (MonadIO m)
           => SetCookie
           -> ActionT m ()
-setCookie c = addHeader "Set-Cookie"
+setCookie = setCookieWith setHeader
+
+-- | Set a cookie, with full access to its options (see 'SetCookie')
+--
+-- NB : sanitizes the cookie value by keeping only the first characters before '\r' or '\n'
+setCookie1 :: MonadIO m
+           => SetCookie
+           -> ActionT m ()
+setCookie1 = setCookieWith setHeader1
+
+-- | Set a cookie, with full access to its options (see 'SetCookie')
+setCookieWith :: MonadIO m
+              => (Text -> Text -> ActionT m ())
+              -> SetCookie
+              -> ActionT m ()
+setCookieWith f c = f "Set-Cookie"
   $ decodeUtf8Lenient
   $ BSL.toStrict
   $ toLazyByteString
   $ renderSetCookie c
-
 
 -- | 'makeSimpleCookie' and 'setCookie' combined.
 setSimpleCookie :: (MonadIO m)
@@ -104,6 +121,15 @@ setSimpleCookie :: (MonadIO m)
                 -> Text -- ^ value
                 -> ActionT m ()
 setSimpleCookie n v = setCookie $ makeSimpleCookie n v
+
+-- | 'makeSimpleCookie' and 'setCookie1' combined.
+--
+-- NB : sanitizes the cookie value by keeping only the first characters before '\r' or '\n'
+setSimpleCookie1 :: (MonadIO m)
+                 => Text -- ^ name
+                 -> Text -- ^ value
+                 -> ActionT m ()
+setSimpleCookie1 n v = setCookie1 $ makeSimpleCookie n v
 
 -- | Lookup one cookie name
 getCookie :: (Monad m)

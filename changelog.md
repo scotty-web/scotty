@@ -11,6 +11,12 @@
 * Deprecate `StatusError`, `raise` and `raiseStatus` (#351)
 * Add doctest, refactor some inline examples into doctests (#353)
 * document "`defaultHandler` only applies to endpoints defined after it" (#237)
+* add `setHeader1`, `addHeader1`, deprecate `setHeader`, `addHeader` (#94)
+* add `setCookie1`, `setSimpleCookie1` (#94)
+
+Breaking:
+
+* `setCookie` uses `setHeader` rather than `addHeader` (as it should)
 
 ## 0.20.1 [2023.10.03]
 
