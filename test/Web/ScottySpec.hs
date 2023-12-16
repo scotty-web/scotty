@@ -95,6 +95,12 @@ spec = do
                   Scotty.get "/" (liftIO $ E.throwIO E.DivideByZero)) $ do
         it "allows to customize the HTTP status code" $ do
           get "/" `shouldRespondWith` "" {matchStatus = 503}
+      withApp (do
+                  let h = Handler (\(_ :: E.SomeException) -> setHeader "Location" "/c" >> status status500)
+                  defaultHandler h
+                  Scotty.get "/a" (redirect "/b")) $ do
+        it "should give priority to actionErrorHandlers" $ do
+          get "/a" `shouldRespondWith` 302 { matchHeaders = ["Location" <:> "/b"] }
 
       context "when not specified" $ do
         withApp (Scotty.get "/" $ throw E.DivideByZero) $ do
