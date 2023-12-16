@@ -13,12 +13,13 @@
 --
 -- Please refer to the @examples@ directory and the @spec@ test suite for concrete use cases, e.g. constructing responses, exception handling and useful implementation details.
 module Web.Scotty.Trans
-    ( -- * running 'scotty' servers
+    ( -- * Running 'scotty' servers
       scottyT
     , scottyOptsT
+    , scottySocketT
     , Options(..), defaultOptions
       -- ** scotty-to-WAI
-    , scottyAppT, scottySocketT
+    , scottyAppT
       -- * Defining Middleware and Routes
       --
       -- | 'Middleware' and routes are run in the order in which they

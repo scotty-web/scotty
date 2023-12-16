@@ -8,12 +8,13 @@
 --
 -- Please refer to the @examples@ directory and the @spec@ test suite for concrete use cases, e.g. constructing responses, exception handling and useful implementation details.
 module Web.Scotty
-    ( -- * running 'scotty' servers
+    ( -- * Running 'scotty' servers
       scotty
     , scottyOpts
+    , scottySocket
     , Options(..), defaultOptions
       -- ** scotty-to-WAI
-    , scottyApp, scottySocket
+    , scottyApp
       -- * Defining Middleware and Routes
       --
       -- | 'Middleware' and routes are run in the order in which they
