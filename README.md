@@ -26,17 +26,20 @@ As for the name: Sinatra + Warp = Scotty.
 See /basic.hs to see Scotty in action:
 
 ```bash
-> runghc examples/basic.hs
-Setting phasers to stun... (port 3000) (ctrl-c to quit)
+runghc examples/basic.hs
 ```
+`Setting phasers to stun... (port 3000) (ctrl-c to quit)`
 
 ```bash
-> curl localhost:3000
-foobar
-
-> curl localhost:3000/foo_query?p=42
-<h1>42</h1>
+curl localhost:3000
 ```
+`foobar`
+
+```bash
+curl localhost:3000/foo_query?p=42
+```
+`<h1>42</h1>`
+
 
 Additionally, the `examples` directory shows a number of concrete use cases, e.g. 
 
