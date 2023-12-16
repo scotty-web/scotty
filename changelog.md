@@ -10,6 +10,7 @@
   Uncaught exceptions are handled by `scottyExceptionHandler`, resembling the existing behaviour
 * Deprecate `StatusError`, `raise` and `raiseStatus` (#351)
 * Add doctest, refactor some inline examples into doctests (#353)
+* document "`defaultHandler` only applies to endpoints defined after it" (#237)
 
 ## 0.20.1 [2023.10.03]
 
