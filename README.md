@@ -23,12 +23,14 @@ As for the name: Sinatra + Warp = Scotty.
 
 ## Examples
 
-See /basic.hs to see Scotty in action:
+Run /basic.hs to see Scotty in action:
 
 ```bash
 runghc examples/basic.hs
 ```
 `Setting phasers to stun... (port 3000) (ctrl-c to quit)`
+
+Then interact with the server with curl or a browser:
 
 ```bash
 curl localhost:3000
@@ -44,9 +46,9 @@ curl localhost:3000/foo_query?p=42
 Additionally, the `examples` directory shows a number of concrete use cases, e.g. 
 
 * [exception handling](./examples/exceptions.hs)
-* global state
-* configuration
-* cookies
+* [global state](./examples/globalstate.hs)
+* [configuration](./examples/reader.hs)
+* [cookies](./examples/cookies.hs)
 
 ## More Information
 
