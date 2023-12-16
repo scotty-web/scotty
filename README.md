@@ -55,6 +55,8 @@ Additionally, the `examples` directory shows a number of concrete use cases, e.g
 * [global state](./examples/globalstate.hs)
 * [configuration](./examples/reader.hs)
 * [cookies](./examples/cookies.hs)
+* [file upload](./examples/upload.hs)
+* and more
 
 ## More Information
 
