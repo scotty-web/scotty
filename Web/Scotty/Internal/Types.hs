@@ -27,8 +27,10 @@ import           Control.Monad.Trans.Class (MonadTrans(..))
 import           Control.Monad.Trans.Control (MonadBaseControl, MonadTransControl)
 
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BS8 (splitWith)
 import qualified Data.ByteString.Lazy.Char8 as LBS8 (ByteString)
 import           Data.Default.Class (Default, def)
+import Data.Maybe (listToMaybe)
 import           Data.String (IsString(..))
 import           Data.Text (Text, pack)
 import           Data.Typeable (Typeable)
@@ -206,6 +208,13 @@ setContent c sr = sr { srContent = c }
 
 setHeaderWith :: ([(HeaderName, BS.ByteString)] -> [(HeaderName, BS.ByteString)]) -> ScottyResponse -> ScottyResponse
 setHeaderWith f sr = sr { srHeaders = f (srHeaders sr) }
+
+-- | Take the first characters before either a Carrier Return ('\r') or Line Feed ('\n').
+-- This can be used to sanitize headers.
+splitAtCRLF :: BS.ByteString -> Maybe BS.ByteString
+splitAtCRLF = listToMaybe . BS8.splitWith (\c -> c == '\n' ||
+                                                 c == '\r'
+                                          )
 
 setStatus :: Status -> ScottyResponse -> ScottyResponse
 setStatus s sr = sr { srStatus = s }

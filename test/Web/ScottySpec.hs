@@ -325,6 +325,33 @@ spec = do
         it "stops the execution of an action" $ do
           get "/scotty" `shouldRespondWith` 400
 
+    describe "setHeader" $ do
+      withApp (Scotty.get "/" $ setHeader "foo" "bar") $ do
+          it "sets a header" $ do
+            get "/" `shouldRespondWith` 200 {matchHeaders = ["foo" <:> "bar"]}
+      context "disregards CR and/or LF which could lead to security issues (#94)" $ do
+        withApp (Scotty.get "/" $ setHeader "X-Foo" "Hey\r\nContent-Type: bla") $ do
+          it "is vulnerable" $ do
+            get "/" `shouldRespondWith` 200 {
+              matchHeaders = [
+                  "X-Foo" <:> "Hey\r\nContent-Type: bla"
+                  ]
+              }
+
+    describe "setHeader1" $ do
+      withApp (Scotty.get "/" $ setHeader1 "foo" "bar") $ do
+          it "sets a header" $ do
+            get "/" `shouldRespondWith` 200 {matchHeaders = ["foo" <:> "bar"]}
+      context "strips CR and/or LF from header values (#94)" $ do
+        withApp (Scotty.get "/" $ setHeader1 "X-Foo" "Hey\r\nContent-Type: bla") $ do
+          it "is not vulnerable" $ do
+            get "/" `shouldRespondWith` 200 {
+              matchHeaders = [
+                  "X-Foo" <:> "Hey"
+                  ]
+              }
+
+
     describe "setSimpleCookie" $ do
       withApp (Scotty.get "/scotty" $ SC.setSimpleCookie "foo" "bar") $ do
         it "responds with a Set-Cookie header" $ do

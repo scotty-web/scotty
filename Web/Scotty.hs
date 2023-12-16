@@ -24,7 +24,12 @@ module Web.Scotty
     , pathParams, captureParams, formParams, queryParams
     , jsonData, files
       -- ** Modifying the Response and Redirecting
-    , status, addHeader, setHeader, redirect
+      -- *** Status
+    , status
+      -- *** Headers
+    , addHeader, setHeader
+    , addHeader1, setHeader1
+    , redirect
       -- ** Setting Response Body
       --
       -- | Note: only one of these should be present in any given route
@@ -357,6 +362,20 @@ addHeader = Trans.addHeader
 -- Header names are case-insensitive.
 setHeader :: Text -> Text -> ActionM ()
 setHeader = Trans.setHeader
+
+-- | Add to the response headers. Header names are case-insensitive.
+addHeader1 :: Text -- ^ Header name
+           -> Text -- ^ Header value. Only the first characters before a newline or carrier return are kept
+           -> ActionM ()
+addHeader1 = Trans.addHeader1
+
+-- | Set one of the response headers. Will override any previously set value for that header.
+-- Header names are case-insensitive.
+setHeader1 :: Text -- ^ Header name
+           -> Text -- ^ Header value. Only the first characters before a newline or carrier return are kept
+           -> ActionM ()
+setHeader1 = Trans.setHeader1
+
 
 -- | Set the body of the response to the given 'Text' value. Also sets \"Content-Type\"
 -- header to \"text/plain; charset=utf-8\" if it has not already been set.

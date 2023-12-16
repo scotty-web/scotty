@@ -7,6 +7,7 @@
 {-# language ScopedTypeVariables #-}
 module Web.Scotty.Action
     ( addHeader
+    , addHeader1
     , body
     , bodyReader
     , file
@@ -45,6 +46,7 @@ module Web.Scotty.Action
     , request
     , rescue
     , setHeader
+    , setHeader1
     , status
     , stream
     , text
@@ -539,14 +541,38 @@ changeHeader :: MonadIO m
 changeHeader f k =
   modifyResponse . setHeaderWith . f (CI.mk $ encodeUtf8 k) . encodeUtf8
 
+-- like 'changeHeader' but chops off all header values after the first CR or LF
+changeHeader1 :: MonadIO m =>
+                 (CI.CI B.ByteString -> B.ByteString -> [(HeaderName, B.ByteString)] -> [(HeaderName, B.ByteString)])
+              -> T.Text -> T.Text -> ActionT m ()
+changeHeader1 f k v0 = case splitAtCRLF (encodeUtf8 v0) of
+  Nothing -> pure ()
+  Just v -> modifyResponse $ setHeaderWith $ f (CI.mk $ encodeUtf8 k) v
+
+-- | Add to the response headers. Header names are case-insensitive.
+addHeader1 :: MonadIO m => T.Text -- ^ Header name
+           -> T.Text -- ^ Header value. Only the first characters before a newline or carrier return are kept
+           -> ActionT m ()
+addHeader1 = changeHeader1 add
+
+-- | Set one of the response headers. Will override any previously set value for that header.
+-- Header names are case-insensitive.
+setHeader1 :: MonadIO m => T.Text -- ^ Header name
+           -> T.Text -- ^ Header value. Only the first characters before a newline or carrier return are kept
+           -> ActionT m ()
+setHeader1 = changeHeader1 replace
+
+
 -- | Add to the response headers. Header names are case-insensitive.
 addHeader :: MonadIO m => T.Text -> T.Text -> ActionT m ()
 addHeader = changeHeader add
+{-# DEPRECATED addHeader "this function does not validate header values and can potentially lead to security problems (e.g. response splitting attacks). Please use addHeader1 instead (#92)" #-}
 
 -- | Set one of the response headers. Will override any previously set value for that header.
 -- Header names are case-insensitive.
 setHeader :: MonadIO m => T.Text -> T.Text -> ActionT m ()
 setHeader = changeHeader replace
+{-# DEPRECATED setHeader "this function does not validate header values and can potentially lead to security problems (e.g. response splitting attacks). Please use setHeader1 instead (#92)" #-}
 
 -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
 -- header to \"text/plain; charset=utf-8\" if it has not already been set.

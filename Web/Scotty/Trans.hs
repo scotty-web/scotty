@@ -29,7 +29,12 @@ module Web.Scotty.Trans
     , pathParams, captureParams, formParams, queryParams
     , jsonData, files
       -- ** Modifying the Response and Redirecting
-    , status, Lazy.addHeader, Lazy.setHeader, Lazy.redirect
+      -- *** Status
+    , status
+      -- *** Headers
+    , Lazy.addHeader, Lazy.setHeader
+    , Lazy.addHeader1, Lazy.setHeader1
+    , Lazy.redirect
       -- ** Setting Response Body
       --
       -- | Note: only one of these should be present in any given route
