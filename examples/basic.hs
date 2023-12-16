@@ -35,10 +35,20 @@ main = scotty 3000 $ do
     get "/" $ text "foobar"
     get "/" $ text "barfoo"
 
-    -- Using a parameter in the query string. Since it has
-    -- not been given, a 500 page is generated.
-    get "/foo" $ do
-        v <- pathParam "fooparam"
+    -- Looking for a parameter in the path. Since the path pattern does not
+    -- contain the parameter name 'p', the server responds with 500 Server Error.
+    get "/foo_fail" $ do
+        v <- pathParam "p"
+        html $ mconcat ["<h1>", v, "</h1>"]
+
+    -- Looking for a parameter 'p' in the path.
+    get "/foo_path/:p" $ do
+        v <- pathParam "p"
+        html $ mconcat ["<h1>", v, "</h1>"]
+
+    -- Looking for a parameter 'p' in the query string.
+    get "/foo_query" $ do
+        v <- queryParam "p"
         html $ mconcat ["<h1>", v, "</h1>"]
 
     -- An uncaught error becomes a 500 page.

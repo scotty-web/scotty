@@ -66,6 +66,7 @@ executable scotty-exceptions
                        random,
                        scotty,
                        transformers,
+                       unliftio-core,
                        wai-extra
   GHC-options:         -Wall -threaded
 
