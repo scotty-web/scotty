@@ -30,7 +30,13 @@ runghc examples/basic.hs
 ```
 `Setting phasers to stun... (port 3000) (ctrl-c to quit)`
 
-Then interact with the server with curl or a browser:
+Or equivalently with [`stack`](https://docs.haskellstack.org/en/stable/):
+
+```bash
+stack exec -- scotty-basic
+```
+
+Once the server is running you can interact with it with curl or a browser:
 
 ```bash
 curl localhost:3000
