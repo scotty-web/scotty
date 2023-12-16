@@ -329,7 +329,7 @@ spec = do
       withApp (Scotty.get "/" $ setHeader "foo" "bar") $ do
           it "sets a header" $ do
             get "/" `shouldRespondWith` 200 {matchHeaders = ["foo" <:> "bar"]}
-      context "disregards CR and/or LF which could lead to security issues (#94)" $ do
+      context "disregards CR and/or LF which could lead to security issues (#92)" $ do
         withApp (Scotty.get "/" $ setHeader "X-Foo" "Hey\r\nContent-Type: bla") $ do
           it "is vulnerable" $ do
             get "/" `shouldRespondWith` 200 {
@@ -342,7 +342,7 @@ spec = do
       withApp (Scotty.get "/" $ setHeader1 "foo" "bar") $ do
           it "sets a header" $ do
             get "/" `shouldRespondWith` 200 {matchHeaders = ["foo" <:> "bar"]}
-      context "strips CR and/or LF from header values (#94)" $ do
+      context "strips CR and/or LF from header values (#92)" $ do
         withApp (Scotty.get "/" $ setHeader1 "X-Foo" "Hey\r\nContent-Type: bla") $ do
           it "is not vulnerable" $ do
             get "/" `shouldRespondWith` 200 {

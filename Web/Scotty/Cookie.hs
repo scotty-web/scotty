@@ -95,6 +95,7 @@ setCookie :: (MonadIO m)
           => SetCookie
           -> ActionT m ()
 setCookie = setCookieWith setHeader
+{-# DEPRECATED setCookie "uses setHeader which is unsafe (#92). Please use setCookie1 instead"#-}
 
 -- | Set a cookie, with full access to its options (see 'SetCookie')
 --
@@ -121,10 +122,11 @@ setSimpleCookie :: (MonadIO m)
                 -> Text -- ^ value
                 -> ActionT m ()
 setSimpleCookie n v = setCookie $ makeSimpleCookie n v
+{-# DEPRECATED setSimpleCookie "uses setHeader which is unsafe (#92). Please use setSimpleCookie1 instead"#-}
 
 -- | 'makeSimpleCookie' and 'setCookie1' combined.
 --
--- NB : sanitizes the cookie value by keeping only the first characters before '\r' or '\n'
+-- NB : sanitizes the cookie value by keeping only the first characters before '\r' or '\n' (#92)
 setSimpleCookie1 :: (MonadIO m)
                  => Text -- ^ name
                  -> Text -- ^ value

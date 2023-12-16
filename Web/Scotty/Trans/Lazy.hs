@@ -48,11 +48,13 @@ headers = map (join bimap T.fromStrict) <$> Base.headers
 -- | Add to the response headers. Header names are case-insensitive.
 addHeader :: MonadIO m => T.Text -> T.Text -> ActionT m ()
 addHeader k v = Base.addHeader (T.toStrict k) (T.toStrict v)
+{-# DEPRECATED addHeader "does not validate header values which is potentially unsafe (#92). Please use addHeader1 instead"#-}
 
 -- | Set one of the response headers. Will override any previously set value for that header.
 -- Header names are case-insensitive.
 setHeader :: MonadIO m => T.Text -> T.Text -> ActionT m ()
 setHeader k v = Base.addHeader (T.toStrict k) (T.toStrict v)
+{-# DEPRECATED setHeader "does not validate header values which is potentially unsafe (#92). Please use setHeader1 instead"#-}
 
 
 -- | Add to the response headers. Header names are case-insensitive.
