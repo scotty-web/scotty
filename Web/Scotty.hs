@@ -26,7 +26,7 @@ module Web.Scotty
       -- ** Accessing the Request and its fields
     , request, header, headers, body, bodyReader
     , jsonData, files
-      -- ** Accessing Path Parameters and Query Parameters
+      -- ** Accessing Path, Form and Query Parameters
     , param, params
     , pathParam, captureParam, formParam, queryParam
     , pathParamMaybe, captureParamMaybe, formParamMaybe, queryParamMaybe
