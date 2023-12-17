@@ -174,6 +174,16 @@ spec = do
         it "Responds with a 302 Redirect" $ do
           get "/a" `shouldRespondWith` 302 { matchHeaders = ["Location" <:> "/b"] }
 
+    describe "middleware" $ do
+      context "rewrites the query string" $ do
+        withApp (do
+                    Scotty.middleware $ \app req sendResponse ->
+                      app req{queryString = [("query", Just "haskell")]} sendResponse
+                    Scotty.matchAny "/search" $ queryParam "query" >>= text
+                ) $ do
+         it "returns query parameter with given name" $ do
+           get "/search" `shouldRespondWith` "haskell"
+
     describe "captureParam" $ do
       withApp (
         do
@@ -227,15 +237,6 @@ spec = do
                 ) $ do
           it "catches a ScottyException" $ do
             get "/search?query=potato" `shouldRespondWith` 200 { matchBody = "z"}
-      context "returns query parameter with given name after middleware rewrite" $ do
-        withApp (do
-                    Scotty.middleware $ \app req sendResponse ->
-                      app req{queryString = [("query", Just "haskell")]} sendResponse
-                    Scotty.matchAny "/search" $ queryParam "query" >>= text
-                ) $ do
-          it "returns query parameter with given name" $ do
-            get "/search" `shouldRespondWith` "haskell"
-
 
     describe "formParam" $ do
       let
