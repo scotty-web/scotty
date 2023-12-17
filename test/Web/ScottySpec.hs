@@ -11,7 +11,7 @@ import           Data.String
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 import           Network.HTTP.Types
-import           Network.Wai (Application, responseLBS)
+import           Network.Wai (Application, Request(queryString), responseLBS)
 import qualified Control.Exception.Lifted as EL
 import qualified Control.Exception as E
 
@@ -227,6 +227,15 @@ spec = do
                 ) $ do
           it "catches a ScottyException" $ do
             get "/search?query=potato" `shouldRespondWith` 200 { matchBody = "z"}
+      context "returns query parameter with given name after middleware rewrite" $ do
+        withApp (do
+                    Scotty.middleware $ \app req sendResponse ->
+                      app req{queryString = [("query", Just "haskell")]} sendResponse
+                    Scotty.matchAny "/search" $ queryParam "query" >>= text
+                ) $ do
+          it "returns query parameter with given name" $ do
+            get "/search" `shouldRespondWith` "haskell"
+
 
     describe "formParam" $ do
       let
