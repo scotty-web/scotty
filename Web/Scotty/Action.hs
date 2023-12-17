@@ -358,7 +358,7 @@ queryParam = paramWith QueryParameterNotFound envQueryParams
 -- NB : Doesn't throw exceptions. In particular, route pattern matching will not continue, so developers
 -- must 'raiseStatus' or 'throw' to signal something went wrong.
 --
--- /Since: FIXME/
+-- /Since: 0.21/
 pathParamMaybe :: (Parsable a, Monad m) => T.Text -> ActionT m (Maybe a)
 pathParamMaybe = paramWithMaybe envPathParams
 
@@ -367,7 +367,7 @@ pathParamMaybe = paramWithMaybe envPathParams
 -- NB : Doesn't throw exceptions. In particular, route pattern matching will not continue, so developers
 -- must 'raiseStatus' or 'throw' to signal something went wrong.
 --
--- /Since: FIXME/
+-- /Since: 0.21/
 captureParamMaybe :: (Parsable a, Monad m) => T.Text -> ActionT m (Maybe a)
 captureParamMaybe = paramWithMaybe envPathParams
 
@@ -375,7 +375,7 @@ captureParamMaybe = paramWithMaybe envPathParams
 --
 -- NB : Doesn't throw exceptions, so developers must 'raiseStatus' or 'throw' to signal something went wrong.
 --
--- /Since: FIXME/
+-- /Since: 0.21/
 formParamMaybe :: (Parsable a, Monad m) => T.Text -> ActionT m (Maybe a)
 formParamMaybe = paramWithMaybe envFormParams
 
@@ -383,7 +383,7 @@ formParamMaybe = paramWithMaybe envFormParams
 --
 -- NB : Doesn't throw exceptions, so developers must 'raiseStatus' or 'throw' to signal something went wrong.
 --
--- /Since: FIXME/
+-- /Since: 0.21/
 queryParamMaybe :: (Parsable a, Monad m) => T.Text -> ActionT m (Maybe a)
 queryParamMaybe = paramWithMaybe envQueryParams
 
@@ -428,7 +428,7 @@ paramWithMaybe f k = do
 params :: Monad m => ActionT m [Param]
 params = paramsWith getParams
 {-# DEPRECATED params "(#204) Not a good idea to treat all parameters identically. Use pathParams, formParams and queryParams instead. "#-}
-  
+
 -- | Get path parameters
 pathParams :: Monad m => ActionT m [Param]
 pathParams = paramsWith envPathParams
@@ -455,12 +455,18 @@ getParams e = envPathParams e <> envFormParams e <> envQueryParams e
 -- === access the fields of the Response being constructed
 
 -- | Access the HTTP 'Status' of the Response
+--
+-- /SINCE 0.21/
 getResponseStatus :: (MonadIO m) => ActionT m Status
 getResponseStatus = srStatus <$> getResponseAction
 -- | Access the HTTP headers of the Response
+--
+-- /SINCE 0.21/
 getResponseHeaders :: (MonadIO m) => ActionT m ResponseHeaders
 getResponseHeaders = srHeaders <$> getResponseAction
 -- | Access the content of the Response
+--
+-- /SINCE 0.21/
 getResponseContent :: (MonadIO m) => ActionT m Content
 getResponseContent = srContent <$> getResponseAction
 
