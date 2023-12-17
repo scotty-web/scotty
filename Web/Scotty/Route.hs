@@ -11,11 +11,9 @@ import           Control.Monad.IO.Class (MonadIO(..))
 import UnliftIO (MonadUnliftIO(..))
 import qualified Control.Monad.State as MS
 
-import qualified Data.ByteString.Char8 as B
-
-import           Data.Maybe (fromMaybe)
 import           Data.String (fromString)
 import qualified Data.Text as T
+import           Data.Text.Encoding (decodeUtf8)
 
 import           Network.HTTP.Types
 import           Network.Wai (Request(..))
@@ -160,14 +158,14 @@ mkEnv :: MonadIO m => BodyInfo -> Request -> [Param] -> RouteOptions -> m Action
 mkEnv bodyInfo req captureps opts = do
   (formps, bodyFiles) <- liftIO $ getFormParamsAndFilesAction req bodyInfo opts
   let
-    queryps = parseEncodedParams $ rawQueryString req
+    queryps = parseEncodedParams $ queryString req
     bodyFiles' = [ (decodeUtf8Lenient k, fi) | (k,fi) <- bodyFiles ]
   responseInit <- liftIO $ newTVarIO defaultScottyResponse
   return $ Env req captureps formps queryps (getBodyAction bodyInfo opts) (getBodyChunkAction bodyInfo) bodyFiles' responseInit
 
 
-parseEncodedParams :: B.ByteString -> [Param]
-parseEncodedParams bs = [ (k, fromMaybe "" v) | (k,v) <- parseQueryText bs ]
+parseEncodedParams :: Query -> [Param]
+parseEncodedParams qs = [ ( decodeUtf8 k, maybe "" decodeUtf8 v) | (k,v) <- qs ]
 
 {- | Match requests using a regular expression.
 Named captures are not yet supported.
