@@ -13,7 +13,6 @@ import qualified Control.Monad.State as MS
 
 import           Data.String (fromString)
 import qualified Data.Text as T
-import           Data.Text.Encoding (decodeUtf8)
 
 import           Network.HTTP.Types
 import           Network.Wai (Request(..))
@@ -165,7 +164,7 @@ mkEnv bodyInfo req captureps opts = do
 
 
 parseEncodedParams :: Query -> [Param]
-parseEncodedParams qs = [ ( decodeUtf8 k, maybe "" decodeUtf8 v) | (k,v) <- qs ]
+parseEncodedParams qs = [ ( decodeUtf8Lenient k, maybe "" decodeUtf8Lenient v) | (k,v) <- qs ]
 
 {- | Match requests using a regular expression.
 Named captures are not yet supported.
