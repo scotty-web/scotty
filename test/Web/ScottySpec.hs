@@ -11,7 +11,7 @@ import           Data.String
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 import           Network.HTTP.Types
-import           Network.Wai (Application, responseLBS)
+import           Network.Wai (Application, Request(queryString), responseLBS)
 import qualified Control.Exception.Lifted as EL
 import qualified Control.Exception as E
 
@@ -173,6 +173,16 @@ spec = do
               ) $ do
         it "Responds with a 302 Redirect" $ do
           get "/a" `shouldRespondWith` 302 { matchHeaders = ["Location" <:> "/b"] }
+
+    describe "middleware" $ do
+      context "rewrites the query string" $ do
+        withApp (do
+                    Scotty.middleware $ \app req sendResponse ->
+                      app req{queryString = [("query", Just "haskell")]} sendResponse
+                    Scotty.matchAny "/search" $ queryParam "query" >>= text
+                ) $ do
+         it "returns query parameter with given name" $ do
+           get "/search" `shouldRespondWith` "haskell"
 
     describe "captureParam" $ do
       withApp (
