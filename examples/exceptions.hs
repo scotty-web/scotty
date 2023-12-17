@@ -5,6 +5,7 @@ module Main (main) where
 
 import Control.Exception (Exception(..))
 import Control.Monad.IO.Class
+import Control.Monad.IO.Unlift (MonadUnliftIO(..))
 
 import Data.String (fromString)
 import Data.Typeable
@@ -34,8 +35,12 @@ handleEx = Handler $ \case
     html $ fromString $ "<h1>" ++ s ++ "</h1>"
 
 main :: IO ()
-main = scottyT 3000 id $ do -- note, we aren't using any additional transformer layers
-                            -- so we can just use 'id' for the runner.
+main = do
+  scottyT 3000 id server -- note: we use 'id' since we don't have to run any effects at each action
+
+-- Any custom monad stack will need to implement 'MonadUnliftIO'
+server :: MonadUnliftIO m => ScottyT m ()
+server = do
     middleware logStdoutDev
 
     defaultHandler handleEx    -- define what to do with uncaught exceptions

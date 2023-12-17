@@ -19,15 +19,44 @@ Scotty is the cheap and cheerful way to write RESTful, declarative web applicati
 * Conforms to the [web application interface (WAI)](https://github.com/yesodweb/wai/).
 * Uses the very fast Warp webserver by default.
 
-See examples/basic.hs to see Scotty in action. (basic.hs needs the wai-extra package)
+As for the name: Sinatra + Warp = Scotty.
+
+## Examples
+
+Run /basic.hs to see Scotty in action:
 
 ```bash
-> runghc examples/basic.hs
-Setting phasers to stun... (port 3000) (ctrl-c to quit)
-(visit localhost:3000/somepath)
+runghc examples/basic.hs
+```
+`Setting phasers to stun... (port 3000) (ctrl-c to quit)`
+
+Or equivalently with [`stack`](https://docs.haskellstack.org/en/stable/):
+
+```bash
+stack exec -- scotty-basic
 ```
 
-As for the name: Sinatra + Warp = Scotty.
+Once the server is running you can interact with it with curl or a browser:
+
+```bash
+curl localhost:3000
+```
+`foobar`
+
+```bash
+curl localhost:3000/foo_query?p=42
+```
+`<h1>42</h1>`
+
+
+Additionally, the `examples` directory shows a number of concrete use cases, e.g. 
+
+* [exception handling](./examples/exceptions.hs)
+* [global state](./examples/globalstate.hs)
+* [configuration](./examples/reader.hs)
+* [cookies](./examples/cookies.hs)
+* [file upload](./examples/upload.hs)
+* and more
 
 ## More Information
 

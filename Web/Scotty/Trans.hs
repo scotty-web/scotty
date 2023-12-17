@@ -4,15 +4,22 @@
 -- OverloadedStrings language pragma.
 --
 -- The functions in this module allow an arbitrary monad to be embedded
--- in Scotty's monad transformer stack in order that Scotty be combined
--- with other DSLs.
+-- in Scotty's monad transformer stack, e.g. for complex endpoint configuration,
+-- interacting with databases etc.
 --
 -- Scotty is set up by default for development mode. For production servers,
 -- you will likely want to modify 'settings' and the 'defaultHandler'. See
 -- the comments on each of these functions for more information.
+--
+-- Please refer to the @examples@ directory and the @spec@ test suite for concrete use cases, e.g. constructing responses, exception handling and useful implementation details.
 module Web.Scotty.Trans
-    ( -- * scotty-to-WAI
-      scottyT, scottyAppT, scottyOptsT, scottySocketT, Options(..), defaultOptions
+    ( -- * Running 'scotty' servers
+      scottyT
+    , scottyOptsT
+    , scottySocketT
+    , Options(..), defaultOptions
+      -- ** scotty-to-WAI
+    , scottyAppT
       -- * Defining Middleware and Routes
       --
       -- | 'Middleware' and routes are run in the order in which they

@@ -5,9 +5,16 @@
 -- Scotty is set up by default for development mode. For production servers,
 -- you will likely want to modify 'Trans.settings' and the 'defaultHandler'. See
 -- the comments on each of these functions for more information.
+--
+-- Please refer to the @examples@ directory and the @spec@ test suite for concrete use cases, e.g. constructing responses, exception handling and useful implementation details.
 module Web.Scotty
-    ( -- * scotty-to-WAI
-      scotty, scottyApp, scottyOpts, scottySocket, Options(..), defaultOptions
+    ( -- * Running 'scotty' servers
+      scotty
+    , scottyOpts
+    , scottySocket
+    , Options(..), defaultOptions
+      -- ** scotty-to-WAI
+    , scottyApp
       -- * Defining Middleware and Routes
       --
       -- | 'Middleware' and routes are run in the order in which they
@@ -40,7 +47,7 @@ module Web.Scotty
       -- * Parsing Parameters
     , Param, Trans.Parsable(..), Trans.readEither
       -- * Types
-    , ScottyM, ActionM, RoutePattern, File, Content(..), Kilobytes, Handler(..)
+    , ScottyM, ActionM, RoutePattern, File, Content(..), Kilobytes, ErrorHandler, Handler(..)
     , ScottyState, defaultScottyState
     ) where
 
