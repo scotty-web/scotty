@@ -23,13 +23,14 @@ module Web.Scotty
     , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound, nested, setMaxRequestBodySize
       -- ** Route Patterns
     , capture, regex, function, literal
-      -- ** Accessing the Request, Captures, and Query Parameters
+      -- ** Accessing the Request and its fields
     , request, header, headers, body, bodyReader
+    , jsonData, files
+      -- ** Accessing Path Parameters and Query Parameters
     , param, params
     , pathParam, captureParam, formParam, queryParam
     , pathParamMaybe, captureParamMaybe, formParamMaybe, queryParamMaybe
     , pathParams, captureParams, formParams, queryParams
-    , jsonData, files
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
       -- ** Setting Response Body
@@ -267,6 +268,8 @@ param = Trans.param . toStrict
 {-# DEPRECATED param "(#204) Not a good idea to treat all parameters identically. Use pathParam, formParam and queryParam instead. "#-}
 
 -- | Synonym for 'pathParam'
+--
+-- /Since: 0.20/
 captureParam :: Trans.Parsable a => Text -> ActionM a
 captureParam = Trans.captureParam . toStrict
 
@@ -306,11 +309,13 @@ queryParam = Trans.queryParam . toStrict
 -- NB : Doesn't throw exceptions. In particular, route pattern matching will not continue, so developers
 -- must 'raiseStatus' or 'throw' to signal something went wrong.
 --
--- /Since: FIXME/
+-- /Since: 0.21/
 pathParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
 pathParamMaybe = Trans.pathParamMaybe . toStrict
 
 -- | Synonym for 'pathParamMaybe'
+--
+-- /Since: 0.21/
 captureParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
 captureParamMaybe = Trans.pathParamMaybe . toStrict
 
@@ -318,7 +323,7 @@ captureParamMaybe = Trans.pathParamMaybe . toStrict
 --
 -- NB : Doesn't throw exceptions, so developers must 'raiseStatus' or 'throw' to signal something went wrong.
 --
--- /Since: FIXME/
+-- /Since: 0.21/
 formParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
 formParamMaybe = Trans.formParamMaybe . toStrict
 
@@ -326,7 +331,7 @@ formParamMaybe = Trans.formParamMaybe . toStrict
 --
 -- NB : Doesn't throw exceptions, so developers must 'raiseStatus' or 'throw' to signal something went wrong.
 --
--- /Since: FIXME/
+-- /Since: 0.21/
 queryParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
 queryParamMaybe = Trans.queryParamMaybe . toStrict
 
@@ -398,12 +403,18 @@ raw = Trans.raw
 
 
 -- | Access the HTTP 'Status' of the Response
+--
+-- /Since: 0.21/
 getResponseStatus :: ActionM Status
 getResponseStatus = Trans.getResponseStatus
 -- | Access the HTTP headers of the Response
+--
+-- /Since: 0.21/
 getResponseHeaders :: ActionM ResponseHeaders
 getResponseHeaders = Trans.getResponseHeaders
 -- | Access the content of the Response
+--
+-- /Since: 0.21/
 getResponseContent :: ActionM Content
 getResponseContent = Trans.getResponseContent
 

@@ -140,6 +140,16 @@ spec = do
             request "POST" "/" [("Content-Type","multipart/form-data; boundary=--33")]
               large `shouldRespondWith` 200
 
+    describe "middleware" $ do
+      context "can rewrite the query string (#348)" $ do
+        withApp (do
+                    Scotty.middleware $ \app req sendResponse ->
+                      app req{queryString = [("query", Just "haskell")]} sendResponse
+                    Scotty.matchAny "/search" $ queryParam "query" >>= text
+                ) $ do
+         it "returns query parameter with given name" $ do
+           get "/search" `shouldRespondWith` "haskell"
+
 
   describe "ActionM" $ do
     context "MonadBaseControl instance" $ do
@@ -177,16 +187,6 @@ spec = do
               ) $ do
         it "Responds with a 302 Redirect" $ do
           get "/a" `shouldRespondWith` 302 { matchHeaders = ["Location" <:> "/b"] }
-
-    describe "middleware" $ do
-      context "rewrites the query string" $ do
-        withApp (do
-                    Scotty.middleware $ \app req sendResponse ->
-                      app req{queryString = [("query", Just "haskell")]} sendResponse
-                    Scotty.matchAny "/search" $ queryParam "query" >>= text
-                ) $ do
-         it "returns query parameter with given name" $ do
-           get "/search" `shouldRespondWith` "haskell"
 
     describe "captureParam" $ do
       withApp (

@@ -28,13 +28,14 @@ module Web.Scotty.Trans
     , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound, setMaxRequestBodySize
       -- ** Route Patterns
     , capture, regex, function, literal
-      -- ** Accessing the Request, Captures, and Query Parameters
+      -- ** Accessing the Request and its fields
     , request, Lazy.header, Lazy.headers, body, bodyReader
+    , jsonData, files
+      -- ** Accessing Path Parameters and Query Parameters
     , param, params
     , pathParam, captureParam, formParam, queryParam
     , pathParamMaybe, captureParamMaybe, formParamMaybe, queryParamMaybe
     , pathParams, captureParams, formParams, queryParams
-    , jsonData, files
       -- ** Modifying the Response and Redirecting
     , status, Lazy.addHeader, Lazy.setHeader, Lazy.redirect
       -- ** Setting Response Body

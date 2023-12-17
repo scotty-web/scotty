@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
+{-# options_ghc -Wno-unused-imports #-}
 module Web.Scotty.Util
     ( lazyTextToStrictByteString
     , strictByteStringToLazyText
