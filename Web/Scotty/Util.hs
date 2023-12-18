@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
+{-# options_ghc -Wno-unused-imports #-}
 module Web.Scotty.Util
     ( lazyTextToStrictByteString
     , strictByteStringToLazyText
@@ -15,12 +16,8 @@ module Web.Scotty.Util
 import Network.Socket (SockAddr(..), Socket, getSocketName, socketPort)
 import Network.Wai
 
+import Control.Exception
 import Control.Monad (when)
-import qualified Control.Exception as EUnsafe (throw)
-
-
-import Network.HTTP.Types
-
 import qualified Data.ByteString as B
 import qualified Data.Text as TP (Text, pack)
 import qualified Data.Text.Lazy as TL
@@ -97,7 +94,7 @@ readRequestBody rbody prefix maxSize = do
           readUntilEmpty = do
             b <- rbody
             if B.null b
-              then EUnsafe.throw (RequestException (ES.encodeUtf8 . TP.pack $ "Request is too big Jim!") status413)
+              then throwIO RequestTooLarge
               else readUntilEmpty
 
 

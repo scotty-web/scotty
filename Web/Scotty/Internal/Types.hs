@@ -142,12 +142,21 @@ tryNext io = catch (io >> pure True) $ \e ->
 -- | E.g. when a parameter is not found in a query string (400 Bad Request) or when parsing a JSON body fails (422 Unprocessable Entity)
 data StatusError = StatusError Status Text deriving (Show, Typeable)
 instance E.Exception StatusError
+{-# DEPRECATED StatusError "If it is supposed to be caught, a proper exception type should be defined" #-}
 
 -- | Specializes a 'Handler' to the 'ActionT' monad
 type ErrorHandler m = Handler (ActionT m) ()
 
 -- | Thrown e.g. when a request is too large
-data ScottyException = RequestException BS.ByteString Status deriving (Show, Typeable)
+data ScottyException
+  = RequestTooLarge
+  | MalformedJSON LBS8.ByteString Text
+  | FailedToParseJSON LBS8.ByteString Text
+  | PathParameterNotFound Text
+  | QueryParameterNotFound Text
+  | FormFieldNotFound Text
+  | FailedToParseParameter Text Text Text
+  deriving (Show, Typeable)
 instance E.Exception ScottyException
 
 ------------------ Scotty Actions -------------------
@@ -233,12 +242,15 @@ instance (MonadUnliftIO m) => MonadPlus (ActionT m) where
   mzero = empty
   mplus = (<|>)
 
--- | catches either ActionError (thrown by 'next') or 'StatusError' (thrown if e.g. a query parameter is not found)
+-- | catches either ActionError (thrown by 'next'),
+-- 'ScottyException' (thrown if e.g. a query parameter is not found)
+-- or 'StatusError' (via 'raiseStatus')
 tryAnyStatus :: MonadUnliftIO m => m a -> m Bool
-tryAnyStatus io = (io >> pure True) `catches` [h1, h2]
+tryAnyStatus io = (io >> pure True) `catches` [h1, h2, h3]
   where
     h1 = Handler $ \(_ :: ActionError) -> pure False
     h2 = Handler $ \(_ :: StatusError) -> pure False
+    h3 = Handler $ \(_ :: ScottyException) -> pure False
 
 instance (Semigroup a) => Semigroup (ScottyT m a) where
   x <> y = (<>) <$> x <*> y

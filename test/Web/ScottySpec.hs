@@ -11,7 +11,7 @@ import           Data.String
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 import           Network.HTTP.Types
-import           Network.Wai (Application, responseLBS)
+import           Network.Wai (Application, Request(queryString), responseLBS)
 import qualified Control.Exception.Lifted as EL
 import qualified Control.Exception as E
 
@@ -59,6 +59,9 @@ spec = do
         withApp (route "/:paramName" $ captureParam "paramName" >>= text) $ do
           it ("captures route parameters for " ++ method ++ " requests when parameter matches its name") $ do
             makeRequest "/:paramName" `shouldRespondWith` ":paramName"
+          it ("captures route parameters for " ++ method ++ " requests with url encoded '/' in path") $ do
+            makeRequest "/a%2Fb" `shouldRespondWith` "a/b"
+            
     describe "addroute" $ do
       forM_ availableMethods $ \method -> do
         withApp (addroute method "/scotty" $ html "") $ do
@@ -98,11 +101,28 @@ spec = do
                   Scotty.get "/" (liftIO $ E.throwIO E.DivideByZero)) $ do
         it "allows to customize the HTTP status code" $ do
           get "/" `shouldRespondWith` "" {matchStatus = 503}
+      withApp (do
+                  let h = Handler (\(_ :: E.SomeException) -> setHeader "Location" "/c" >> status status500)
+                  defaultHandler h
+                  Scotty.get "/a" (redirect "/b")) $ do
+        it "should give priority to actionErrorHandlers" $ do
+          get "/a" `shouldRespondWith` 302 { matchHeaders = ["Location" <:> "/b"] }
 
       context "when not specified" $ do
         withApp (Scotty.get "/" $ throw E.DivideByZero) $ do
           it "returns 500 on exceptions" $ do
             get "/" `shouldRespondWith` "" {matchStatus = 500}
+      context "only applies to endpoints defined after it (#237)" $ do
+        withApp (do
+                    let h = Handler (\(_ :: E.SomeException) -> status status503 >> text "ok")
+                    Scotty.get "/a" (throw E.DivideByZero)
+                    defaultHandler h
+                    Scotty.get "/b" (throw E.DivideByZero)
+                      ) $ do
+          it "doesn't catch an exception before the handler is set" $ do
+            get "/a" `shouldRespondWith` 500
+          it "catches an exception after the handler is set" $ do
+            get "/b" `shouldRespondWith` "ok" {matchStatus = 503}
 
 
     describe "setMaxRequestBodySize" $ do
@@ -121,6 +141,16 @@ spec = do
           it "doesn't throw an uncaught exception if the body is large" $ do
             request "POST" "/" [("Content-Type","multipart/form-data; boundary=--33")]
               large `shouldRespondWith` 200
+
+    describe "middleware" $ do
+      context "can rewrite the query string (#348)" $ do
+        withApp (do
+                    Scotty.middleware $ \app req sendResponse ->
+                      app req{queryString = [("query", Just "haskell")]} sendResponse
+                    Scotty.matchAny "/search" $ queryParam "query" >>= text
+                ) $ do
+         it "returns query parameter with given name" $ do
+           get "/search" `shouldRespondWith` "haskell"
 
 
   describe "ActionM" $ do
@@ -191,7 +221,7 @@ spec = do
           get "/search/potato" `shouldRespondWith` 500
       context "recover from missing parameter exception" $ do
         withApp (Scotty.get "/search/:q" $
-                 (captureParam "z" >>= text) `catch` (\(_::StatusError) -> text "z")
+                 (captureParam "z" >>= text) `catch` (\(_::ScottyException) -> text "z")
                 ) $ do
           it "catches a StatusError" $ do
             get "/search/xxx" `shouldRespondWith` 200 { matchBody = "z"}
@@ -209,9 +239,9 @@ spec = do
           get "/search?query=potato" `shouldRespondWith` 400
       context "recover from type mismatch parameter exception" $ do
         withApp (Scotty.get "/search" $
-                 (queryParam "z" >>= (\v -> json (v :: Int))) `catch` (\(_::StatusError) -> text "z")
+                 (queryParam "z" >>= (\v -> json (v :: Int))) `catch` (\(_::ScottyException) -> text "z")
                 ) $ do
-          it "catches a StatusError" $ do
+          it "catches a ScottyException" $ do
             get "/search?query=potato" `shouldRespondWith` 200 { matchBody = "z"}
 
     describe "formParam" $ do
@@ -241,7 +271,7 @@ spec = do
           postForm "/" "p=42" `shouldRespondWith` "42"
       context "recover from type mismatch parameter exception" $ do
         withApp (Scotty.post "/search" $
-                 (formParam "z" >>= (\v -> json (v :: Int))) `catch` (\(_::StatusError) -> text "z")
+                 (formParam "z" >>= (\v -> json (v :: Int))) `catch` (\(_::ScottyException) -> text "z")
                 ) $ do
           it "catches a StatusError" $ do
             postForm "/search" "z=potato" `shouldRespondWith` 200 { matchBody = "z"}

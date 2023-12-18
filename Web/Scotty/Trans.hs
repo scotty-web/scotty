@@ -4,15 +4,22 @@
 -- OverloadedStrings language pragma.
 --
 -- The functions in this module allow an arbitrary monad to be embedded
--- in Scotty's monad transformer stack in order that Scotty be combined
--- with other DSLs.
+-- in Scotty's monad transformer stack, e.g. for complex endpoint configuration,
+-- interacting with databases etc.
 --
 -- Scotty is set up by default for development mode. For production servers,
 -- you will likely want to modify 'settings' and the 'defaultHandler'. See
 -- the comments on each of these functions for more information.
+--
+-- Please refer to the @examples@ directory and the @spec@ test suite for concrete use cases, e.g. constructing responses, exception handling and useful implementation details.
 module Web.Scotty.Trans
-    ( -- * scotty-to-WAI
-      scottyT, scottyAppT, scottyOptsT, scottySocketT, Options(..), defaultOptions
+    ( -- * Running 'scotty' servers
+      scottyT
+    , scottyOptsT
+    , scottySocketT
+    , Options(..), defaultOptions
+      -- ** scotty-to-WAI
+    , scottyAppT
       -- * Defining Middleware and Routes
       --
       -- | 'Middleware' and routes are run in the order in which they
@@ -21,13 +28,14 @@ module Web.Scotty.Trans
     , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound, setMaxRequestBodySize
       -- ** Route Patterns
     , capture, regex, function, literal
-      -- ** Accessing the Request, Captures, and Query Parameters
+      -- ** Accessing the Request and its fields
     , request, Lazy.header, Lazy.headers, body, bodyReader
+    , jsonData, files
+      -- ** Accessing Path, Form and Query Parameters
     , param, params
     , pathParam, captureParam, formParam, queryParam
     , pathParamMaybe, captureParamMaybe, formParamMaybe, queryParamMaybe
     , pathParams, captureParams, formParams, queryParams
-    , jsonData, files
       -- ** Modifying the Response and Redirecting
     , status, Lazy.addHeader, Lazy.setHeader, Lazy.redirect
       -- ** Setting Response Body
@@ -41,6 +49,7 @@ module Web.Scotty.Trans
     , Lazy.raise, Lazy.raiseStatus, throw, rescue, next, finish, defaultHandler, liftAndCatchIO
     , liftIO, catch
     , StatusError(..)
+    , ScottyException(..)
       -- * Parsing Parameters
     , Param, Parsable(..), readEither
       -- * Types
@@ -51,13 +60,14 @@ module Web.Scotty.Trans
     ) where
 
 import Blaze.ByteString.Builder (fromByteString)
+import Blaze.ByteString.Builder.Char8 (fromString)
 
 import Control.Exception (assert)
 import Control.Monad (when)
 import Control.Monad.State.Strict (execState, modify)
 import Control.Monad.IO.Class
 
-import Network.HTTP.Types (status404)
+import Network.HTTP.Types (status404, status413, status500)
 import Network.Socket (Socket)
 import qualified Network.Wai as W (Application, Middleware, Response, responseBuilder)
 import Network.Wai.Handler.Warp (Port, runSettings, runSettingsSocket, setPort, getPort)
@@ -69,7 +79,7 @@ import Web.Scotty.Trans.Lazy as Lazy
 import Web.Scotty.Util (socketDescription)
 import Web.Scotty.Body (newBodyInfo)
 
-import UnliftIO.Exception (Handler(..), catch, catches)
+import UnliftIO.Exception (Handler(..), catch)
 
 
 -- | Run a scotty application using the warp server.
@@ -119,9 +129,18 @@ scottyAppT runActionToIO defs = do
     let s = execState (runS defs) defaultScottyState
     let rapp req callback = do
           bodyInfo <- newBodyInfo req
-          resp <- runActionToIO (applyAll notFoundApp ([midd bodyInfo | midd <- routes s]) req) `catches` [scottyExceptionHandler]
+          resp <- runActionToIO (applyAll notFoundApp ([midd bodyInfo | midd <- routes s]) req)
+            `catch` unhandledExceptionHandler
           callback resp
     return $ applyAll rapp (middlewares s)
+
+--- | Exception handler in charge of 'ScottyException' that's not caught by 'scottyExceptionHandler'
+unhandledExceptionHandler :: MonadIO m => ScottyException -> m W.Response
+unhandledExceptionHandler = \case
+  RequestTooLarge -> return $ W.responseBuilder status413 ct "Request is too big Jim!"
+  e -> return $ W.responseBuilder status500 ct $ "Internal Server Error: " <> fromString (show e)
+  where
+    ct = [("Content-Type", "text/plain")]
 
 applyAll :: Foldable t => a -> t (a -> a) -> a
 applyAll = foldl (flip ($))
@@ -133,13 +152,6 @@ notFoundApp _ = return $ W.responseBuilder status404 [("Content-Type","text/html
 -- | Global handler for user-defined exceptions.
 defaultHandler :: (Monad m) => ErrorHandler m -> ScottyT m ()
 defaultHandler f = ScottyT $ modify $ setHandler $ Just f
-
--- | Exception handler in charge of 'ScottyException'
-scottyExceptionHandler :: MonadIO m => Handler m W.Response
-scottyExceptionHandler = Handler $ \case
-  RequestException ebody s -> do
-    return $ W.responseBuilder s [("Content-Type", "text/plain")] (fromByteString ebody)
-
 
 -- | Use given middleware. Middleware is nested such that the first declared
 -- is the outermost middleware (it has first dibs on the request and last action

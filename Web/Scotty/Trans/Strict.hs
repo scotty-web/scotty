@@ -43,6 +43,7 @@ module Web.Scotty.Trans.Strict
       -- ** Exceptions
     , Base.raise, Base.raiseStatus, throw, rescue, next, finish, defaultHandler, liftAndCatchIO
     , StatusError(..)
+    , ScottyException(..)
       -- * Parsing Parameters
     , Param, Parsable(..), readEither
       -- * Types

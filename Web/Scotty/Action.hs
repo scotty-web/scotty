@@ -93,7 +93,7 @@ import           Numeric.Natural
 
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, decodeUtf8Lenient)
-import           UnliftIO.Exception (Handler(..), catch, catches)
+import           UnliftIO.Exception (Handler(..), catch, catches, throwIO)
 
 import Network.Wai.Internal (ResponseReceived(..))
 
@@ -111,7 +111,7 @@ runAction mh env action = do
   ok <- flip runReaderT env $ runAM $ tryNext $ action `catches` concat
     [ [actionErrorHandler]
     , maybeToList mh
-    , [statusErrorHandler, someExceptionHandler]
+    , [statusErrorHandler, scottyExceptionHandler, someExceptionHandler]
     ]
   res <- getResponse env
   return $ bool Nothing (Just $ mkResponse res) ok
@@ -135,6 +135,39 @@ actionErrorHandler = Handler $ \case
   AENext -> next
   AEFinish -> return ()
 
+-- | Default handler for exceptions from scotty
+scottyExceptionHandler :: MonadIO m => ErrorHandler m
+scottyExceptionHandler = Handler $ \case
+  RequestTooLarge -> do
+    status status413
+    text "Request body is too large"
+  MalformedJSON bs err -> do
+    status status400
+    raw $ BL.unlines
+      [ "jsonData: malformed"
+      , "Body: " <> bs
+      , "Error: " <> BL.fromStrict (encodeUtf8 err)
+      ]
+  FailedToParseJSON bs err -> do
+    status status422
+    raw $ BL.unlines
+      [ "jsonData: failed to parse"
+      , "Body: " <> bs
+      , "Error: " <> BL.fromStrict (encodeUtf8 err)
+      ]
+  PathParameterNotFound k -> do
+    status status500
+    text $ T.unwords [ "Path parameter", k, "not found"]
+  QueryParameterNotFound k -> do
+    status status400
+    text $ T.unwords [ "Query parameter", k, "not found"]
+  FormFieldNotFound k -> do
+    status status400
+    text $ T.unwords [ "Query parameter", k, "not found"]
+  FailedToParseParameter k v e -> do
+    status status400
+    text $ T.unwords [ "Failed to parse parameter", k, v, ":", e]
+
 -- | Uncaught exceptions turn into HTTP 500 Server Error codes
 someExceptionHandler :: MonadIO m => ErrorHandler m
 someExceptionHandler = Handler $ \case
@@ -147,12 +180,14 @@ raise :: (MonadIO m) =>
          T.Text -- ^ Error text
       -> ActionT m a
 raise  = raiseStatus status500
+{-# DEPRECATED raise "Throw an exception instead" #-}
 
 -- | Throw a 'StatusError' exception that has an associated HTTP error code and can be caught with 'catch'.
 --
 -- Uncaught exceptions turn into HTTP responses corresponding to the given status.
 raiseStatus :: Monad m => Status -> T.Text -> ActionT m a
 raiseStatus s = E.throw . StatusError s
+{-# DEPRECATED raiseStatus "Use status, text, and finish instead" #-}
 
 -- | Throw an exception which can be caught within the scope of the current Action with 'catch'.
 --
@@ -256,23 +291,12 @@ bodyReader = ActionT $ envBodyChunk <$> ask
 jsonData :: (A.FromJSON a, MonadIO m) => ActionT m a
 jsonData = do
     b <- body
-    when (b == "") $ do
-      let htmlError = "jsonData - No data was provided."
-      raiseStatus status400 $ T.pack htmlError
+    when (b == "") $ throwIO $ MalformedJSON b "no data"
     case A.eitherDecode b of
-      Left err -> do
-        let htmlError = "jsonData - malformed."
-              `mappend` " Data was: " `mappend` BL.unpack b
-              `mappend` " Error was: " `mappend` err
-        raiseStatus status400 $ T.pack htmlError
+      Left err -> throwIO $ MalformedJSON b $ T.pack err
       Right value -> case A.fromJSON value of
-        A.Error err -> do
-          let htmlError = "jsonData - failed parse."
-                `mappend` " Data was: " `mappend` BL.unpack b `mappend` "."
-                `mappend` " Error was: " `mappend` err
-          raiseStatus status422 $ T.pack htmlError
-        A.Success a -> do
-          return a
+        A.Error err -> throwIO $ FailedToParseJSON b $ T.pack err
+        A.Success a -> return a
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
@@ -290,7 +314,7 @@ param k = do
 {-# DEPRECATED param "(#204) Not a good idea to treat all parameters identically. Use captureParam, formParam and queryParam instead. "#-}
 
 -- | Synonym for 'pathParam'
-captureParam :: (Parsable a, Monad m) => T.Text -> ActionT m a
+captureParam :: (Parsable a, MonadIO m) => T.Text -> ActionT m a
 captureParam = pathParam
 
 -- | Look up a path parameter.
@@ -300,9 +324,14 @@ captureParam = pathParam
 -- * If the parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
 --
 -- /Since: 0.20/
-pathParam :: (Parsable a, Monad m) => T.Text -> ActionT m a
-pathParam = paramWith PathParam envPathParams status500
-
+pathParam :: (Parsable a, MonadIO m) => T.Text -> ActionT m a
+pathParam k = do
+  val <- ActionT $ lookup k . envPathParams <$> ask
+  case val of
+    Nothing -> throwIO $ PathParameterNotFound k
+    Just v -> case parseParam $ TL.fromStrict v of
+      Left _ -> next
+      Right a -> pure a
 
 -- | Look up a form parameter.
 --
@@ -311,8 +340,8 @@ pathParam = paramWith PathParam envPathParams status500
 -- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
 --
 -- /Since: 0.20/
-formParam :: (Parsable a, Monad m) => T.Text -> ActionT m a
-formParam = paramWith FormParam envFormParams status400
+formParam :: (Parsable a, MonadIO m) => T.Text -> ActionT m a
+formParam = paramWith FormFieldNotFound envFormParams
 
 -- | Look up a query parameter.
 --
@@ -321,15 +350,15 @@ formParam = paramWith FormParam envFormParams status400
 -- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
 --
 -- /Since: 0.20/
-queryParam :: (Parsable a, Monad m) => T.Text -> ActionT m a
-queryParam = paramWith QueryParam envQueryParams status400
+queryParam :: (Parsable a, MonadIO m) => T.Text -> ActionT m a
+queryParam = paramWith QueryParameterNotFound envQueryParams
 
 -- | Look up a path parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
 --
 -- NB : Doesn't throw exceptions. In particular, route pattern matching will not continue, so developers
 -- must 'raiseStatus' or 'throw' to signal something went wrong.
 --
--- /Since: FIXME/
+-- /Since: 0.21/
 pathParamMaybe :: (Parsable a, Monad m) => T.Text -> ActionT m (Maybe a)
 pathParamMaybe = paramWithMaybe envPathParams
 
@@ -338,7 +367,7 @@ pathParamMaybe = paramWithMaybe envPathParams
 -- NB : Doesn't throw exceptions. In particular, route pattern matching will not continue, so developers
 -- must 'raiseStatus' or 'throw' to signal something went wrong.
 --
--- /Since: FIXME/
+-- /Since: 0.21/
 captureParamMaybe :: (Parsable a, Monad m) => T.Text -> ActionT m (Maybe a)
 captureParamMaybe = paramWithMaybe envPathParams
 
@@ -346,7 +375,7 @@ captureParamMaybe = paramWithMaybe envPathParams
 --
 -- NB : Doesn't throw exceptions, so developers must 'raiseStatus' or 'throw' to signal something went wrong.
 --
--- /Since: FIXME/
+-- /Since: 0.21/
 formParamMaybe :: (Parsable a, Monad m) => T.Text -> ActionT m (Maybe a)
 formParamMaybe = paramWithMaybe envFormParams
 
@@ -354,7 +383,7 @@ formParamMaybe = paramWithMaybe envFormParams
 --
 -- NB : Doesn't throw exceptions, so developers must 'raiseStatus' or 'throw' to signal something went wrong.
 --
--- /Since: FIXME/
+-- /Since: 0.21/
 queryParamMaybe :: (Parsable a, Monad m) => T.Text -> ActionT m (Maybe a)
 queryParamMaybe = paramWithMaybe envQueryParams
 
@@ -367,21 +396,18 @@ instance Show ParamType where
     FormParam -> "form"
     QueryParam -> "query"
 
-paramWith :: (Monad m, Parsable b) =>
-             ParamType
+paramWith :: (MonadIO m, Parsable b) =>
+             (T.Text -> ScottyException)
           -> (ActionEnv -> [Param])
-          -> Status -- ^ HTTP status to return if parameter is not found
           -> T.Text -- ^ parameter name
           -> ActionT m b
-paramWith ty f err k = do
+paramWith toError f k = do
     val <- ActionT $ (lookup k . f) <$> ask
     case val of
-      Nothing -> raiseStatus err (T.unwords [T.pack (show ty), "parameter:", k, "not found!"])
-      Just v ->
-        let handleParseError = \case
-              PathParam -> next
-              _ -> raiseStatus err (T.unwords ["Cannot parse", v, "as a", T.pack (show ty), "parameter"])
-        in either (const $ handleParseError ty) return $ parseParam $ TL.fromStrict v
+      Nothing -> throwIO $ toError k
+      Just v -> case parseParam $ TL.fromStrict v of
+        Left e -> throwIO $ FailedToParseParameter k v (TL.toStrict e)
+        Right a -> pure a
 
 -- | Look up a parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
 --
@@ -402,7 +428,7 @@ paramWithMaybe f k = do
 params :: Monad m => ActionT m [Param]
 params = paramsWith getParams
 {-# DEPRECATED params "(#204) Not a good idea to treat all parameters identically. Use pathParams, formParams and queryParams instead. "#-}
-  
+
 -- | Get path parameters
 pathParams :: Monad m => ActionT m [Param]
 pathParams = paramsWith envPathParams
@@ -429,12 +455,18 @@ getParams e = envPathParams e <> envFormParams e <> envQueryParams e
 -- === access the fields of the Response being constructed
 
 -- | Access the HTTP 'Status' of the Response
+--
+-- /SINCE 0.21/
 getResponseStatus :: (MonadIO m) => ActionT m Status
 getResponseStatus = srStatus <$> getResponseAction
 -- | Access the HTTP headers of the Response
+--
+-- /SINCE 0.21/
 getResponseHeaders :: (MonadIO m) => ActionT m ResponseHeaders
 getResponseHeaders = srHeaders <$> getResponseAction
 -- | Access the content of the Response
+--
+-- /SINCE 0.21/
 getResponseContent :: (MonadIO m) => ActionT m Content
 getResponseContent = srContent <$> getResponseAction
 
@@ -543,7 +575,7 @@ html t = do
     changeHeader addIfNotPresent "Content-Type" "text/html; charset=utf-8"
     raw $ BL.fromStrict $ encodeUtf8 t
 
-  -- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
+-- | Set the body of the response to the given 'T.Text' value. Also sets \"Content-Type\"
 -- header to \"text/html; charset=utf-8\" if it has not already been set.
 htmlLazy :: (MonadIO m) => TL.Text -> ActionT m ()
 htmlLazy t = do

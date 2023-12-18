@@ -5,9 +5,16 @@
 -- Scotty is set up by default for development mode. For production servers,
 -- you will likely want to modify 'Trans.settings' and the 'defaultHandler'. See
 -- the comments on each of these functions for more information.
+--
+-- Please refer to the @examples@ directory and the @spec@ test suite for concrete use cases, e.g. constructing responses, exception handling and useful implementation details.
 module Web.Scotty
-    ( -- * scotty-to-WAI
-      scotty, scottyApp, scottyOpts, scottySocket, Options(..), defaultOptions
+    ( -- * Running 'scotty' servers
+      scotty
+    , scottyOpts
+    , scottySocket
+    , Options(..), defaultOptions
+      -- ** scotty-to-WAI
+    , scottyApp
       -- * Defining Middleware and Routes
       --
       -- | 'Middleware' and routes are run in the order in which they
@@ -16,13 +23,14 @@ module Web.Scotty
     , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound, nested, setMaxRequestBodySize
       -- ** Route Patterns
     , capture, regex, function, literal
-      -- ** Accessing the Request, Captures, and Query Parameters
+      -- ** Accessing the Request and its fields
     , request, header, headers, body, bodyReader
+    , jsonData, files
+      -- ** Accessing Path, Form and Query Parameters
     , param, params
     , pathParam, captureParam, formParam, queryParam
     , pathParamMaybe, captureParamMaybe, formParamMaybe, queryParamMaybe
     , pathParams, captureParams, formParams, queryParams
-    , jsonData, files
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
       -- ** Setting Response Body
@@ -36,10 +44,11 @@ module Web.Scotty
     , raise, raiseStatus, throw, rescue, next, finish, defaultHandler, liftAndCatchIO
     , liftIO, catch
     , StatusError(..)
+    , ScottyException(..)
       -- * Parsing Parameters
     , Param, Trans.Parsable(..), Trans.readEither
       -- * Types
-    , ScottyM, ActionM, RoutePattern, File, Content(..), Kilobytes, Handler(..)
+    , ScottyM, ActionM, RoutePattern, File, Content(..), Kilobytes, ErrorHandler, Handler(..)
     , ScottyState, defaultScottyState
     ) where
 
@@ -57,10 +66,36 @@ import Network.Socket (Socket)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 
-import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, StatusError(..), Content(..))
-
+import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, ScottyException, StatusError(..), Content(..))
 import UnliftIO.Exception (Handler(..), catch)
 
+{- $setup
+>>> :{
+import Control.Monad.IO.Class (MonadIO(..))
+import qualified Network.HTTP.Client as H
+import qualified Network.HTTP.Types as H
+import qualified Network.Wai as W (httpVersion)
+import qualified Data.ByteString.Lazy.Char8 as LBS (unpack)
+import qualified Data.Text as T (pack)
+import Control.Concurrent (ThreadId, forkIO, killThread)
+import Control.Exception (bracket)
+import qualified Web.Scotty as S (ScottyM, scottyOpts, get, text, regex, pathParam, Options(..), defaultOptions)
+-- | GET an HTTP path
+curl :: MonadIO m =>
+        String -- ^ path
+     -> m String -- ^ response body
+curl path = liftIO $ do
+  req0 <- H.parseRequest path
+  let req = req0 { H.method = "GET"}
+  mgr <- H.newManager H.defaultManagerSettings
+  (LBS.unpack . H.responseBody) <$> H.httpLbs req mgr
+-- | Fork a process, run a Scotty server in it and run an action while the server is running. Kills the scotty thread once the inner action is done.
+withScotty :: S.ScottyM ()
+           -> IO a -- ^ inner action, e.g. 'curl "localhost:3000/"'
+           -> IO a
+withScotty serv act = bracket (forkIO $ S.scottyOpts (S.defaultOptions{ S.verbose = 0 }) serv) killThread (\_ -> act)
+:}
+-}
 
 type ScottyM = ScottyT IO
 type ActionM = ActionT IO
@@ -116,12 +151,14 @@ setMaxRequestBodySize = Trans.setMaxRequestBodySize
 -- Uncaught exceptions turn into HTTP 500 responses.
 raise :: Text -> ActionM a
 raise = Trans.raise
+{-# DEPRECATED raise "Throw an exception instead" #-}
 
 -- | Throw a 'StatusError' exception that has an associated HTTP error code and can be caught with 'catch'.
 --
 -- Uncaught exceptions turn into HTTP responses corresponding to the given status.
 raiseStatus :: Status -> Text -> ActionM a
 raiseStatus = Trans.raiseStatus
+{-# DEPRECATED raiseStatus "Use status, text, and finish instead" #-}
 
 -- | Throw an exception which can be caught within the scope of the current Action with 'catch'.
 --
@@ -231,6 +268,8 @@ param = Trans.param . toStrict
 {-# DEPRECATED param "(#204) Not a good idea to treat all parameters identically. Use pathParam, formParam and queryParam instead. "#-}
 
 -- | Synonym for 'pathParam'
+--
+-- /Since: 0.20/
 captureParam :: Trans.Parsable a => Text -> ActionM a
 captureParam = Trans.captureParam . toStrict
 
@@ -270,11 +309,13 @@ queryParam = Trans.queryParam . toStrict
 -- NB : Doesn't throw exceptions. In particular, route pattern matching will not continue, so developers
 -- must 'raiseStatus' or 'throw' to signal something went wrong.
 --
--- /Since: FIXME/
+-- /Since: 0.21/
 pathParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
 pathParamMaybe = Trans.pathParamMaybe . toStrict
 
 -- | Synonym for 'pathParamMaybe'
+--
+-- /Since: 0.21/
 captureParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
 captureParamMaybe = Trans.pathParamMaybe . toStrict
 
@@ -282,7 +323,7 @@ captureParamMaybe = Trans.pathParamMaybe . toStrict
 --
 -- NB : Doesn't throw exceptions, so developers must 'raiseStatus' or 'throw' to signal something went wrong.
 --
--- /Since: FIXME/
+-- /Since: 0.21/
 formParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
 formParamMaybe = Trans.formParamMaybe . toStrict
 
@@ -290,7 +331,7 @@ formParamMaybe = Trans.formParamMaybe . toStrict
 --
 -- NB : Doesn't throw exceptions, so developers must 'raiseStatus' or 'throw' to signal something went wrong.
 --
--- /Since: FIXME/
+-- /Since: 0.21/
 queryParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
 queryParamMaybe = Trans.queryParamMaybe . toStrict
 
@@ -362,12 +403,18 @@ raw = Trans.raw
 
 
 -- | Access the HTTP 'Status' of the Response
+--
+-- /Since: 0.21/
 getResponseStatus :: ActionM Status
 getResponseStatus = Trans.getResponseStatus
 -- | Access the HTTP headers of the Response
+--
+-- /Since: 0.21/
 getResponseHeaders :: ActionM ResponseHeaders
 getResponseHeaders = Trans.getResponseHeaders
 -- | Access the content of the Response
+--
+-- /Since: 0.21/
 getResponseContent :: ActionM Content
 getResponseContent = Trans.getResponseContent
 
@@ -405,35 +452,37 @@ matchAny = Trans.matchAny
 notFound :: ActionM () -> ScottyM ()
 notFound = Trans.notFound
 
--- | Define a route with a 'StdMethod', 'Text' value representing the path spec,
--- and a body ('Action') which modifies the response.
---
--- > addroute GET "/" $ text "beam me up!"
---
--- The path spec can include values starting with a colon, which are interpreted
--- as /captures/. These are named wildcards that can be looked up with 'param'.
---
--- > addroute GET "/foo/:bar" $ do
--- >     v <- param "bar"
--- >     text v
---
--- >>> curl http://localhost:3000/foo/something
--- something
+{- | Define a route with a 'StdMethod', a route pattern representing the path spec,
+and an 'Action' which may modify the response.
+
+> get "/" $ text "beam me up!"
+
+The path spec can include values starting with a colon, which are interpreted
+as /captures/. These are parameters that can be looked up with 'pathParam'.
+
+>>> :{
+let server = S.get "/foo/:bar" (S.pathParam "bar" >>= S.text)
+ in do
+      withScotty server $ curl "http://localhost:3000/foo/something"
+:}
+"something"
+-}
 addroute :: StdMethod -> RoutePattern -> ActionM () -> ScottyM ()
 addroute = Trans.addroute
 
--- | Match requests using a regular expression.
---   Named captures are not yet supported.
---
--- > get (regex "^/f(.*)r$") $ do
--- >    path <- param "0"
--- >    cap <- param "1"
--- >    text $ mconcat ["Path: ", path, "\nCapture: ", cap]
---
--- >>> curl http://localhost:3000/foo/bar
--- Path: /foo/bar
--- Capture: oo/ba
---
+
+{- | Match requests using a regular expression.
+Named captures are not yet supported.
+
+>>> :{
+let server = S.get (S.regex "^/f(.*)r$") $ do
+                cap <- S.pathParam "1"
+                S.text cap
+ in do
+      withScotty server $ curl "http://localhost:3000/foo/bar"
+:}
+"oo/ba"
+-}
 regex :: String -> RoutePattern
 regex = Trans.regex
 
@@ -452,18 +501,20 @@ regex = Trans.regex
 capture :: String -> RoutePattern
 capture = Trans.capture
 
--- | Build a route based on a function which can match using the entire 'Request' object.
---   'Nothing' indicates the route does not match. A 'Just' value indicates
---   a successful match, optionally returning a list of key-value pairs accessible
---   by 'param'.
---
--- > get (function $ \req -> Just [("version", pack $ show $ httpVersion req)]) $ do
--- >     v <- param "version"
--- >     text v
---
--- >>> curl http://localhost:3000/
--- HTTP/1.1
---
+
+{- | Build a route based on a function which can match using the entire 'Request' object.
+'Nothing' indicates the route does not match. A 'Just' value indicates
+a successful match, optionally returning a list of key-value pairs accessible by 'param'.
+
+>>> :{
+let server = S.get (function $ \req -> Just [("version", T.pack $ show $ W.httpVersion req)]) $ do
+                v <- S.pathParam "version"
+                S.text v
+ in do
+      withScotty server $ curl "http://localhost:3000/"
+:}
+"HTTP/1.1"
+-}
 function :: (Request -> Maybe [Param]) -> RoutePattern
 function = Trans.function
 
