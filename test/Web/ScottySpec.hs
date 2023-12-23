@@ -57,6 +57,8 @@ spec = do
             makeRequest "//scotty" `shouldRespondWith` 200
 
         withApp (route "/:paramName" $ captureParam "paramName" >>= text) $ do
+          it ("captures route parameters for " ++ method ++ " requests when parameter matches its name") $ do
+            makeRequest "/:paramName" `shouldRespondWith` ":paramName"
           it ("captures route parameters for " ++ method ++ " requests with url encoded '/' in path") $ do
             makeRequest "/a%2Fb" `shouldRespondWith` "a/b"
             
