@@ -66,6 +66,7 @@ Library
                        Web.Scotty.Cookie
   other-modules:       Web.Scotty.Action
                        Web.Scotty.Body
+                       Web.Scotty.Internal.WaiParseSafe
                        Web.Scotty.Route
                        Web.Scotty.Trans.Lazy
                        Web.Scotty.Util
@@ -83,6 +84,7 @@ Library
                        mtl                   >= 2.1.2    && < 2.4,
                        network               >= 2.6.0.2  && < 3.2,
                        regex-compat          >= 0.95.1   && < 0.96,
+                       resourcet,
                        stm,
                        text                  >= 0.11.3.1 && < 2.2,
                        time                  >= 1.8,
