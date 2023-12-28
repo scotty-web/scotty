@@ -80,6 +80,8 @@ import qualified Data.Text                  as T
 import           Data.Text.Encoding         as STE
 import qualified Data.Text.Lazy             as TL
 import qualified Data.Text.Lazy.Encoding    as TLE
+import           Data.Time                  (UTCTime)
+import           Data.Time.Format           (parseTimeM, defaultTimeLocale)
 import           Data.Word
 
 import           Network.HTTP.Types
@@ -413,7 +415,7 @@ paramWith toError f k = do
 --
 -- NB : Doesn't throw exceptions.
 --
--- /Since: FIXME/
+-- /Since: 0.21/
 paramWithMaybe :: (Monad m, Parsable b) =>
                   (ActionEnv -> [Param])
                -> T.Text -- ^ parameter name
@@ -524,6 +526,18 @@ instance Parsable Word16 where parseParam = readEither
 instance Parsable Word32 where parseParam = readEither
 instance Parsable Word64 where parseParam = readEither
 instance Parsable Natural where parseParam = readEither
+
+-- | parse a UTCTime timestamp formatted as:
+--
+-- %F == %Y-%m-%d
+-- %T == %H:%M:%S
+-- %Q == decimal point and fraction of second, up to 12 second decimals, without trailing zeros
+-- %Z == timezone name
+instance Parsable UTCTime where
+    parseParam t =
+        case parseTimeM True defaultTimeLocale "%FT%T%QZ" (TL.unpack t) of
+            Just d -> Right d
+            _      -> Left $ "parseParam UTCTime: no parse of \"" <> t <> "\""
 
 -- | Useful for creating 'Parsable' instances for things that already implement 'Read'. Ex:
 --

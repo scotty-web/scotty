@@ -10,6 +10,10 @@ import           Data.Char
 import           Data.String
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
+import Data.Time (UTCTime(..))
+import Data.Time.Calendar (fromGregorian)
+import Data.Time.Clock (secondsToDiffTime)
+
 import           Network.HTTP.Types
 import           Network.Wai (Application, Request(queryString), responseLBS)
 import qualified Control.Exception.Lifted as EL
@@ -152,7 +156,6 @@ spec = do
          it "returns query parameter with given name" $ do
            get "/search" `shouldRespondWith` "haskell"
 
-
   describe "ActionM" $ do
     context "MonadBaseControl instance" $ do
         withApp (Scotty.get "/" $ (undefined `EL.catch` ((\_ -> html "") :: E.SomeException -> ActionM ()))) $ do
@@ -190,22 +193,30 @@ spec = do
         it "Responds with a 302 Redirect" $ do
           get "/a" `shouldRespondWith` 302 { matchHeaders = ["Location" <:> "/b"] }
 
+    describe "Parsable" $ do
+      it "parses a UTCTime string" $ do
+        parseParam "2023-12-18 00:38 UTC" `shouldBe` Right (UTCTime (fromGregorian 2023 12 18) (secondsToDiffTime (60 * 38)) )
+
     describe "captureParam" $ do
       withApp (
         do
-          Scotty.matchAny "/search/:q" $ do
+          Scotty.get "/search/:q" $ do
             _ :: Int <- captureParam "q"
             text "int"
-          Scotty.matchAny "/search/:q" $ do
+          Scotty.get "/search/:q" $ do
             _ :: String <- captureParam "q"
             text "string"
+          Scotty.get "/search-time/:q" $ do
+            t :: UTCTime <- captureParam "q"
+            text $ TL.pack (show t)
               ) $ do
         it "responds with 200 OK iff at least one route matches at the right type" $ do
           get "/search/42" `shouldRespondWith` 200 { matchBody = "int" }
           get "/search/potato" `shouldRespondWith` 200 { matchBody = "string" }
+          get "/search-time/2023-12-18" `shouldRespondWith` 200 {matchBody = "2023-12-18"}
       withApp (
         do
-          Scotty.matchAny "/search/:q" $ do
+          Scotty.get "/search/:q" $ do
             v <- captureParam "q"
             json (v :: Int)
               ) $ do
@@ -227,7 +238,7 @@ spec = do
             get "/search/xxx" `shouldRespondWith` 200 { matchBody = "z"}
 
     describe "queryParam" $ do
-      withApp (Scotty.matchAny "/search" $ queryParam "query" >>= text) $ do
+      withApp (Scotty.get "/search" $ queryParam "query" >>= text) $ do
         it "returns query parameter with given name" $ do
           get "/search?query=haskell" `shouldRespondWith` "haskell"
       withApp (Scotty.matchAny "/search" (do
