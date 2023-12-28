@@ -94,7 +94,7 @@ import           Network.Wai (Request, Response, StreamingBody, Application, req
 import           Numeric.Natural
 
 import           Web.Scotty.Internal.Types
-import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, decodeUtf8Lenient)
+import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString)
 import           UnliftIO.Exception (Handler(..), catch, catches, throwIO)
 
 import Network.Wai.Internal (ResponseReceived(..))
@@ -527,15 +527,15 @@ instance Parsable Word32 where parseParam = readEither
 instance Parsable Word64 where parseParam = readEither
 instance Parsable Natural where parseParam = readEither
 
--- | parse a UTCTime timestamp formatted as:
+-- | parse a UTCTime timestamp formatted as a ISO 8601 timestamp:
 --
--- %F == %Y-%m-%d
--- %T == %H:%M:%S
--- %Q == decimal point and fraction of second, up to 12 second decimals, without trailing zeros
--- %Z == timezone name
+-- @yyyy-mm-ddThh:mm:ssZ@ , where the seconds can have a decimal part with up to 12 digits and no trailing zeros.
 instance Parsable UTCTime where
     parseParam t =
-        case parseTimeM True defaultTimeLocale "%FT%T%QZ" (TL.unpack t) of
+      let
+        fmt = "%FT%T%QZ"
+      in
+        case parseTimeM True defaultTimeLocale fmt (TL.unpack t) of
             Just d -> Right d
             _      -> Left $ "parseParam UTCTime: no parse of \"" <> t <> "\""
 

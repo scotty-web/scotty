@@ -1,6 +1,7 @@
 ## next [????.??.??]
 
-## 0.21.1
+### New
+* add `instance Parsable UTCTime` (#250)
 
 ### Fixes
 * Path parameters with value matching the parameter name prefixed by colon will properly populate `pathParams` with their literal value : `/:param` will match `/:param` and add a `Param` with value `("param", ":param")` (#301)

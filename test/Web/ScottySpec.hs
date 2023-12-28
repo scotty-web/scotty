@@ -195,7 +195,7 @@ spec = do
 
     describe "Parsable" $ do
       it "parses a UTCTime string" $ do
-        parseParam "2023-12-18 00:38 UTC" `shouldBe` Right (UTCTime (fromGregorian 2023 12 18) (secondsToDiffTime (60 * 38)) )
+        parseParam "2023-12-18T00:38:00Z" `shouldBe` Right (UTCTime (fromGregorian 2023 12 18) (secondsToDiffTime (60 * 38)) )
 
     describe "captureParam" $ do
       withApp (
@@ -213,7 +213,7 @@ spec = do
         it "responds with 200 OK iff at least one route matches at the right type" $ do
           get "/search/42" `shouldRespondWith` 200 { matchBody = "int" }
           get "/search/potato" `shouldRespondWith` 200 { matchBody = "string" }
-          get "/search-time/2023-12-18" `shouldRespondWith` 200 {matchBody = "2023-12-18"}
+          get "/search-time/2023-12-18T00:38:00Z" `shouldRespondWith` 200 {matchBody = "2023-12-18 00:38:00 UTC"}
       withApp (
         do
           Scotty.get "/search/:q" $ do
