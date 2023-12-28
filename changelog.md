@@ -1,7 +1,10 @@
 ## next [????.??.??]
 
+## 0.21.1
+
 ### Fixes
 * Path parameters with value matching the parameter name prefixed by colon will properly populate `pathParams` with their literal value : `/:param` will match `/:param` and add a `Param` with value `("param", ":param")` (#301)
+* Accept text-2.1 (#364)
 
 
 ## 0.21 [2023.12.17]
