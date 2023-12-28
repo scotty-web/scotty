@@ -119,6 +119,7 @@ test-suite spec
                        network,
                        scotty,
                        text,
+                       time,
                        wai
   build-tool-depends:  hspec-discover:hspec-discover == 2.*
   GHC-options:         -Wall -threaded -fno-warn-orphans
