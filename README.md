@@ -1,5 +1,4 @@
-# Scotty [![Hackage](http://img.shields.io/hackage/v/scotty.svg)](https://hackage.haskell.org/package/scotty) [![Stackage Lts](http://stackage.org/package/scotty/badge/lts)](http://stackage.org/lts/package/scotty)
-[![Stackage Nightly](http://stackage.org/package/scotty/badge/nightly)](http://stackage.org/nightly/package/scotty) [![CI](https://github.com/scotty-web/scotty/actions/workflows/haskell-ci.yml/badge.svg)](https://github.com/scotty-web/scotty/actions/workflows/haskell-ci.yml)
+# Scotty [![Hackage](http://img.shields.io/hackage/v/scotty.svg)](https://hackage.haskell.org/package/scotty) [![Stackage Lts](http://stackage.org/package/scotty/badge/lts)](http://stackage.org/lts/package/scotty) [![Stackage Nightly](http://stackage.org/package/scotty/badge/nightly)](http://stackage.org/nightly/package/scotty) [![CI](https://github.com/scotty-web/scotty/actions/workflows/haskell-ci.yml/badge.svg)](https://github.com/scotty-web/scotty/actions/workflows/haskell-ci.yml)
 
 A Haskell web framework inspired by Ruby's Sinatra, using WAI and Warp.
 
