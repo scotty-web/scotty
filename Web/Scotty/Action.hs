@@ -94,7 +94,7 @@ import           Network.Wai (Request, Response, StreamingBody, Application, req
 import           Numeric.Natural
 
 import           Web.Scotty.Internal.Types
-import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString)
+import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, decodeUtf8Lenient)
 import           UnliftIO.Exception (Handler(..), catch, catches, throwIO)
 
 import Network.Wai.Internal (ResponseReceived(..))
