@@ -151,6 +151,7 @@ benchmark weigh
                        lucid,
                        bytestring,
                        mtl,
+                       resourcet,
                        text,
                        transformers,
                        weigh >= 0.0.16 && <0.1
