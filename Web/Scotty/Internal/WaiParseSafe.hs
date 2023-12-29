@@ -3,10 +3,10 @@
 {-# language OverloadedStrings #-}
 -- | This module is a "safe" variant of Network.Wai.Parse from wai-extras, to work around the usage of 'error' in the original.
 --
--- It is meant to disappear once my patch to wai-extra https://github.com/yesodweb/wai/pull/964 is merged and the safe version of 'conduitRequestBodyEx' is made available upstream.
+-- It is meant to disappear once my patch to wai-extra https://github.com/yesodweb/wai/pull/964 is merged and the safe version of 'parseRequestBodyEx' is made available upstream.
 module Web.Scotty.Internal.WaiParseSafe where
 
-import Network.Wai.Parse (fileContent, File, FileInfo(..), Param, BackEnd, RequestBodyType(..))
+import Network.Wai.Parse (getRequestBodyType, fileContent, File, FileInfo(..), Param, BackEnd, RequestBodyType(..))
 
 import qualified Control.Exception as E
 import Control.Monad (guard, unless, when)
@@ -21,6 +21,7 @@ import Data.Maybe (catMaybes, fromMaybe)
 import Data.Typeable
 import Data.Word (Word8)
 import qualified Network.HTTP.Types as H
+import Network.Wai
 import Network.Wai.Handler.Warp (InvalidRequest(..))
 
 
@@ -53,6 +54,40 @@ defaultParseRequestBodyOptions = ParseRequestBodyOptions
     , prboMaxParmsSize=Just 65336
     , prboMaxHeaderLines=Just 32
     , prboMaxHeaderLineLength=Just 8190 }
+
+-- | Parse the body of an HTTP request, limit resource usage.
+-- The HTTP body can contain both parameters and files.
+-- This function will return a list of key,value pairs
+-- for all parameters, and a list of key,a pairs
+-- for filenames. The a depends on the used backend that
+-- is responsible for storing the received files.
+--
+-- since wai-extra-3.1.15 : throws 'RequestParseException' if something goes wrong
+parseRequestBodyEx :: ParseRequestBodyOptions
+                   -> BackEnd y
+                   -> Request
+                   -> IO ([Param], [File y])
+parseRequestBodyEx o s r =
+    case getRequestBodyType r of
+        Nothing -> return ([], [])
+        Just rbt -> sinkRequestBodyEx o s rbt (getRequestBodyChunk r)
+
+-- | Throws 'RequestParseException' if something goes wrong
+--
+-- since wai-extra-3.1.15 : throws 'RequestParseException' if something goes wrong
+sinkRequestBodyEx :: ParseRequestBodyOptions
+                  -> BackEnd y
+                  -> RequestBodyType
+                  -> IO S.ByteString
+                  -> IO ([Param], [File y])
+sinkRequestBodyEx o s r body = do
+    ref <- newIORef ([], [])
+    let add x = atomicModifyIORef ref $ \(y, z) ->
+            case x of
+                Left y'  -> ((y':y, z), ())
+                Right z' -> ((y, z':z), ())
+    conduitRequestBodyEx o s r body add
+    bimap reverse reverse <$> readIORef ref
 
 conduitRequestBodyEx :: ParseRequestBodyOptions
                      -> BackEnd y

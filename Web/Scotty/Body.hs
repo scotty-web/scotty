@@ -7,20 +7,27 @@ module Web.Scotty.Body (
   , getFormParamsAndFilesAction
   , getBodyAction
   , getBodyChunkAction
+  -- wai-extra
+  , RequestParseException(..)
   ) where
 
 import           Control.Concurrent.MVar
 import           Control.Monad.IO.Class
+import           Control.Exception (catch)
+import Control.Monad.Trans.Resource (InternalState)
+import Data.Bifunctor (first, bimap)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import           Data.Maybe
 import qualified GHC.Exception as E (throw)
 import           Network.Wai (Request(..), getRequestBodyChunk)
-import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, BackEnd, lbsBackEnd, sinkRequestBody)
+import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, BackEnd, lbsBackEnd, tempFileBackEnd, sinkRequestBody, RequestBodyType(..))
 import           Web.Scotty.Action (Param)
-import           Web.Scotty.Internal.Types (BodyInfo(..), BodyChunkBuffer(..), BodyPartiallyStreamed(..), RouteOptions(..))
+import           Web.Scotty.Internal.Types (BodyInfo(..), BodyChunkBuffer(..), BodyPartiallyStreamed(..), RouteOptions(..), File)
 import           Web.Scotty.Util (readRequestBody, strictByteStringToLazyText, decodeUtf8Lenient)
+
+import Web.Scotty.Internal.WaiParseSafe (parseRequestBodyEx, defaultParseRequestBodyOptions, RequestParseException(..), ParseRequestBodyOptions(..))
 
 -- | Make a new BodyInfo with readProgress at 0 and an empty BodyChunkBuffer.
 newBodyInfo :: (MonadIO m) => Request -> m BodyInfo
@@ -36,21 +43,31 @@ cloneBodyInfo (BodyInfo _ chunkBufferVar getChunk) = liftIO $ do
   cleanReadProgressVar <- newMVar 0
   return $ BodyInfo cleanReadProgressVar chunkBufferVar getChunk
 
--- | Get the form params and files from the request. Requires reading the whole body.
-getFormParamsAndFilesAction :: Request -> BodyInfo -> RouteOptions -> IO ([Param], [W.File BL.ByteString])
-getFormParamsAndFilesAction req bodyInfo opts = do
-  let shouldParseBody = isJust $ W.getRequestBodyType req
-
-  if shouldParseBody
-    then
-    do
+-- | Get the form params and files from the request.
+-- Only reads the whole body if the request is URL-encoded
+getFormParamsAndFilesAction :: InternalState -> ParseRequestBodyOptions -> Request -> BodyInfo -> RouteOptions -> IO ([Param], [File BL.ByteString], [File FilePath])
+getFormParamsAndFilesAction istate prbo req bodyInfo opts = do
+  let
+    bs2t = decodeUtf8Lenient
+    convertBoth = bimap bs2t bs2t
+    convertKey = first bs2t
+  case W.getRequestBodyType req of
+    Just W.UrlEncoded -> do
       bs <- getBodyAction bodyInfo opts
       let wholeBody = BL.toChunks bs
       (formparams, fs) <- parseRequestBody wholeBody W.lbsBackEnd req -- NB this loads the whole body into memory
-      let convert (k, v) = (decodeUtf8Lenient k, decodeUtf8Lenient v)
-      return (convert <$> formparams, fs)
-    else
-    return ([], [])
+      return (convertBoth <$> formparams, convertKey <$> fs, [])
+    Just (W.Multipart _) -> do
+      (formparams, fs) <- sinkTempFiles istate prbo req
+      return (convertBoth <$> formparams, [], convertKey <$> fs)
+    Nothing -> do
+      return ([], [], [])
+
+sinkTempFiles :: InternalState -- global, to be initialized with the server
+              -> ParseRequestBodyOptions -- " " with user input
+              -> Request
+              -> IO ([W.Param], [W.File FilePath])
+sinkTempFiles istate o = parseRequestBodyEx o (W.tempFileBackEnd istate)
 
 -- | Retrieve the entire body, using the cached chunks in the BodyInfo and reading any other
 -- chunks if they still exist.

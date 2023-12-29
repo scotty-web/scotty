@@ -25,6 +25,7 @@ import           Control.Monad.Reader (MonadReader(..), ReaderT, asks, mapReader
 import           Control.Monad.State.Strict (State, StateT(..))
 import           Control.Monad.Trans.Class (MonadTrans(..))
 import           Control.Monad.Trans.Control (MonadBaseControl, MonadTransControl)
+import Control.Monad.Trans.Resource (InternalState)
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS8 (ByteString)
@@ -41,6 +42,8 @@ import           Network.Wai.Handler.Warp (Settings, defaultSettings)
 import           Network.Wai.Parse (FileInfo)
 
 import UnliftIO.Exception (Handler(..), catch, catches)
+
+import Web.Scotty.Internal.WaiParseSafe (ParseRequestBodyOptions(..), defaultParseRequestBodyOptions)
 
 
 --------------------- Options -----------------------
@@ -94,13 +97,15 @@ data ScottyState m =
                 , routes :: [BodyInfo -> Middleware m]
                 , handler :: Maybe (ErrorHandler m)
                 , routeOptions :: RouteOptions
+                , parseRequestBodyOpts :: ParseRequestBodyOptions
+                , resourcetState :: InternalState
                 }
 
-instance Default (ScottyState m) where
-  def = defaultScottyState
+-- instance Default (ScottyState m) where
+--   def = defaultScottyState
 
-defaultScottyState :: ScottyState m
-defaultScottyState = ScottyState [] [] Nothing defaultRouteOptions
+defaultScottyState :: InternalState -> ScottyState m
+defaultScottyState = ScottyState [] [] Nothing defaultRouteOptions defaultParseRequestBodyOptions
 
 addMiddleware :: Wai.Middleware -> ScottyState m -> ScottyState m
 addMiddleware m s@(ScottyState {middlewares = ms}) = s { middlewares = m:ms }
@@ -162,7 +167,8 @@ instance E.Exception ScottyException
 ------------------ Scotty Actions -------------------
 type Param = (Text, Text)
 
-type File = (Text, FileInfo LBS8.ByteString)
+type File t = (Text, FileInfo t)
+-- type FileTemp = (Text, FileInfo FilePath)
 
 data ActionEnv = Env { envReq       :: Request
                      , envPathParams :: [Param]
@@ -170,7 +176,8 @@ data ActionEnv = Env { envReq       :: Request
                      , envQueryParams :: [Param]
                      , envBody      :: IO LBS8.ByteString
                      , envBodyChunk :: IO BS.ByteString
-                     , envFiles     :: [File]
+                     , envFiles     :: [File LBS8.ByteString]
+                     , envTempFiles :: [File FilePath]
                      , envResponse :: TVar ScottyResponse
                      }
 

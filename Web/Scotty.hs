@@ -230,8 +230,8 @@ redirect = Trans.redirect
 request :: ActionM Request
 request = Trans.request
 
--- | Get list of uploaded files.
-files :: ActionM [File]
+-- | Get list of in-memory files.
+files :: ActionM [File ByteString]
 files = Trans.files
 
 -- | Get a request header. Header name is case-insensitive.

@@ -8,6 +8,7 @@
 * Accept text-2.1 (#364)
 
 
+
 ## 0.21 [2023.12.17]
 ### New
 * add `getResponseHeaders`, `getResponseStatus`, `getResponseContent` (#214)

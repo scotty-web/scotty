@@ -12,6 +12,7 @@ module Web.Scotty.Action
     , file
     , rawResponse
     , files
+    , filesTemp
     , finish
     , header
     , headers
@@ -253,9 +254,13 @@ finish = E.throw AEFinish
 request :: Monad m => ActionT m Request
 request = ActionT $ envReq <$> ask
 
--- | Get list of uploaded files.
-files :: Monad m => ActionT m [File]
+-- | Get list of in-memory files.
+files :: Monad m => ActionT m [File BL.ByteString]
 files = ActionT $ envFiles <$> ask
+
+-- | Get list of temp files decoded from multipart payloads.
+filesTemp :: Monad m => ActionT m [File FilePath]
+filesTemp = ActionT $ envTempFiles <$> ask
 
 -- | Get a request header. Header name is case-insensitive.
 header :: (Monad m) => T.Text -> ActionT m (Maybe T.Text)

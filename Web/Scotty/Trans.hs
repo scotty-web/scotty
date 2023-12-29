@@ -66,6 +66,7 @@ import Control.Exception (assert)
 import Control.Monad (when)
 import Control.Monad.State.Strict (execState, modify)
 import Control.Monad.IO.Class
+import Control.Monad.Trans.Resource (runResourceT, withInternalState, InternalState)
 
 import Network.HTTP.Types (status404, status413, status500)
 import Network.Socket (Socket)
@@ -79,25 +80,26 @@ import Web.Scotty.Trans.Lazy as Lazy
 import Web.Scotty.Util (socketDescription)
 import Web.Scotty.Body (newBodyInfo)
 
+import UnliftIO (MonadUnliftIO(..))
 import UnliftIO.Exception (Handler(..), catch)
 
 
 -- | Run a scotty application using the warp server.
 -- NB: scotty p === scottyT p id
-scottyT :: (Monad m, MonadIO n)
-        => Port
-        -> (m W.Response -> IO W.Response) -- ^ Run monad 'm' into 'IO', called at each action.
-        -> ScottyT m ()
-        -> n ()
+-- scottyT :: (Monad m, MonadIO n)
+--         => Port
+--         -> (m W.Response -> IO W.Response) -- ^ Run monad 'm' into 'IO', called at each action.
+--         -> ScottyT m ()
+--         -> n ()
 scottyT p = scottyOptsT $ defaultOptions { settings = setPort p (settings defaultOptions) }
 
 -- | Run a scotty application using the warp server, passing extra options.
 -- NB: scottyOpts opts === scottyOptsT opts id
-scottyOptsT :: (Monad m, MonadIO n)
-            => Options
-            -> (m W.Response -> IO W.Response) -- ^ Run monad 'm' into 'IO', called at each action.
-            -> ScottyT m ()
-            -> n ()
+-- scottyOptsT :: (Monad m, MonadIO n)
+--             => Options
+--             -> (m W.Response -> IO W.Response) -- ^ Run monad 'm' into 'IO', called at each action.
+--             -> ScottyT m ()
+--             -> n ()
 scottyOptsT opts runActionToIO s = do
     when (verbose opts > 0) $
         liftIO $ putStrLn $ "Setting phasers to stun... (port " ++ show (getPort (settings opts)) ++ ") (ctrl-c to quit)"
@@ -106,12 +108,12 @@ scottyOptsT opts runActionToIO s = do
 -- | Run a scotty application using the warp server, passing extra options, and
 -- listening on the provided socket.
 -- NB: scottySocket opts sock === scottySocketT opts sock id
-scottySocketT :: (Monad m, MonadIO n)
-              => Options
-              -> Socket
-              -> (m W.Response -> IO W.Response)
-              -> ScottyT m ()
-              -> n ()
+-- scottySocketT :: (Monad m, MonadIO n)
+--               => Options
+--               -> Socket
+--               -> (m W.Response -> IO W.Response)
+--               -> ScottyT m ()
+--               -> n ()
 scottySocketT opts sock runActionToIO s = do
     when (verbose opts > 0) $ do
         d <- liftIO $ socketDescription sock
@@ -121,12 +123,12 @@ scottySocketT opts sock runActionToIO s = do
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
 -- NB: scottyApp === scottyAppT id
-scottyAppT :: (Monad m, Monad n)
+scottyAppT :: (Monad m, MonadUnliftIO n)
            => (m W.Response -> IO W.Response) -- ^ Run monad 'm' into 'IO', called at each action.
            -> ScottyT m ()
            -> n W.Application
-scottyAppT runActionToIO defs = do
-    let s = execState (runS defs) defaultScottyState
+scottyAppT runActionToIO defs = runResourceT $ withInternalState $ \istate -> do
+    let s = execState (runS defs) (defaultScottyState istate)
     let rapp req callback = do
           bodyInfo <- newBodyInfo req
           resp <- runActionToIO (applyAll notFoundApp ([midd bodyInfo | midd <- routes s]) req)
