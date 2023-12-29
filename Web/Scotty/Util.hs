@@ -71,7 +71,7 @@ socketDescription sock = do
     SockAddrUnix u -> return $ "unix socket " ++ u
     _              -> fmap (\port -> "port " ++ show port) $ socketPort sock
 
--- | return request body or throw a 'RequestException' if request body too big
+-- | return request body or throw a 'ScottyException' if request body too big
 readRequestBody :: IO B.ByteString -- ^ body chunk reader
                 -> ([B.ByteString] -> IO [B.ByteString])
                 -> Maybe Kilobytes -- ^ max body size
@@ -88,14 +88,33 @@ readRequestBody rbody prefix maxSize = do
           checkBodyLength = \case
             Just maxSize' -> do
               bodySoFar <- prefix []
+              -- when (bodySoFar `isBigger` maxSize') (throwIO RequestTooLarge)
               when (bodySoFar `isBigger` maxSize') readUntilEmpty
             Nothing -> return ()
           isBigger bodySoFar maxSize' = (B.length . B.concat $ bodySoFar) > maxSize' * 1024 -- XXX this looks both inefficient and wrong
           readUntilEmpty = do
             b <- rbody
             if B.null b
-              then throwIO RequestTooLarge
+              then do
+              throwIO RequestTooLarge
               else readUntilEmpty
 
+-- readRequestBody' rbody prefix maxSize = grow 0
+--   where
+--     grow len = do
+--       b <- rbody
+--       if B.null b
+--         then prefix []
+--         else
+--         case maxSize of
+--           Nothing -> return ()
+--           Just maxs ->
+--             let
+--               lincr = B.length b
+--               len' = len + lincr
+--             in
+--               if len' > maxs
+--               then throwIO RequestTooLarge
+--               else grow len'
 
 

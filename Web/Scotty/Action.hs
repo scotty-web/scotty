@@ -12,7 +12,7 @@ module Web.Scotty.Action
     , file
     , rawResponse
     , files
-    , filesTemp
+    -- , filesTemp
     , finish
     , header
     , headers
@@ -67,6 +67,7 @@ import           Control.Monad              (when)
 import           Control.Monad.IO.Class     (MonadIO(..))
 import UnliftIO (MonadUnliftIO(..))
 import           Control.Monad.Reader       (MonadReader(..), ReaderT(..))
+import Control.Monad.Trans.Resource (InternalState, withInternalState, runResourceT)
 
 import           Control.Concurrent.MVar
 
@@ -91,14 +92,18 @@ import           Network.HTTP.Types
 import           Network.HTTP.Types.Status
 #endif
 import           Network.Wai (Request, Response, StreamingBody, Application, requestHeaders)
+import Network.Wai.Handler.Warp (InvalidRequest(..))
+import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, BackEnd, lbsBackEnd, tempFileBackEnd, sinkRequestBody, RequestBodyType(..))
 
 import           Numeric.Natural
 
 import           Web.Scotty.Internal.Types
+import           Web.Scotty.Internal.WaiParseSafe (ParseRequestBodyOptions, RequestParseException(..), parseRequestBodyEx)
 import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, decodeUtf8Lenient)
 import           UnliftIO.Exception (Handler(..), catch, catches, throwIO)
 
 import Network.Wai.Internal (ResponseReceived(..))
+
 
 -- | Evaluate a route, catch all exceptions (user-defined ones, internal and all remaining, in this order)
 --   and construct the 'Response'
@@ -114,7 +119,9 @@ runAction mh env action = do
   ok <- flip runReaderT env $ runAM $ tryNext $ action `catches` concat
     [ [actionErrorHandler]
     , maybeToList mh
-    , [statusErrorHandler, scottyExceptionHandler, someExceptionHandler]
+    , [statusErrorHandler
+      , scottyExceptionHandler
+      , someExceptionHandler]
     ]
   res <- getResponse env
   return $ bool Nothing (Just $ mkResponse res) ok
@@ -170,11 +177,25 @@ scottyExceptionHandler = Handler $ \case
   FailedToParseParameter k v e -> do
     status status400
     text $ T.unwords [ "Failed to parse parameter", k, v, ":", e]
+  -- WarpRequestException we -> case we of
+  --   RequestHeaderFieldsTooLarge -> do
+  --     status status413
+  --   _ -> status status200 -- TODO XXXXXXXXXXX
+  -- WaiRequestParseException _ -> do
+  --   status status413
+  --   text "wai-extra says no" -- TODO XXXXXXXXXXXX
 
 -- | Uncaught exceptions turn into HTTP 500 Server Error codes
 someExceptionHandler :: MonadIO m => ErrorHandler m
 someExceptionHandler = Handler $ \case
   (_ :: E.SomeException) -> status status500
+
+-- warpInvalidRequestHandler :: MonadIO m => ErrorHandler m
+-- warpInvalidRequestHandler = Handler $ \case
+--   RequestHeaderFieldsTooLarge -> do
+--     status status413
+--   _ -> do
+--     status status200 -- TODO XXXXXXXXXXXXXX
 
 -- | Throw a "500 Server Error" 'StatusError', which can be caught with 'catch'.
 --
@@ -258,9 +279,26 @@ request = ActionT $ envReq <$> ask
 files :: Monad m => ActionT m [File BL.ByteString]
 files = ActionT $ envFiles <$> ask
 
--- | Get list of temp files decoded from multipart payloads.
-filesTemp :: Monad m => ActionT m [File FilePath]
-filesTemp = ActionT $ envTempFiles <$> ask
+-- | Get list of temp files and form parameters decoded from multipart payloads.
+--
+-- NB the temp files are deleted when the continuation exits
+filesOpts :: MonadUnliftIO m =>
+             ParseRequestBodyOptions
+          -> (([W.Param], [W.File FilePath]) -> ActionT m b) -- ^ temp files validation, storage etc
+          -> ActionT m b
+filesOpts prbo io = do
+  req <- getRequest
+  runResourceT $ withInternalState $ \istate -> do
+    out <- liftIO $ sinkTempFiles istate prbo req
+    io out
+
+sinkTempFiles :: InternalState
+              -> ParseRequestBodyOptions
+              -> Request
+              -> IO ([W.Param], [W.File FilePath])
+sinkTempFiles istate o = parseRequestBodyEx o (W.tempFileBackEnd istate)
+
+
 
 -- | Get a request header. Header name is case-insensitive.
 header :: (Monad m) => T.Text -> ActionT m (Maybe T.Text)
@@ -316,7 +354,7 @@ param :: (Parsable a, MonadIO m) => T.Text -> ActionT m a
 param k = do
     val <- ActionT $ (lookup k . getParams) <$> ask
     case val of
-        Nothing -> raiseStatus status500 $ "Param: " <> k <> " not found!" -- FIXME
+        Nothing -> raiseStatus status500 $ "Param: " <> k <> " not found!"
         Just v  -> either (const next) return $ parseParam (TL.fromStrict v)
 {-# DEPRECATED param "(#204) Not a good idea to treat all parameters identically. Use captureParam, formParam and queryParam instead. "#-}
 

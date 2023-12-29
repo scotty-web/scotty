@@ -38,17 +38,17 @@ import           Network.HTTP.Types
 
 import           Network.Wai hiding (Middleware, Application)
 import qualified Network.Wai as Wai
-import           Network.Wai.Handler.Warp (Settings, defaultSettings)
+import qualified Network.Wai.Handler.Warp as W (Settings, defaultSettings, InvalidRequest(..))
 import           Network.Wai.Parse (FileInfo)
 
 import UnliftIO.Exception (Handler(..), catch, catches)
 
-import Web.Scotty.Internal.WaiParseSafe (ParseRequestBodyOptions(..), defaultParseRequestBodyOptions)
+import qualified Web.Scotty.Internal.WaiParseSafe as WPS (ParseRequestBodyOptions(..), defaultParseRequestBodyOptions, RequestParseException(..))
 
 
 --------------------- Options -----------------------
 data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
-                       , settings :: Settings -- ^ Warp 'Settings'
+                       , settings :: W.Settings -- ^ Warp 'Settings'
                                               -- Note: to work around an issue in warp,
                                               -- the default FD cache duration is set to 0
                                               -- so changes to static files are always picked
@@ -61,7 +61,7 @@ instance Default Options where
   def = defaultOptions
 
 defaultOptions :: Options
-defaultOptions = Options 1 defaultSettings
+defaultOptions = Options 1 W.defaultSettings
 
 newtype RouteOptions = RouteOptions { maxRequestBodySize :: Maybe Kilobytes -- max allowed request size in KB
                                     }
@@ -97,15 +97,14 @@ data ScottyState m =
                 , routes :: [BodyInfo -> Middleware m]
                 , handler :: Maybe (ErrorHandler m)
                 , routeOptions :: RouteOptions
-                , parseRequestBodyOpts :: ParseRequestBodyOptions
-                , resourcetState :: InternalState
+                , parseRequestBodyOpts :: WPS.ParseRequestBodyOptions
                 }
 
 -- instance Default (ScottyState m) where
 --   def = defaultScottyState
 
-defaultScottyState :: InternalState -> ScottyState m
-defaultScottyState = ScottyState [] [] Nothing defaultRouteOptions defaultParseRequestBodyOptions
+defaultScottyState :: ScottyState m
+defaultScottyState = ScottyState [] [] Nothing defaultRouteOptions WPS.defaultParseRequestBodyOptions
 
 addMiddleware :: Wai.Middleware -> ScottyState m -> ScottyState m
 addMiddleware m s@(ScottyState {middlewares = ms}) = s { middlewares = m:ms }
@@ -161,14 +160,16 @@ data ScottyException
   | QueryParameterNotFound Text
   | FormFieldNotFound Text
   | FailedToParseParameter Text Text Text
+  | WarpRequestException W.InvalidRequest -- from warp
+  | WaiRequestParseException WPS.RequestParseException -- from wai-extra
   deriving (Show, Typeable)
 instance E.Exception ScottyException
 
 ------------------ Scotty Actions -------------------
 type Param = (Text, Text)
 
+-- | Type parameter @t@ is the file content. Could be @()@ when not needed or a @FilePath@ for temp files instead.
 type File t = (Text, FileInfo t)
--- type FileTemp = (Text, FileInfo FilePath)
 
 data ActionEnv = Env { envReq       :: Request
                      , envPathParams :: [Param]
@@ -177,9 +178,11 @@ data ActionEnv = Env { envReq       :: Request
                      , envBody      :: IO LBS8.ByteString
                      , envBodyChunk :: IO BS.ByteString
                      , envFiles     :: [File LBS8.ByteString]
-                     , envTempFiles :: [File FilePath]
                      , envResponse :: TVar ScottyResponse
                      }
+
+getRequest :: Monad m => ActionT m Request
+getRequest = ActionT $ asks envReq
 
 getResponse :: MonadIO m => ActionEnv -> m ScottyResponse
 getResponse ae = liftIO $ readTVarIO (envResponse ae)

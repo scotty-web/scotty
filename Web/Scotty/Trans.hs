@@ -68,7 +68,7 @@ import Control.Monad.State.Strict (execState, modify)
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Resource (runResourceT, withInternalState, InternalState)
 
-import Network.HTTP.Types (status404, status413, status500)
+import Network.HTTP.Types (status200, status404, status413, status500)
 import Network.Socket (Socket)
 import qualified Network.Wai as W (Application, Middleware, Response, responseBuilder)
 import Network.Wai.Handler.Warp (Port, runSettings, runSettingsSocket, setPort, getPort)
@@ -81,7 +81,7 @@ import Web.Scotty.Util (socketDescription)
 import Web.Scotty.Body (newBodyInfo)
 
 import UnliftIO (MonadUnliftIO(..))
-import UnliftIO.Exception (Handler(..), catch)
+import UnliftIO.Exception (Handler(..), catch, catches)
 
 
 -- | Run a scotty application using the warp server.
@@ -123,12 +123,12 @@ scottySocketT opts sock runActionToIO s = do
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
 -- NB: scottyApp === scottyAppT id
-scottyAppT :: (Monad m, MonadUnliftIO n)
+scottyAppT :: (Monad m, Monad n)
            => (m W.Response -> IO W.Response) -- ^ Run monad 'm' into 'IO', called at each action.
            -> ScottyT m ()
            -> n W.Application
-scottyAppT runActionToIO defs = runResourceT $ withInternalState $ \istate -> do
-    let s = execState (runS defs) (defaultScottyState istate)
+scottyAppT runActionToIO defs = do
+    let s = execState (runS defs) defaultScottyState
     let rapp req callback = do
           bodyInfo <- newBodyInfo req
           resp <- runActionToIO (applyAll notFoundApp ([midd bodyInfo | midd <- routes s]) req)
@@ -136,7 +136,7 @@ scottyAppT runActionToIO defs = runResourceT $ withInternalState $ \istate -> do
           callback resp
     return $ applyAll rapp (middlewares s)
 
---- | Exception handler in charge of 'ScottyException' that's not caught by 'scottyExceptionHandler'
+-- | Exception handler in charge of 'ScottyException' that's not caught by 'scottyExceptionHandler'
 unhandledExceptionHandler :: MonadIO m => ScottyException -> m W.Response
 unhandledExceptionHandler = \case
   RequestTooLarge -> return $ W.responseBuilder status413 ct "Request is too big Jim!"

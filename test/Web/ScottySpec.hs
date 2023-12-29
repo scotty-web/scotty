@@ -133,17 +133,24 @@ spec = do
       let
         large = TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..4500]::[Integer])]
         smol = TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..50]::[Integer])]
-      withApp (Scotty.setMaxRequestBodySize 1 >> Scotty.matchAny "/upload" (do status status200)) $ do
-        it "should return 200 OK if the request body size is below 1 KB" $ do
-          request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
-            smol `shouldRespondWith` 200
-        it "should return 413 (Content Too Large) if the request body size is above 1 KB" $ do
-          request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
-            large `shouldRespondWith` 413
-      context "(counterexample)" $
-        withApp (Scotty.post "/" $ status status200) $ do
-          it "doesn't throw an uncaught exception if the body is large" $ do
-            request "POST" "/" [("Content-Type","multipart/form-data; boundary=--33")]
+      withApp (Scotty.setMaxRequestBodySize 1 >> Scotty.post "/upload" (do status status200)) $ do
+        context "application/x-www-form-urlencoded" $ do
+          it "should return 200 OK if the request body size is below 1 KB" $ do
+            request "POST" "/upload" [("Content-Type","application/x-www-form-urlencoded")]
+              smol `shouldRespondWith` 200
+          it "should return 413 (Content Too Large) if the request body size is above 1 KB" $ do
+            request "POST" "/upload" [("Content-Type","application/x-www-form-urlencoded")]
+              large `shouldRespondWith` 413
+      
+      withApp (Scotty.post "/" $ status status200) $ do
+          context "(counterexample)" $ do
+            it "doesn't throw an uncaught exception if the body is large" $ do
+              request "POST" "/" [("Content-Type","application/x-www-form-urlencoded")]
+                large `shouldRespondWith` 200
+      withApp (Scotty.setMaxRequestBodySize 1 >> Scotty.post "/upload" (do status status200)) $ do
+        context "multipart/form-data; boundary=--33" $ do
+          it "should return 200 OK if the request body size is above 1 KB (since multipart form bodies are only traversed or parsed on demand)" $ do
+            request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
               large `shouldRespondWith` 200
 
     describe "middleware" $ do

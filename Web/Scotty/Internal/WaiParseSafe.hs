@@ -9,8 +9,8 @@ module Web.Scotty.Internal.WaiParseSafe where
 import Network.Wai.Parse (getRequestBodyType, fileContent, File, FileInfo(..), Param, BackEnd, RequestBodyType(..))
 
 import qualified Control.Exception as E
-import Control.Monad (guard, unless, when)
-import Control.Monad.Trans.Resource (InternalState, allocate, register, release, runInternalState)
+import Control.Monad (unless, when)
+-- import Control.Monad.Trans.Resource (InternalState, allocate, register, release, runInternalState)
 import Data.Bifunctor (bimap)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as S8
@@ -160,18 +160,18 @@ takeLines''
     -> Maybe Int
     -> Source
     -> IO [S.ByteString]
-takeLines'' lines lineLength maxLines src = do
+takeLines'' lns lineLength maxLines src = do
     case maxLines of
         Just maxLines' ->
-            when (length lines > maxLines') $
-                E.throwIO $ TooManyHeaderLines (length lines)
+            when (length lns > maxLines') $
+                E.throwIO $ TooManyHeaderLines (length lns)
         Nothing -> return ()
     res <- takeLine lineLength src
     case res of
-        Nothing -> return lines
+        Nothing -> return lns
         Just l
-            | S.null l -> return lines
-            | otherwise -> takeLines'' (l:lines) lineLength maxLines src
+            | S.null l -> return lns
+            | otherwise -> takeLines'' (l:lns) lineLength maxLines src
 
 
 
