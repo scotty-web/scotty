@@ -30,12 +30,15 @@ module Web.Scotty.Trans
     , capture, regex, function, literal
       -- ** Accessing the Request and its fields
     , request, Lazy.header, Lazy.headers, body, bodyReader
-    , jsonData, files
+    , jsonData
+
       -- ** Accessing Path, Form and Query Parameters
     , param, params
     , pathParam, captureParam, formParam, queryParam
     , pathParamMaybe, captureParamMaybe, formParamMaybe, queryParamMaybe
     , pathParams, captureParams, formParams, queryParams
+    -- *** Files
+    , files, filesOpts, ParseRequestBodyOptions, defaultParseRequestBodyOptions
       -- ** Modifying the Response and Redirecting
     , status, Lazy.addHeader, Lazy.setHeader, Lazy.redirect
       -- ** Setting Response Body

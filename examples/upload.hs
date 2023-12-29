@@ -4,11 +4,12 @@ module Main (main) where
 import Web.Scotty
 
 import Control.Monad.IO.Class
+import Data.Foldable (for_)
 import qualified Data.Text.Lazy as TL
 
 import Network.Wai.Middleware.RequestLogger
 import Network.Wai.Middleware.Static
-import Network.Wai.Parse
+import Network.Wai.Parse (fileName, fileContent)
 
 import qualified Text.Blaze.Html5 as H
 import Text.Blaze.Html5.Attributes
@@ -35,10 +36,14 @@ main = scotty 3000 $ do
                         H.input H.! type_ "submit"
 
     post "/upload" $ do
-        fs <- files
-        let fs' = [ (fieldName, BS.unpack (fileName fi), fileContent fi) | (fieldName,fi) <- fs ]
+      filesOpts defaultParseRequestBodyOptions $ \_ fs -> do
+        let
+          -- fs' = [ (fieldName, BS.unpack (fileName fi), fileContent fi) | (fieldName,fi) <- fs ]
+          fpaths = [fileContent fi | (_, fi) <- fs]
         -- write the files to disk, so they will be served by the static middleware
-        liftIO $ sequence_ [ B.writeFile ("uploads" </> fn) fc | (_,fn,fc) <- fs' ]
+        -- liftIO $ sequence_ [ B.writeFile ("uploads" </> fn) fc | (_,fn,fc) <- fs' ]
+        for_ fpaths $ \fpath -> do
+          fc <- B.readFile fpath
         -- generate list of links to the files just uploaded
         html $ mconcat [ mconcat [ TL.fromStrict fName
                                  , ": "

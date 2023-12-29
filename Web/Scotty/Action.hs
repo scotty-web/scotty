@@ -12,7 +12,8 @@ module Web.Scotty.Action
     , file
     , rawResponse
     , files
-    -- , filesTemp
+    , filesOpts
+    , ParseRequestBodyOptions, defaultParseRequestBodyOptions
     , finish
     , header
     , headers
@@ -72,6 +73,7 @@ import Control.Monad.Trans.Resource (InternalState, withInternalState, runResour
 import           Control.Concurrent.MVar
 
 import qualified Data.Aeson                 as A
+import Data.Bifunctor (bimap, first)
 import Data.Bool (bool)
 import qualified Data.ByteString.Char8      as B
 import qualified Data.ByteString.Lazy.Char8 as BL
@@ -98,7 +100,7 @@ import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, BackEn
 import           Numeric.Natural
 
 import           Web.Scotty.Internal.Types
-import           Web.Scotty.Internal.WaiParseSafe (ParseRequestBodyOptions, RequestParseException(..), parseRequestBodyEx)
+import           Web.Scotty.Internal.WaiParseSafe (ParseRequestBodyOptions, defaultParseRequestBodyOptions, RequestParseException(..), parseRequestBodyEx)
 import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, decodeUtf8Lenient)
 import           UnliftIO.Exception (Handler(..), catch, catches, throwIO)
 
@@ -284,13 +286,16 @@ files = ActionT $ envFiles <$> ask
 -- NB the temp files are deleted when the continuation exits
 filesOpts :: MonadUnliftIO m =>
              ParseRequestBodyOptions
-          -> (([W.Param], [W.File FilePath]) -> ActionT m b) -- ^ temp files validation, storage etc
+          -> ([Param] -> [File FilePath] -> ActionT m b) -- ^ temp files validation, storage etc
           -> ActionT m b
 filesOpts prbo io = do
   req <- getRequest
   runResourceT $ withInternalState $ \istate -> do
-    out <- liftIO $ sinkTempFiles istate prbo req
-    io out
+    (ps, fs) <- liftIO $ sinkTempFiles istate prbo req
+    let
+      params' = bimap decodeUtf8Lenient decodeUtf8Lenient <$> ps
+      files' = first decodeUtf8Lenient <$> fs
+    io params' files'
 
 sinkTempFiles :: InternalState
               -> ParseRequestBodyOptions
@@ -315,6 +320,8 @@ headers = do
            | (k,v) <- hs ]
 
 -- | Get the request body.
+--
+-- NB This loads the whole request body in memory at once.
 body :: (MonadIO m) => ActionT m BL.ByteString
 body = ActionT ask >>= (liftIO . envBody)
 
@@ -333,6 +340,8 @@ bodyReader = ActionT $ envBodyChunk <$> ask
 --   422 Unprocessable Entity.
 --
 --   These status codes are as per https://www.restapitutorial.com/httpstatuscodes.html.
+--
+-- NB : Internally this uses 'body'.
 jsonData :: (A.FromJSON a, MonadIO m) => ActionT m a
 jsonData = do
     b <- body
