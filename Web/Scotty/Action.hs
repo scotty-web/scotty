@@ -121,9 +121,7 @@ runAction mh env action = do
   ok <- flip runReaderT env $ runAM $ tryNext $ action `catches` concat
     [ [actionErrorHandler]
     , maybeToList mh
-    , [statusErrorHandler
-      , scottyExceptionHandler
-      , someExceptionHandler]
+    , [statusErrorHandler, scottyExceptionHandler, someExceptionHandler]
     ]
   res <- getResponse env
   return $ bool Nothing (Just $ mkResponse res) ok
@@ -191,13 +189,6 @@ scottyExceptionHandler = Handler $ \case
 someExceptionHandler :: MonadIO m => ErrorHandler m
 someExceptionHandler = Handler $ \case
   (_ :: E.SomeException) -> status status500
-
--- warpInvalidRequestHandler :: MonadIO m => ErrorHandler m
--- warpInvalidRequestHandler = Handler $ \case
---   RequestHeaderFieldsTooLarge -> do
---     status status413
---   _ -> do
---     status status200 -- TODO XXXXXXXXXXXXXX
 
 -- | Throw a "500 Server Error" 'StatusError', which can be caught with 'catch'.
 --
@@ -277,11 +268,11 @@ finish = E.throw AEFinish
 request :: Monad m => ActionT m Request
 request = ActionT $ envReq <$> ask
 
--- | Get list of in-memory files.
+-- | Get list of uploaded (in-memory) files.
 files :: Monad m => ActionT m [File BL.ByteString]
 files = ActionT $ envFiles <$> ask
 
--- | Get list of temp files and form parameters decoded from multipart payloads.
+-- | Get list of uploaded temp files and form parameters decoded from multipart payloads.
 --
 -- NB the temp files are deleted when the continuation exits
 filesOpts :: MonadUnliftIO m =>
