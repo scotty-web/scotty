@@ -94,26 +94,7 @@ readRequestBody rbody prefix maxSize = do
           readUntilEmpty = do
             b <- rbody
             if B.null b
-              then do
-              throwIO RequestTooLarge
+              then throwIO RequestTooLarge
               else readUntilEmpty
-
--- readRequestBody' rbody prefix maxSize = grow 0
---   where
---     grow len = do
---       b <- rbody
---       if B.null b
---         then prefix []
---         else
---         case maxSize of
---           Nothing -> return ()
---           Just maxs ->
---             let
---               lincr = B.length b
---               len' = len + lincr
---             in
---               if len' > maxs
---               then throwIO RequestTooLarge
---               else grow len'
 
 
