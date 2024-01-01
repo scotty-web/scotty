@@ -98,12 +98,13 @@ data ScottyState m =
                 , handler :: Maybe (ErrorHandler m)
                 , routeOptions :: RouteOptions
                 , parseRequestBodyOpts :: WPS.ParseRequestBodyOptions
+                , resourcetState :: InternalState
                 }
 
 -- instance Default (ScottyState m) where
 --   def = defaultScottyState
 
-defaultScottyState :: ScottyState m
+defaultScottyState :: InternalState -> ScottyState m
 defaultScottyState = ScottyState [] [] Nothing defaultRouteOptions WPS.defaultParseRequestBodyOptions
 
 addMiddleware :: Wai.Middleware -> ScottyState m -> ScottyState m
@@ -171,18 +172,31 @@ type Param = (Text, Text)
 -- | Type parameter @t@ is the file content. Could be @()@ when not needed or a @FilePath@ for temp files instead.
 type File t = (Text, FileInfo t)
 
-data ActionEnv = Env { envReq       :: Request
+data ActionEnv = Env { envInternalState :: InternalState
+                     , envParseRequestBodyOpts :: WPS.ParseRequestBodyOptions
+                     , envReq       :: Request
                      , envPathParams :: [Param]
-                     , envFormParams    :: [Param]
                      , envQueryParams :: [Param]
+                     , envFormDataAction :: InternalState -> WPS.ParseRequestBodyOptions -> IO ([Param], [File FilePath])
                      , envBody      :: IO LBS8.ByteString
                      , envBodyChunk :: IO BS.ByteString
-                     , envFiles     :: [File LBS8.ByteString]
                      , envResponse :: TVar ScottyResponse
                      }
 
-getRequest :: Monad m => ActionT m Request
-getRequest = ActionT $ asks envReq
+formParamsAndFiles :: MonadIO m => ActionT m ([Param], [File FilePath])
+formParamsAndFiles = do
+  istate <- ActionT $ asks envInternalState
+  prbo <- ActionT $ asks envParseRequestBodyOpts
+  formParamsAndFilesWith istate prbo
+
+
+formParamsAndFilesWith :: MonadIO m =>
+                          InternalState
+                       -> WPS.ParseRequestBodyOptions
+                       -> ActionT m ([Param], [File FilePath])
+formParamsAndFilesWith istate prbo = do
+  act <- ActionT $ asks envFormDataAction
+  liftIO $ act istate prbo
 
 getResponse :: MonadIO m => ActionEnv -> m ScottyResponse
 getResponse ae = liftIO $ readTVarIO (envResponse ae)
@@ -230,6 +244,10 @@ defaultScottyResponse = SR status200 [] (ContentBuilder mempty)
 
 newtype ActionT m a = ActionT { runAM :: ReaderT ActionEnv m a }
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadThrow, MonadCatch, MonadBase b, MonadBaseControl b, MonadTransControl, MonadUnliftIO)
+
+withActionEnv :: Monad m =>
+                 (ActionEnv -> ActionEnv) -> ActionT m a -> ActionT m a
+withActionEnv f (ActionT r) = ActionT $ local f r
 
 instance MonadReader r m => MonadReader r (ActionT m) where
   ask = ActionT $ lift ask

@@ -68,16 +68,17 @@ import           Control.Monad              (when)
 import           Control.Monad.IO.Class     (MonadIO(..))
 import UnliftIO (MonadUnliftIO(..))
 import           Control.Monad.Reader       (MonadReader(..), ReaderT(..))
-import Control.Monad.Trans.Resource (InternalState, withInternalState, runResourceT)
+import Control.Monad.Trans.Resource (withInternalState, runResourceT)
 
 import           Control.Concurrent.MVar
 
 import qualified Data.Aeson                 as A
-import Data.Bifunctor (bimap, first)
+-- import Data.Bifunctor (bimap, first)
 import Data.Bool (bool)
 import qualified Data.ByteString.Char8      as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive       as CI
+import           Data.Traversable (for)
 import           Data.Int
 import           Data.Maybe                 (maybeToList)
 import qualified Data.Text                  as T
@@ -95,7 +96,7 @@ import           Network.HTTP.Types.Status
 #endif
 import           Network.Wai (Request, Response, StreamingBody, Application, requestHeaders)
 import Network.Wai.Handler.Warp (InvalidRequest(..))
-import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, BackEnd, lbsBackEnd, tempFileBackEnd, sinkRequestBody, RequestBodyType(..))
+import qualified Network.Wai.Parse as W (FileInfo(..), File, Param, getRequestBodyType, BackEnd, lbsBackEnd, tempFileBackEnd, sinkRequestBody, RequestBodyType(..))
 
 import           Numeric.Natural
 
@@ -177,13 +178,13 @@ scottyExceptionHandler = Handler $ \case
   FailedToParseParameter k v e -> do
     status status400
     text $ T.unwords [ "Failed to parse parameter", k, v, ":", e]
-  -- WarpRequestException we -> case we of
-  --   RequestHeaderFieldsTooLarge -> do
-  --     status status413
-  --   _ -> status status200 -- TODO XXXXXXXXXXX
-  -- WaiRequestParseException _ -> do
-  --   status status413
-  --   text "wai-extra says no" -- TODO XXXXXXXXXXXX
+  WarpRequestException we -> case we of
+    RequestHeaderFieldsTooLarge -> do
+      status status413
+    _ -> status status200 -- TODO XXXXXXXXXXX
+  WaiRequestParseException _ -> do
+    status status413
+    text "wai-extra says no" -- TODO XXXXXXXXXXXX
 
 -- | Uncaught exceptions turn into HTTP 500 Server Error codes
 someExceptionHandler :: MonadIO m => ErrorHandler m
@@ -268,31 +269,28 @@ finish = E.throw AEFinish
 request :: Monad m => ActionT m Request
 request = ActionT $ envReq <$> ask
 
--- | Get list of uploaded (in-memory) files.
-files :: Monad m => ActionT m [File BL.ByteString]
-files = ActionT $ envFiles <$> ask
+-- | Get list of uploaded files.
+--
+-- NB! Loads all file contents in memory
+files :: MonadIO m => ActionT m [File BL.ByteString]
+files = do
+  (_, fs) <- formParamsAndFiles
+  for fs (\(fname, f) -> do
+                   bs <- liftIO $ BL.readFile (W.fileContent f)
+                   pure (fname, f{ W.fileContent = bs})
+                   )
+{-# DEPRECATED files "This function is retained for backward compatibility, but loading all file contents in memory is not a good idea, please use filesOpts instead" #-}
 
 -- | Get list of uploaded temp files and form parameters decoded from multipart payloads.
 --
--- NB the temp files are deleted when the continuation exits
+-- NB the temp files are deleted when the continuation exits.
 filesOpts :: MonadUnliftIO m =>
              ParseRequestBodyOptions
-          -> ([Param] -> [File FilePath] -> ActionT m b) -- ^ temp files validation, storage etc
-          -> ActionT m b
-filesOpts prbo io = do
-  req <- getRequest
-  runResourceT $ withInternalState $ \istate -> do
-    (ps, fs) <- liftIO $ sinkTempFiles istate prbo req
-    let
-      params' = bimap decodeUtf8Lenient decodeUtf8Lenient <$> ps
-      files' = first decodeUtf8Lenient <$> fs
-    io params' files'
-
-sinkTempFiles :: InternalState
-              -> ParseRequestBodyOptions
-              -> Request
-              -> IO ([W.Param], [W.File FilePath])
-sinkTempFiles istate o = parseRequestBodyEx o (W.tempFileBackEnd istate)
+          -> ([Param] -> [File FilePath] -> ActionT m a) -- ^ temp files validation, storage etc
+          -> ActionT m a
+filesOpts prbo io = runResourceT $ withInternalState $ \istate -> do
+  (ps, fs) <- formParamsAndFilesWith istate prbo
+  io ps fs
 
 
 
@@ -385,8 +383,14 @@ pathParam k = do
 -- * This function raises a code 400 also if the parameter is found, but 'parseParam' fails to parse to the correct type.
 --
 -- /Since: 0.20/
-formParam :: (Parsable a, MonadIO m) => T.Text -> ActionT m a
-formParam = paramWith FormFieldNotFound envFormParams
+formParam :: (MonadIO m, Parsable b) => T.Text -> ActionT m b
+formParam k = do
+  (ps, _) <- formParamsAndFiles
+  case lookup k ps of
+    Nothing -> throwIO $ FormFieldNotFound k
+    Just v -> case parseParam $ TL.fromStrict v of
+      Left e -> throwIO $ FailedToParseParameter k v (TL.toStrict e)
+      Right a -> pure a
 
 -- | Look up a query parameter.
 --
@@ -421,8 +425,14 @@ captureParamMaybe = paramWithMaybe envPathParams
 -- NB : Doesn't throw exceptions, so developers must 'raiseStatus' or 'throw' to signal something went wrong.
 --
 -- /Since: 0.21/
-formParamMaybe :: (Parsable a, Monad m) => T.Text -> ActionT m (Maybe a)
-formParamMaybe = paramWithMaybe envFormParams
+formParamMaybe :: (MonadIO m, Parsable a) =>
+                  T.Text -> ActionT m (Maybe a)
+formParamMaybe k = do
+  (ps, _) <- formParamsAndFiles
+  case lookup k ps of
+    Nothing -> pure Nothing
+    Just v -> either (const $ pure Nothing) (pure . Just) $ parseParam $ TL.fromStrict v
+
 
 -- | Look up a query parameter. Returns 'Nothing' if the parameter is not found or cannot be parsed at the right type.
 --
@@ -483,8 +493,9 @@ captureParams :: Monad m => ActionT m [Param]
 captureParams = paramsWith envPathParams
 
 -- | Get form parameters
-formParams :: Monad m => ActionT m [Param]
-formParams = paramsWith envFormParams
+formParams :: MonadIO m => ActionT m [Param]
+-- formParams = paramsWith envFormParams
+formParams = fst <$> formParamsAndFiles
 -- | Get query parameters
 queryParams :: Monad m => ActionT m [Param]
 queryParams = paramsWith envQueryParams
@@ -493,8 +504,9 @@ paramsWith :: Monad m => (ActionEnv -> a) -> ActionT m a
 paramsWith f = ActionT (f <$> ask)
 
 {-# DEPRECATED getParams "(#204) Not a good idea to treat all parameters identically" #-}
+-- | Returns path and query parameters as a single list
 getParams :: ActionEnv -> [Param]
-getParams e = envPathParams e <> envFormParams e <> envQueryParams e
+getParams e = envPathParams e <> [] <> envQueryParams e
 
 
 -- === access the fields of the Response being constructed

@@ -73,8 +73,6 @@ parseRequestBodyEx o s r =
         Just rbt -> sinkRequestBodyEx o s rbt (getRequestBodyChunk r)
 
 -- | Throws 'RequestParseException' if something goes wrong
---
--- since wai-extra-3.1.15 : throws 'RequestParseException' if something goes wrong
 sinkRequestBodyEx :: ParseRequestBodyOptions
                   -> BackEnd y
                   -> RequestBodyType

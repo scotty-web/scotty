@@ -88,7 +88,6 @@ readRequestBody rbody prefix maxSize = do
           checkBodyLength = \case
             Just maxSize' -> do
               bodySoFar <- prefix []
-              -- when (bodySoFar `isBigger` maxSize') (throwIO RequestTooLarge)
               when (bodySoFar `isBigger` maxSize') readUntilEmpty
             Nothing -> return ()
           isBigger bodySoFar maxSize' = (B.length . B.concat $ bodySoFar) > maxSize' * 1024 -- XXX this looks both inefficient and wrong

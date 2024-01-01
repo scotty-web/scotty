@@ -126,12 +126,12 @@ scottySocketT opts sock runActionToIO s = do
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
 -- NB: scottyApp === scottyAppT id
-scottyAppT :: (Monad m, Monad n)
+scottyAppT :: (Monad m, MonadUnliftIO n)
            => (m W.Response -> IO W.Response) -- ^ Run monad 'm' into 'IO', called at each action.
            -> ScottyT m ()
            -> n W.Application
-scottyAppT runActionToIO defs = do
-    let s = execState (runS defs) defaultScottyState
+scottyAppT runActionToIO defs = runResourceT $ withInternalState $ \istate -> do
+    let s = execState (runS defs) (defaultScottyState istate)
     let rapp req callback = do
           bodyInfo <- newBodyInfo req
           resp <- runActionToIO (applyAll notFoundApp ([midd bodyInfo | midd <- routes s]) req)
