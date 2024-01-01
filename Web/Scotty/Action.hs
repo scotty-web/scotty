@@ -73,7 +73,6 @@ import Control.Monad.Trans.Resource (withInternalState, runResourceT)
 import           Control.Concurrent.MVar
 
 import qualified Data.Aeson                 as A
--- import Data.Bifunctor (bimap, first)
 import Data.Bool (bool)
 import qualified Data.ByteString.Char8      as B
 import qualified Data.ByteString.Lazy.Char8 as BL
