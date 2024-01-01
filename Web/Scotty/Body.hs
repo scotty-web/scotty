@@ -97,8 +97,10 @@ parseRequestBodyExBS istate o bl rty =
 
 -- | Retrieve the entire body, using the cached chunks in the BodyInfo and reading any other
 -- chunks if they still exist.
--- Mimic the previous behavior by throwing BodyPartiallyStreamed if the user has already
+-- Mimic the previous behavior by throwing 'BodyPartiallyStreamed' if the user has already
 -- started reading the body by chunks.
+--
+-- throw 'ScottyException' if request body too big
 getBodyAction :: BodyInfo -> RouteOptions -> IO (BL.ByteString)
 getBodyAction (BodyInfo readProgress chunkBufferVar getChunk) opts =
   modifyMVar readProgress $ \index ->

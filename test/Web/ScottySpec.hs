@@ -133,7 +133,12 @@ spec = do
       let
         large = TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..4500]::[Integer])]
         smol = TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..50]::[Integer])]
-      withApp (Scotty.setMaxRequestBodySize 1 >> Scotty.post "/upload" (do status status200)) $ do
+      withApp (do
+                  Scotty.setMaxRequestBodySize 1
+                  Scotty.post "/upload" $ do
+                    _ <- files
+                    status status200
+              ) $ do
         context "application/x-www-form-urlencoded" $ do
           it "should return 200 OK if the request body size is below 1 KB" $ do
             request "POST" "/upload" [("Content-Type","application/x-www-form-urlencoded")]
