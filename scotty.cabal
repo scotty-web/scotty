@@ -66,7 +66,6 @@ Library
                        Web.Scotty.Cookie
   other-modules:       Web.Scotty.Action
                        Web.Scotty.Body
-                       -- Web.Scotty.Internal.WaiParseSafe
                        Web.Scotty.Route
                        Web.Scotty.Trans.Lazy
                        Web.Scotty.Util
