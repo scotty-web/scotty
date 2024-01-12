@@ -9,7 +9,7 @@ module Web.Scotty.Body (
   , getBodyAction
   , getBodyChunkAction
   -- wai-extra
-  , RequestParseException(..)
+  , W.RequestParseException(..)
   ) where
 
 import           Control.Concurrent.MVar
@@ -22,14 +22,13 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified GHC.Exception as E (throw)
 import           Network.Wai (Request(..), getRequestBodyChunk)
 import qualified Network.Wai.Handler.Warp as Warp (InvalidRequest(..))
-import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, BackEnd, lbsBackEnd, tempFileBackEnd, sinkRequestBody, RequestBodyType(..))
+import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, BackEnd, lbsBackEnd, tempFileBackEnd, sinkRequestBody, RequestBodyType(..), sinkRequestBodyEx, parseRequestBodyEx, RequestParseException(..), ParseRequestBodyOptions(..))
 import UnliftIO (MonadUnliftIO(..))
 import UnliftIO.Exception (Handler(..), catch, catches, throwIO)
 
 import           Web.Scotty.Internal.Types (BodyInfo(..), BodyChunkBuffer(..), BodyPartiallyStreamed(..), RouteOptions(..), File, ScottyException(..), Param)
 import           Web.Scotty.Util (readRequestBody, decodeUtf8Lenient)
 
-import Web.Scotty.Internal.WaiParseSafe (sinkRequestBodyEx, parseRequestBodyEx, RequestParseException(..), ParseRequestBodyOptions(..))
 
 -- | Make a new BodyInfo with readProgress at 0 and an empty BodyChunkBuffer.
 newBodyInfo :: (MonadIO m) => Request -> m BodyInfo
@@ -50,7 +49,7 @@ cloneBodyInfo (BodyInfo _ chunkBufferVar getChunk) = liftIO $ do
 -- NB : catches exceptions from 'warp' and 'wai-extra' and wraps them into 'ScottyException'
 getFormParamsAndFilesAction ::
   InternalState
-  -> ParseRequestBodyOptions
+  -> W.ParseRequestBodyOptions
   -> Request -- ^ only used for its body type
   -> BodyInfo -- ^ the request body contents are read from here
   -> RouteOptions
@@ -70,7 +69,7 @@ getFormParamsAndFilesAction istate prbo req bodyInfo opts = do
 handleWaiParseSafeExceptions :: MonadIO m => [Handler m a]
 handleWaiParseSafeExceptions = [h1, h2]
   where
-    h1 = Handler (\ (e :: RequestParseException ) -> throwIO $ WaiRequestParseException e)
+    h1 = Handler (\ (e :: W.RequestParseException ) -> throwIO $ WaiRequestParseException e)
     h2 = Handler (\(e :: Warp.InvalidRequest) -> throwIO $ WarpRequestException e)
 
 -- | Adapted from wai-extra's Network.Wai.Parse, modified to accept body as list of Bytestrings.
@@ -79,7 +78,7 @@ handleWaiParseSafeExceptions = [h1, h2]
 -- the raw body, even if they also want to call wai-extra's parsing routines.
 parseRequestBodyExBS :: MonadIO m =>
                         InternalState
-                     -> ParseRequestBodyOptions
+                     -> W.ParseRequestBodyOptions
                      -> [B.ByteString]
                      -> Maybe W.RequestBodyType
                      -> m ([W.Param], [W.File FilePath])
@@ -92,7 +91,7 @@ parseRequestBodyExBS istate o bl rty =
             let provider = modifyMVar mvar $ \bsold -> case bsold of
                                                 []     -> return ([], B.empty)
                                                 (b:bs) -> return (bs, b)
-            liftIO $ sinkRequestBodyEx o (W.tempFileBackEnd istate) rbt provider
+            liftIO $ W.sinkRequestBodyEx o (W.tempFileBackEnd istate) rbt provider
 
 
 -- | Retrieve the entire body, using the cached chunks in the BodyInfo and reading any other

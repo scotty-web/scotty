@@ -13,7 +13,7 @@ module Web.Scotty.Action
     , rawResponse
     , files
     , filesOpts
-    , ParseRequestBodyOptions, defaultParseRequestBodyOptions
+    , W.ParseRequestBodyOptions, W.defaultParseRequestBodyOptions
     , finish
     , header
     , headers
@@ -95,12 +95,11 @@ import           Network.HTTP.Types.Status
 #endif
 import           Network.Wai (Request, Response, StreamingBody, Application, requestHeaders)
 import Network.Wai.Handler.Warp (InvalidRequest(..))
-import qualified Network.Wai.Parse as W (FileInfo(..), File, Param, getRequestBodyType, BackEnd, lbsBackEnd, tempFileBackEnd, sinkRequestBody, RequestBodyType(..))
+import qualified Network.Wai.Parse as W (FileInfo(..), File, Param, getRequestBodyType, BackEnd, lbsBackEnd, tempFileBackEnd, sinkRequestBody, RequestBodyType(..), ParseRequestBodyOptions, defaultParseRequestBodyOptions, RequestParseException(..), parseRequestBodyEx)
 
 import           Numeric.Natural
 
 import           Web.Scotty.Internal.Types
-import           Web.Scotty.Internal.WaiParseSafe (ParseRequestBodyOptions, defaultParseRequestBodyOptions, RequestParseException(..), parseRequestBodyEx)
 import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, decodeUtf8Lenient)
 import           UnliftIO.Exception (Handler(..), catch, catches, throwIO)
 
@@ -284,7 +283,7 @@ files = do
 --
 -- NB the temp files are deleted when the continuation exits.
 filesOpts :: MonadUnliftIO m =>
-             ParseRequestBodyOptions
+             W.ParseRequestBodyOptions
           -> ([Param] -> [File FilePath] -> ActionT m a) -- ^ temp files validation, storage etc
           -> ActionT m a
 filesOpts prbo io = runResourceT $ withInternalState $ \istate -> do

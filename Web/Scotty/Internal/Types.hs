@@ -40,10 +40,11 @@ import           Network.Wai hiding (Middleware, Application)
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Handler.Warp as W (Settings, defaultSettings, InvalidRequest(..))
 import           Network.Wai.Parse (FileInfo)
+import qualified Network.Wai.Parse as WPS (ParseRequestBodyOptions(..), defaultParseRequestBodyOptions, RequestParseException(..))
 
 import UnliftIO.Exception (Handler(..), catch, catches)
 
-import qualified Web.Scotty.Internal.WaiParseSafe as WPS (ParseRequestBodyOptions(..), defaultParseRequestBodyOptions, RequestParseException(..))
+
 
 
 --------------------- Options -----------------------

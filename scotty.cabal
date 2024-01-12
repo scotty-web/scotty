@@ -66,7 +66,7 @@ Library
                        Web.Scotty.Cookie
   other-modules:       Web.Scotty.Action
                        Web.Scotty.Body
-                       Web.Scotty.Internal.WaiParseSafe
+                       -- Web.Scotty.Internal.WaiParseSafe
                        Web.Scotty.Route
                        Web.Scotty.Trans.Lazy
                        Web.Scotty.Util
@@ -93,7 +93,7 @@ Library
                        transformers-compat   >= 0.4      && < 0.8,
                        unliftio >= 0.2,
                        wai                   >= 3.0.0    && < 3.3,
-                       wai-extra             >= 3.0.0    && < 3.2,
+                       wai-extra             >= 3.1.14,
                        warp                  >= 3.0.13   && < 3.4
 
   if impl(ghc < 8.0)
