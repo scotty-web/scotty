@@ -65,7 +65,7 @@ spec = do
             makeRequest "/:paramName" `shouldRespondWith` ":paramName"
           it ("captures route parameters for " ++ method ++ " requests with url encoded '/' in path") $ do
             makeRequest "/a%2Fb" `shouldRespondWith` "a/b"
-            
+
     describe "addroute" $ do
       forM_ availableMethods $ \method -> do
         withApp (addroute method "/scotty" $ html "") $ do
@@ -108,9 +108,11 @@ spec = do
       withApp (do
                   let h = Handler (\(_ :: E.SomeException) -> setHeader "Location" "/c" >> status status500)
                   defaultHandler h
-                  Scotty.get "/a" (redirect "/b")) $ do
+                  Scotty.get "/a" (redirect "/b")
+                  Scotty.get "/d" (raiseStatus status404 "d not found")) $ do
         it "should give priority to actionErrorHandlers" $ do
           get "/a" `shouldRespondWith` 302 { matchHeaders = ["Location" <:> "/b"] }
+          get "/d" `shouldRespondWith` "d not found" { matchStatus = 404 }
 
       context "when not specified" $ do
         withApp (Scotty.get "/" $ throw E.DivideByZero) $ do
