@@ -64,6 +64,7 @@ import Blaze.ByteString.Builder.Char8 (fromString)
 
 import Control.Exception (assert)
 import Control.Monad (when)
+import Control.Monad.Reader (runReaderT)
 import Control.Monad.State.Strict (execState, modify)
 import Control.Monad.IO.Class
 
@@ -101,7 +102,7 @@ scottyOptsT :: (Monad m, MonadIO n)
 scottyOptsT opts runActionToIO s = do
     when (verbose opts > 0) $
         liftIO $ putStrLn $ "Setting phasers to stun... (port " ++ show (getPort (settings opts)) ++ ") (ctrl-c to quit)"
-    liftIO . runSettings (settings opts) =<< scottyAppT runActionToIO s
+    liftIO . runSettings (settings opts) =<< scottyAppT opts runActionToIO s
 
 -- | Run a scotty application using the warp server, passing extra options, and
 -- listening on the provided socket.
@@ -116,17 +117,18 @@ scottySocketT opts sock runActionToIO s = do
     when (verbose opts > 0) $ do
         d <- liftIO $ socketDescription sock
         liftIO $ putStrLn $ "Setting phasers to stun... (" ++ d ++ ") (ctrl-c to quit)"
-    liftIO . runSettingsSocket (settings opts) sock =<< scottyAppT runActionToIO s
+    liftIO . runSettingsSocket (settings opts) sock =<< scottyAppT opts runActionToIO s
 
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
 -- NB: scottyApp === scottyAppT id
 scottyAppT :: (Monad m, Monad n)
-           => (m W.Response -> IO W.Response) -- ^ Run monad 'm' into 'IO', called at each action.
+           => Options
+           -> (m W.Response -> IO W.Response) -- ^ Run monad 'm' into 'IO', called at each action.
            -> ScottyT m ()
            -> n W.Application
-scottyAppT runActionToIO defs = do
-    let s = execState (runS defs) defaultScottyState
+scottyAppT options runActionToIO defs = do
+    let s = execState (runReaderT (runS defs) options) defaultScottyState
     let rapp req callback = do
           bodyInfo <- newBodyInfo req
           resp <- runActionToIO (applyAll notFoundApp ([midd bodyInfo | midd <- routes s]) req)
@@ -160,7 +162,7 @@ middleware :: W.Middleware -> ScottyT m ()
 middleware = ScottyT . modify . addMiddleware
 
 -- | Set global size limit for the request body. Requests with body size exceeding the limit will not be
--- processed and an HTTP response 413 will be returned to the client. Size limit needs to be greater than 0, 
+-- processed and an HTTP response 413 will be returned to the client. Size limit needs to be greater than 0,
 -- otherwise the application will terminate on start.
 setMaxRequestBodySize :: Kilobytes -- ^ Request size limit
                       -> ScottyT m ()

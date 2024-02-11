@@ -116,7 +116,8 @@ updateMaxRequestBodySize RouteOptions { .. } s@ScottyState { routeOptions = ro }
     let ro' = ro { maxRequestBodySize = maxRequestBodySize }
     in s { routeOptions = ro' }
 
-newtype ScottyT m a = ScottyT { runS :: State (ScottyState m) a }
+newtype ScottyT m a =
+    ScottyT { runS :: ReaderT Options (State (ScottyState m)) a }
     deriving ( Functor, Applicative, Monad )
 
 

@@ -9,6 +9,7 @@ import           Control.Arrow ((***))
 import Control.Concurrent.STM (newTVarIO)
 import           Control.Monad.IO.Class (MonadIO(..))
 import UnliftIO (MonadUnliftIO(..))
+import qualified Control.Monad.Reader as MR
 import qualified Control.Monad.State as MS
 
 import           Data.String (fromString)
@@ -20,7 +21,7 @@ import           Network.Wai (Request(..))
 import qualified Text.Regex as Regex
 
 import           Web.Scotty.Action
-import           Web.Scotty.Internal.Types (RoutePattern(..), RouteOptions, ActionEnv(..), ActionT, ScottyState(..), ScottyT(..), ErrorHandler, Middleware, BodyInfo, handler, addRoute, defaultScottyResponse)
+import           Web.Scotty.Internal.Types (Options, RoutePattern(..), RouteOptions, ActionEnv(..), ActionT, ScottyState(..), ScottyT(..), ErrorHandler, Middleware, BodyInfo, handler, addRoute, defaultScottyResponse)
 import           Web.Scotty.Util (decodeUtf8Lenient)
 import Web.Scotty.Body (cloneBodyInfo, getBodyAction, getBodyChunkAction, getFormParamsAndFilesAction)
 
@@ -78,7 +79,13 @@ options = addroute OPTIONS
 
 -- | Add a route that matches regardless of the HTTP verb.
 matchAny :: (MonadUnliftIO m) => RoutePattern -> ActionT m () -> ScottyT m ()
-matchAny pat action = ScottyT $ MS.modify $ \s -> addRoute (route (routeOptions s) (handler s) Nothing pat action) s
+matchAny pat action =
+  ScottyT $ do
+    serverOptions <- MR.ask
+    MS.modify $ \s ->
+      addRoute
+        (route serverOptions (routeOptions s) (handler s) Nothing pat action)
+        s
 
 -- | Specify an action to take if nothing else is found. Note: this _always_ matches,
 -- so should generally be the last route specified.
@@ -101,12 +108,19 @@ let server = S.get "/foo/:bar" (S.pathParam "bar" >>= S.text)
 "something"
 -}
 addroute :: (MonadUnliftIO m) => StdMethod -> RoutePattern -> ActionT m () -> ScottyT m ()
-addroute method pat action = ScottyT $ MS.modify $ \s -> addRoute (route (routeOptions s) (handler s) (Just method) pat action) s
+addroute method pat action =
+  ScottyT $ do
+    serverOptions <- MR.ask
+    MS.modify $ \s ->
+      addRoute
+        (route serverOptions (routeOptions s) (handler s) (Just method) pat action)
+        s
 
 route :: (MonadUnliftIO m) =>
-         RouteOptions
+         Options
+      -> RouteOptions
       -> Maybe (ErrorHandler m) -> Maybe StdMethod -> RoutePattern -> ActionT m () -> BodyInfo -> Middleware m
-route opts h method pat action bodyInfo app req =
+route serverOpts opts h method pat action bodyInfo app req =
   let tryNext = app req
       -- We match all methods in the case where 'method' is 'Nothing'.
       -- See https://github.com/scotty-web/scotty/issues/196 and 'matchAny'
@@ -125,7 +139,7 @@ route opts h method pat action bodyInfo app req =
               clonedBodyInfo <- cloneBodyInfo bodyInfo
 
               env <- mkEnv clonedBodyInfo req captures opts
-              res <- runAction h env action
+              res <- runAction serverOpts h env action
               maybe tryNext return res
             Nothing -> tryNext
      else tryNext
