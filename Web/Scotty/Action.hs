@@ -98,6 +98,7 @@ import           Numeric.Natural
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, decodeUtf8Lenient)
 import           UnliftIO.Exception (Handler(..), catch, catches, throwIO)
+import           System.IO (hPutStrLn, stderr)
 
 import Network.Wai.Internal (ResponseReceived(..))
 
@@ -179,7 +180,8 @@ someExceptionHandler Options{verbose} =
   Handler $ \(E.SomeException e) -> do
     when (verbose > 0) $
       liftIO $
-      putStrLn $ "Caught and exception of " <> show (typeOf e) <> ": " <> show e
+      hPutStrLn stderr $
+      "Unhandled exception of " <> show (typeOf e) <> ": " <> show e
     status status500
 
 -- | Throw a "500 Server Error" 'StatusError', which can be caught with 'catch'.
