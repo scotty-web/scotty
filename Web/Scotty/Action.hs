@@ -277,7 +277,7 @@ files = do
                    bs <- liftIO $ BL.readFile (W.fileContent f)
                    pure (fname, f{ W.fileContent = bs})
                    )
-{-# DEPRECATED files "This function is retained for backward compatibility, but loading all file contents in memory is not a good idea, please use filesOpts instead" #-}
+{-# WARNING files "This function is retained for backward compatibility, but loading all file contents in memory is not a good idea, please use filesOpts instead" #-}
 
 -- | Get list of uploaded temp files and form parameters decoded from multipart payloads.
 --

@@ -2,7 +2,8 @@
 module Web.ScottySpec (main, spec) where
 
 import           Test.Hspec
-import           Test.Hspec.Wai
+import           Test.Hspec.Wai (with, request, get, post, put, patch, delete, options, (<:>), shouldRespondWith, postHtmlForm, matchHeaders, matchBody, matchStatus)
+import Test.Hspec.Wai.Extra (postMultipartForm, FileMeta(..))
 
 import           Control.Applicative
 import           Control.Monad
@@ -65,7 +66,7 @@ spec = do
             makeRequest "/:paramName" `shouldRespondWith` ":paramName"
           it ("captures route parameters for " ++ method ++ " requests with url encoded '/' in path") $ do
             makeRequest "/a%2Fb" `shouldRespondWith` "a/b"
-            
+
     describe "addroute" $ do
       forM_ availableMethods $ \method -> do
         withApp (addroute method "/scotty" $ html "") $ do
@@ -318,6 +319,22 @@ spec = do
           get "/a/42" `shouldRespondWith` 200
         it "responds with 200 OK if the parameter is not found" $ do
           get "/b/potato" `shouldRespondWith` 200
+
+    describe "files" $ do
+      withApp (Scotty.post "/files" $ do
+                  body >>= liftIO . print -- XXX DEBUG
+  -- "Content-Type: multipart/form-data; boundary=ABC123\n\n--ABC123\nContent-Disposition: form-data; name=\"first_file\"; filename=\"file1.txt\"\nContent-Type: text/plain\n\n{file-contents}\n--ABC123--"
+                  fs <- files
+                  text $ TL.pack $ show $ length fs) $ do
+        it "loads uploaded files in memory" $ do
+          postMultipartForm "/files" "ABC123" [(FMFile "file1.txt", "text/plain", "first_file", "{file-contents}")] `shouldRespondWith` 200 { matchBody = "1"}
+
+    describe "filesOpts" $ do
+      withApp (Scotty.post "/files" $ do
+                  filesOpts defaultParseRequestBodyOptions $ \_ fs -> do
+                    text $ TL.pack $ show $ length fs) $ do
+        it "loads uploaded files in memory" $ do
+          postMultipartForm "/files" "ABC123" [(FMFile "file1.txt", "text/plain", "first_file", "{file-contents}")] `shouldRespondWith` 200 { matchBody = "1"}
 
 
     describe "text" $ do

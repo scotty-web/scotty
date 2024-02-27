@@ -106,6 +106,7 @@ Library
 test-suite spec
   main-is:             Spec.hs
   other-modules:       Web.ScottySpec
+                       Test.Hspec.Wai.Extra
   type:                exitcode-stdio-1.0
   default-language:    Haskell2010
   hs-source-dirs:      test
@@ -121,7 +122,8 @@ test-suite spec
                        scotty,
                        text,
                        time,
-                       wai
+                       wai,
+                       wai-extra
   build-tool-depends:  hspec-discover:hspec-discover == 2.*
   GHC-options:         -Wall -threaded -fno-warn-orphans
 
