@@ -1,4 +1,6 @@
--- | This should be in 'hspec-wai', PR pending as of Feb 2024 : https://github.com/hspec/hspec-wai/pull/77 
+-- | This should be in 'hspec-wai', PR pending as of Feb 2024 : https://github.com/hspec/hspec-wai/pull/77
+--
+-- NB the code below has been changed wrt PR 77 and works in the scotty test suite as well.
 
 {-# language OverloadedStrings #-}
 module Test.Hspec.Wai.Extra (postMultipartForm, FileMeta(..)) where
@@ -34,10 +36,8 @@ postMultipartForm path sbs =
 formMultipartQuery :: ByteString -- ^ part separator without any dashes
                    -> [(FileMeta, ByteString, ByteString, ByteString)] -- ^ (file metadata, field MIME type, field name, field contents)
                    -> LB.ByteString
-formMultipartQuery sbs = Builder.toLazyByteString . mconcat . (preamble :) . intersperse newline . encodeAll
+formMultipartQuery sbs = Builder.toLazyByteString . mconcat . intersperse newline . encodeAll
   where
-    preamble =
-      kv "Content-Type" ("multipart/form-data; boundary=" <> Builder.byteString sbs <> newline <> newline)
     encodeAll fs = map encodeFile fs <> [sepEnd]
     encodeFile (fieldMeta, ty, n, payload) = mconcat $ [
       sep

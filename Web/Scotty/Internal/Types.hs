@@ -25,7 +25,7 @@ import           Control.Monad.Reader (MonadReader(..), ReaderT, asks, mapReader
 import           Control.Monad.State.Strict (State, StateT(..))
 import           Control.Monad.Trans.Class (MonadTrans(..))
 import           Control.Monad.Trans.Control (MonadBaseControl, MonadTransControl)
-import Control.Monad.Trans.Resource (InternalState)
+import qualified Control.Monad.Trans.Resource as RT (InternalState, InvalidAccess)
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS8 (ByteString)
@@ -99,13 +99,13 @@ data ScottyState m =
                 , handler :: Maybe (ErrorHandler m)
                 , routeOptions :: RouteOptions
                 , parseRequestBodyOpts :: WPS.ParseRequestBodyOptions
-                , resourcetState :: InternalState
+                , resourcetState :: RT.InternalState
                 }
 
 -- instance Default (ScottyState m) where
 --   def = defaultScottyState
 
-defaultScottyState :: InternalState -> ScottyState m
+defaultScottyState :: RT.InternalState -> ScottyState m
 defaultScottyState = ScottyState [] [] Nothing defaultRouteOptions WPS.defaultParseRequestBodyOptions
 
 addMiddleware :: Wai.Middleware -> ScottyState m -> ScottyState m
@@ -162,8 +162,9 @@ data ScottyException
   | QueryParameterNotFound Text
   | FormFieldNotFound Text
   | FailedToParseParameter Text Text Text
-  | WarpRequestException W.InvalidRequest -- from warp
-  | WaiRequestParseException WPS.RequestParseException -- from wai-extra
+  | WarpRequestException W.InvalidRequest
+  | WaiRequestParseException WPS.RequestParseException -- request parsing
+  | ResourceTException RT.InvalidAccess -- use after free
   deriving (Show, Typeable)
 instance E.Exception ScottyException
 
@@ -173,31 +174,33 @@ type Param = (Text, Text)
 -- | Type parameter @t@ is the file content. Could be @()@ when not needed or a @FilePath@ for temp files instead.
 type File t = (Text, FileInfo t)
 
-data ActionEnv = Env { envInternalState :: InternalState
+data ActionEnv = Env { envInternalState :: RT.InternalState
                      , envParseRequestBodyOpts :: WPS.ParseRequestBodyOptions
                      , envReq       :: Request
                      , envPathParams :: [Param]
                      , envQueryParams :: [Param]
-                     , envFormDataAction :: InternalState -> WPS.ParseRequestBodyOptions -> IO ([Param], [File FilePath])
+                     , envFormDataAction :: RT.InternalState -> WPS.ParseRequestBodyOptions -> IO ([Param], [File FilePath])
                      , envBody      :: IO LBS8.ByteString
                      , envBodyChunk :: IO BS.ByteString
                      , envResponse :: TVar ScottyResponse
                      }
 
-formParamsAndFiles :: MonadIO m => ActionT m ([Param], [File FilePath])
+formParamsAndFiles :: MonadUnliftIO m => ActionT m ([Param], [File FilePath])
 formParamsAndFiles = do
   istate <- ActionT $ asks envInternalState
   prbo <- ActionT $ asks envParseRequestBodyOpts
   formParamsAndFilesWith istate prbo
 
 
-formParamsAndFilesWith :: MonadIO m =>
-                          InternalState
+formParamsAndFilesWith :: MonadUnliftIO m =>
+                          RT.InternalState
                        -> WPS.ParseRequestBodyOptions
                        -> ActionT m ([Param], [File FilePath])
-formParamsAndFilesWith istate prbo = do
-  act <- ActionT $ asks envFormDataAction
-  liftIO $ act istate prbo
+formParamsAndFilesWith istate prbo = action `catch` (\(e :: RT.InvalidAccess) -> E.throw $ ResourceTException e)
+  where
+    action = do
+      act <- ActionT $ asks envFormDataAction
+      liftIO $ act istate prbo
 
 getResponse :: MonadIO m => ActionEnv -> m ScottyResponse
 getResponse ae = liftIO $ readTVarIO (envResponse ae)
