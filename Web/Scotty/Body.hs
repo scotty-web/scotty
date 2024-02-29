@@ -22,9 +22,9 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified GHC.Exception as E (throw)
 import           Network.Wai (Request(..), getRequestBodyChunk)
 import qualified Network.Wai.Handler.Warp as Warp (InvalidRequest(..))
-import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, BackEnd, lbsBackEnd, tempFileBackEnd, sinkRequestBody, RequestBodyType(..), sinkRequestBodyEx, parseRequestBodyEx, RequestParseException(..), ParseRequestBodyOptions(..))
-import UnliftIO (MonadUnliftIO(..))
-import UnliftIO.Exception (Handler(..), catch, catches, throwIO)
+import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, tempFileBackEnd, RequestBodyType(..), sinkRequestBodyEx, RequestParseException(..), ParseRequestBodyOptions)
+-- import UnliftIO (MonadUnliftIO(..))
+import UnliftIO.Exception (Handler(..), catches, throwIO)
 
 import           Web.Scotty.Internal.Types (BodyInfo(..), BodyChunkBuffer(..), BodyPartiallyStreamed(..), RouteOptions(..), File, ScottyException(..), Param)
 import           Web.Scotty.Util (readRequestBody, decodeUtf8Lenient)

@@ -95,12 +95,12 @@ import           Network.HTTP.Types.Status
 #endif
 import           Network.Wai (Request, Response, StreamingBody, Application, requestHeaders)
 import Network.Wai.Handler.Warp (InvalidRequest(..))
-import qualified Network.Wai.Parse as W (FileInfo(..), File, Param, getRequestBodyType, BackEnd, lbsBackEnd, tempFileBackEnd, sinkRequestBody, RequestBodyType(..), ParseRequestBodyOptions, defaultParseRequestBodyOptions, RequestParseException(..), parseRequestBodyEx)
+import qualified Network.Wai.Parse as W (FileInfo(..), ParseRequestBodyOptions, defaultParseRequestBodyOptions)
 
 import           Numeric.Natural
 
 import           Web.Scotty.Internal.Types
-import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, decodeUtf8Lenient)
+import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString)
 import           UnliftIO.Exception (Handler(..), catch, catches, throwIO)
 
 import Network.Wai.Internal (ResponseReceived(..))

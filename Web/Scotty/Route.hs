@@ -17,12 +17,11 @@ import qualified Data.Text as T
 
 import           Network.HTTP.Types
 import           Network.Wai (Request(..))
-import Network.Wai.Parse (ParseRequestBodyOptions(..))
 
 import qualified Text.Regex as Regex
 
 import           Web.Scotty.Action
-import           Web.Scotty.Internal.Types (RoutePattern(..), RouteOptions, ActionEnv(..), ActionT, ScottyState(..), ScottyT(..), File, ErrorHandler, Middleware, BodyInfo, handler, addRoute, defaultScottyResponse)
+import           Web.Scotty.Internal.Types (RoutePattern(..), RouteOptions, ActionEnv(..), ScottyState(..), ScottyT(..), File, ErrorHandler, Middleware, BodyInfo, handler, addRoute, defaultScottyResponse)
 import           Web.Scotty.Util (decodeUtf8Lenient)
 import Web.Scotty.Body (cloneBodyInfo, getBodyAction, getBodyChunkAction, getFormParamsAndFilesAction)
 
