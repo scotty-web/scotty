@@ -330,14 +330,24 @@ spec = do
             ] `shouldRespondWith` 500
 
     describe "filesOpts" $ do
-      withApp (Scotty.post "/files" $ do
-                  filesOpts defaultParseRequestBodyOptions $ \_ fs -> do
-                    text $ TL.pack $ show $ length fs) $ do
-        it "loads uploaded files in memory" $ do
-          postMultipartForm "/files" "ABC123" [
+      let
+          postForm = postMultipartForm "/files" "ABC123" [
             (FMFile "file1.txt", "text/plain;charset=UTF-8", "first_file", "xxx"),
             (FMFile "file2.txt", "text/plain;charset=UTF-8", "second_file", "yyy")
-            ] `shouldRespondWith` 200 { matchBody = "2"}
+            ]
+          processForm = do
+            filesOpts defaultParseRequestBodyOptions $ \_ fs -> do
+              text $ TL.pack $ show $ length fs
+      withApp (Scotty.post "/files" processForm
+              ) $ do
+        it "loads uploaded files in memory" $ do
+          postForm `shouldRespondWith` 200 { matchBody = "2"}
+      context "preserves the body of a POST request even after 'next' (#147)" $ do
+        withApp (do
+                    Scotty.post "/files" next
+                    Scotty.post "/files" processForm) $ do
+          it "loads uploaded files in memory" $ do
+            postForm `shouldRespondWith` 200 { matchBody = "2"}
 
 
     describe "text" $ do

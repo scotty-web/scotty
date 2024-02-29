@@ -1,12 +1,21 @@
 ## next [????.??.??]
 
+
+
 ### New
 * add `instance Parsable UTCTime` (#250)
+* add `filesOpts` (#369). Form parameters and files are only parsed from the request body if needed; `filesOpts` introduces options to limit uploads, a mechanism to back uploads with temporary files based on resourcet, as well as a continuation-based syntax to process such temporary files. This function is now the central mechanism for handling form parameters and files (`files` is written in terms of it).
 
 ### Fixes
 * Path parameters with value matching the parameter name prefixed by colon will properly populate `pathParams` with their literal value : `/:param` will match `/:param` and add a `Param` with value `("param", ":param")` (#301)
 * Accept text-2.1 (#364)
 
+### Breaking changes
+* some ActionT API functions have now a MonadIO or MonadUnliftIO constraint rather than Monad reflecting that there is where request reading takes place. (#369)
+* the File type has now a type parameter to reflect whether it carries file contents or just a filepath pointing to the temp file (#369).
+
+### Deprecated
+* `files` (#369). The interface is a potential security liability (it allows unbounded files to be loaded in memory without any checks). Going forward we should remove it, as well as the `envInternalState` and `envParseRequestBodyOpts` fields in `ActionEnv`.
 
 
 ## 0.21 [2023.12.17]
