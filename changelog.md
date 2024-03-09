@@ -9,6 +9,8 @@
 ### Fixes
 * Path parameters with value matching the parameter name prefixed by colon will properly populate `pathParams` with their literal value : `/:param` will match `/:param` and add a `Param` with value `("param", ":param")` (#301)
 * Accept text-2.1 (#364)
+* Remove dependency upper bounds on `text` and `bytestring` (#371)
+
 
 ### Breaking changes
 * some ActionT API functions have now a MonadIO or MonadUnliftIO constraint rather than Monad reflecting that there is where request reading takes place. (#369)
