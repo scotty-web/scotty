@@ -11,7 +11,7 @@
 * Path parameters with value matching the parameter name prefixed by colon will properly populate `pathParams` with their literal value : `/:param` will match `/:param` and add a `Param` with value `("param", ":param")` (#301)
 * Accept text-2.1 (#364)
 * Remove dependency upper bounds on `text` and `bytestring` (#371)
-
+* When in 'verbose' mode any unhandled exceptions are printed to stderr as well (#374)
 
 ### Breaking changes
 * some ActionT API functions have now a MonadIO or MonadUnliftIO constraint rather than Monad reflecting that there is where request reading takes place. E.g. `files` has now a MonadUnliftIO constraint on its base monad. (#369)
@@ -34,7 +34,6 @@
 * Reverted the `MonadReader` instance of `ActionT` so that it inherits the base monad (#342)
 * Scotty's API such as `queryParam` now throws `ScottyException` rather than `StatusException`.
   Uncaught exceptions are handled by `scottyExceptionHandler`, resembling the existing behaviour
-* When in 'verbose' mode any unhandled exceptions are printed to stderr as well (#374)
   
 ### Breaking changes
 * `File` type: the first component of the tuple is strict text now (used to be lazy prior to 0.21) (#370)
