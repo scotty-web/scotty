@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# language OverloadedStrings #-}
 {-# language ScopedTypeVariables #-}
@@ -22,7 +23,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified GHC.Exception as E (throw)
 import           Network.Wai (Request(..), getRequestBodyChunk)
 import qualified Network.Wai.Handler.Warp as Warp (InvalidRequest(..))
-import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, tempFileBackEnd, RequestBodyType(..), sinkRequestBodyEx, RequestParseException(..), ParseRequestBodyOptions)
+import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, lbsBackEnd, tempFileBackEnd, RequestBodyType(..), sinkRequestBody, sinkRequestBodyEx, RequestParseException(..), ParseRequestBodyOptions, defaultParseRequestBodyOptions, BackEnd)
 -- import UnliftIO (MonadUnliftIO(..))
 import UnliftIO.Exception (Handler(..), catches, throwIO)
 
@@ -92,6 +93,15 @@ parseRequestBodyExBS istate o bl rty =
                                                 []     -> return ([], B.empty)
                                                 (b:bs) -> return (bs, b)
             liftIO $ W.sinkRequestBodyEx o (W.tempFileBackEnd istate) rbt provider
+
+
+-- sinkReqBodyWith rty getChunk = \case
+--   Nothing -> do
+--     (ps, fs) <- W.sinkRequestBodyEx W.defaultParseRequestBodyOptions W.lbsBackEnd rty getChunk
+--     pure (ps, Right fs)
+--   Just (istate, rbo) -> do
+--     (ps, fs) <- W.sinkRequestBodyEx rbo (W.tempFileBackEnd istate) rty getChunk
+--     pure (ps, Left fs)
 
 
 -- | Retrieve the entire body, using the cached chunks in the BodyInfo and reading any other

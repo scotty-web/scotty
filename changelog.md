@@ -14,8 +14,6 @@
 * some ActionT API functions have now a MonadIO or MonadUnliftIO constraint rather than Monad reflecting that there is where request reading takes place. (#369)
 * the File type has now a type parameter to reflect whether it carries file contents or just a filepath pointing to the temp file (#369).
 
-### Deprecated
-* `files` (#369). The interface is a potential security liability (it allows unbounded files to be loaded in memory without any checks). Going forward we should remove it, as well as the `envInternalState` and `envParseRequestBodyOpts` fields in `ActionEnv`.
 
 
 ## 0.21 [2023.12.17]
@@ -33,10 +31,14 @@
 * Reverted the `MonadReader` instance of `ActionT` so that it inherits the base monad (#342)
 * Scotty's API such as `queryParam` now throws `ScottyException` rather than `StatusException`.
   Uncaught exceptions are handled by `scottyExceptionHandler`, resembling the existing behaviour
+  
+### Breaking changes
+* `File` type: the first component of the tuple is strict text now (used to be lazy prior to 0.21) (#370)
 
 ### Documentation
 * Add doctest, refactor some inline examples into doctests (#353)
 * document "`defaultHandler` only applies to endpoints defined after it" (#237)
+
 
 
 ## 0.20.1 [2023.10.03]

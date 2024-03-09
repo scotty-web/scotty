@@ -5,7 +5,6 @@ module Main (main) where
 import Web.Scotty
 
 import Control.Exception (SomeException)
-import Control.Monad.IO.Class
 import Data.Foldable (for_)
 import qualified Data.Text.Lazy as TL
 
@@ -47,11 +46,11 @@ main = scotty 3000 $ do
         let
           fs' = [(fieldName, BS.unpack (fileName fi), fileContent fi) | (fieldName, fi) <- fs]
         -- write the files to disk, so they can be served by the static middleware
-        for_ fs' $ \(_, fn, fpath) -> do
+        for_ fs' $ \(_, fnam, fpath) -> do
           -- copy temp file to local dir
           liftIO (do
                      fc <- B.readFile fpath
-                     B.writeFile ("examples" </> "uploads" </> fn) fc
+                     B.writeFile ("examples" </> "uploads" </> fnam) fc
                  ) `catch` (\(e :: SomeException) -> do
                                liftIO $ putStrLn $ unwords ["upload: something went wrong while saving temp files :", show e]
                            )

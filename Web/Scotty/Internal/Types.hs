@@ -31,7 +31,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS8 (ByteString)
 import           Data.Default.Class (Default, def)
 import           Data.String (IsString(..))
-import           Data.Text (Text, pack)
+import qualified Data.Text as T (Text, pack)
 import           Data.Typeable (Typeable)
 
 import           Network.HTTP.Types
@@ -98,15 +98,13 @@ data ScottyState m =
                 , routes :: [BodyInfo -> Middleware m]
                 , handler :: Maybe (ErrorHandler m)
                 , routeOptions :: RouteOptions
-                , parseRequestBodyOpts :: WPS.ParseRequestBodyOptions
-                , resourcetState :: RT.InternalState
                 }
 
 -- instance Default (ScottyState m) where
 --   def = defaultScottyState
 
-defaultScottyState :: RT.InternalState -> ScottyState m
-defaultScottyState = ScottyState [] [] Nothing defaultRouteOptions WPS.defaultParseRequestBodyOptions
+defaultScottyState :: ScottyState m
+defaultScottyState = ScottyState [] [] Nothing defaultRouteOptions
 
 addMiddleware :: Wai.Middleware -> ScottyState m -> ScottyState m
 addMiddleware m s@(ScottyState {middlewares = ms}) = s { middlewares = m:ms }
@@ -133,7 +131,7 @@ newtype ScottyT m a = ScottyT { runS :: State (ScottyState m) a }
 -- The exception constructor is not exposed to the user and all exceptions of this type are caught
 -- and processed within the 'runAction' function.
 data ActionError
-  = AERedirect Text -- ^ Redirect
+  = AERedirect T.Text -- ^ Redirect
   | AENext -- ^ Stop processing this route and skip to the next one
   | AEFinish -- ^ Stop processing the request
   deriving (Show, Typeable)
@@ -146,7 +144,7 @@ tryNext io = catch (io >> pure True) $ \e ->
     _ -> pure True
 
 -- | E.g. when a parameter is not found in a query string (400 Bad Request) or when parsing a JSON body fails (422 Unprocessable Entity)
-data StatusError = StatusError Status Text deriving (Show, Typeable)
+data StatusError = StatusError Status T.Text deriving (Show, Typeable)
 instance E.Exception StatusError
 {-# DEPRECATED StatusError "If it is supposed to be caught, a proper exception type should be defined" #-}
 
@@ -156,12 +154,12 @@ type ErrorHandler m = Handler (ActionT m) ()
 -- | Thrown e.g. when a request is too large
 data ScottyException
   = RequestTooLarge
-  | MalformedJSON LBS8.ByteString Text
-  | FailedToParseJSON LBS8.ByteString Text
-  | PathParameterNotFound Text
-  | QueryParameterNotFound Text
-  | FormFieldNotFound Text
-  | FailedToParseParameter Text Text Text
+  | MalformedJSON LBS8.ByteString T.Text
+  | FailedToParseJSON LBS8.ByteString T.Text
+  | PathParameterNotFound T.Text
+  | QueryParameterNotFound T.Text
+  | FormFieldNotFound T.Text
+  | FailedToParseParameter T.Text T.Text T.Text
   | WarpRequestException W.InvalidRequest
   | WaiRequestParseException WPS.RequestParseException -- request parsing
   | ResourceTException RT.InvalidAccess -- use after free
@@ -169,14 +167,12 @@ data ScottyException
 instance E.Exception ScottyException
 
 ------------------ Scotty Actions -------------------
-type Param = (Text, Text)
+type Param = (T.Text, T.Text)
 
 -- | Type parameter @t@ is the file content. Could be @()@ when not needed or a @FilePath@ for temp files instead.
-type File t = (Text, FileInfo t)
+type File t = (T.Text, FileInfo t)
 
-data ActionEnv = Env { envInternalState :: RT.InternalState
-                     , envParseRequestBodyOpts :: WPS.ParseRequestBodyOptions
-                     , envReq       :: Request
+data ActionEnv = Env { envReq       :: Request
                      , envPathParams :: [Param]
                      , envQueryParams :: [Param]
                      , envFormDataAction :: RT.InternalState -> WPS.ParseRequestBodyOptions -> IO ([Param], [File FilePath])
@@ -185,11 +181,7 @@ data ActionEnv = Env { envInternalState :: RT.InternalState
                      , envResponse :: TVar ScottyResponse
                      }
 
-formParamsAndFiles :: MonadUnliftIO m => ActionT m ([Param], [File FilePath])
-formParamsAndFiles = do
-  istate <- ActionT $ asks envInternalState
-  prbo <- ActionT $ asks envParseRequestBodyOpts
-  formParamsAndFilesWith istate prbo
+
 
 
 formParamsAndFilesWith :: MonadUnliftIO m =>
@@ -263,7 +255,7 @@ instance (MonadUnliftIO m) => MonadError StatusError (ActionT m) where
   catchError = catch
 -- | Modeled after the behaviour in scotty < 0.20, 'fail' throws a 'StatusError' with code 500 ("Server Error"), which can be caught with 'E.catch'.
 instance (MonadIO m) => MonadFail (ActionT m) where
-  fail = E.throw . StatusError status500 . pack
+  fail = E.throw . StatusError status500 . T.pack
 -- | 'empty' throws 'ActionError' 'AENext', whereas '(<|>)' catches any 'ActionError's or 'StatusError's in the first action and proceeds to the second one.
 instance (MonadUnliftIO m) => Alternative (ActionT m) where
   empty = E.throw AENext
@@ -304,11 +296,11 @@ instance
   mempty = return mempty
 
 ------------------ Scotty Routes --------------------
-data RoutePattern = Capture   Text
-                  | Literal   Text
+data RoutePattern = Capture   T.Text
+                  | Literal   T.Text
                   | Function  (Request -> Maybe [Param])
 
 instance IsString RoutePattern where
-    fromString = Capture . pack
+    fromString = Capture . T.pack
 
 

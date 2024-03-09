@@ -327,7 +327,7 @@ spec = do
         it "loads uploaded files in memory" $ do
           postMultipartForm "/files" "ABC123" [
             (FMFile "file1.txt", "text/plain;charset=UTF-8", "first_file", "xxx")
-            ] `shouldRespondWith` 500
+            ] `shouldRespondWith` 200 { matchBody = "1"}
 
     describe "filesOpts" $ do
       let

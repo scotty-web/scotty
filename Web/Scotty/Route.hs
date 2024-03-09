@@ -80,7 +80,7 @@ options = addroute OPTIONS
 
 -- | Add a route that matches regardless of the HTTP verb.
 matchAny :: (MonadUnliftIO m) => RoutePattern -> ActionT m () -> ScottyT m ()
-matchAny pat action = ScottyT $ MS.modify $ \s -> addRoute (route  (parseRequestBodyOpts s) (resourcetState s) (routeOptions s) (handler s) Nothing pat action) s
+matchAny pat action = ScottyT $ MS.modify $ \s -> addRoute (route (routeOptions s) (handler s) Nothing pat action) s
 
 -- | Specify an action to take if nothing else is found. Note: this _always_ matches,
 -- so should generally be the last route specified.
@@ -104,14 +104,12 @@ let server = S.get "/foo/:bar" (S.pathParam "bar" >>= S.text)
 -}
 addroute :: (MonadUnliftIO m) => StdMethod -> RoutePattern -> ActionT m () -> ScottyT m ()
 addroute method pat action = ScottyT $ MS.modify $ \s ->
-  addRoute (route (parseRequestBodyOpts s) (resourcetState s) (routeOptions s) (handler s) (Just method) pat action) s
+  addRoute (route (routeOptions s) (handler s) (Just method) pat action) s
 
 route :: (MonadUnliftIO m) =>
-         ParseRequestBodyOptions
-      -> InternalState
-      -> RouteOptions
+         RouteOptions
       -> Maybe (ErrorHandler m) -> Maybe StdMethod -> RoutePattern -> ActionT m () -> BodyInfo -> Middleware m
-route prbo istate opts h method pat action bodyInfo app req =
+route opts h method pat action bodyInfo app req =
   let tryNext = app req
       -- We match all methods in the case where 'method' is 'Nothing'.
       -- See https://github.com/scotty-web/scotty/issues/196 and 'matchAny'
@@ -129,7 +127,7 @@ route prbo istate opts h method pat action bodyInfo app req =
               -- without messing up the state of the original BodyInfo.
               cbi <- cloneBodyInfo bodyInfo
 
-              env <- mkEnv istate prbo cbi req captures opts
+              env <- mkEnv cbi req captures opts
               res <- runAction h env action
               maybe tryNext return res
             Nothing -> tryNext
@@ -159,19 +157,18 @@ path = T.cons '/' . T.intercalate "/" . pathInfo
 
 -- | Parse the request and construct the initial 'ActionEnv' with a default 200 OK response
 mkEnv :: MonadIO m =>
-         InternalState -> ParseRequestBodyOptions
-      -> BodyInfo
+         BodyInfo
       -> Request
       -> [Param]
       -> RouteOptions
       -> m ActionEnv
-mkEnv internalState parseRbo bodyInfo req pathps opts = do
+mkEnv bodyInfo req pathps opts = do
   let
     getFormData :: InternalState -> ParseRequestBodyOptions -> IO ([Param], [File FilePath])
     getFormData istate prbo = getFormParamsAndFilesAction istate prbo req bodyInfo opts
     queryps = parseEncodedParams $ queryString req
   responseInit <- liftIO $ newTVarIO defaultScottyResponse
-  return $ Env internalState parseRbo req pathps queryps getFormData (getBodyAction bodyInfo opts) (getBodyChunkAction bodyInfo) responseInit
+  return $ Env req pathps queryps getFormData (getBodyAction bodyInfo opts) (getBodyChunkAction bodyInfo) responseInit
 
 
 

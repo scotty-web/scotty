@@ -89,7 +89,7 @@ import UnliftIO.Exception (Handler(..), catch)
 
 -- | Run a scotty application using the warp server.
 -- NB: scotty p === scottyT p id
-scottyT :: (Monad m, MonadUnliftIO n)
+scottyT :: (Monad m, MonadIO n)
         => Port
         -> (m W.Response -> IO W.Response) -- ^ Run monad 'm' into 'IO', called at each action.
         -> ScottyT m ()
@@ -98,7 +98,7 @@ scottyT p = scottyOptsT $ defaultOptions { settings = setPort p (settings defaul
 
 -- | Run a scotty application using the warp server, passing extra options.
 -- NB: scottyOpts opts === scottyOptsT opts id
-scottyOptsT :: (Monad m, MonadUnliftIO n)
+scottyOptsT :: (Monad m, MonadIO n)
             => Options
             -> (m W.Response -> IO W.Response) -- ^ Run monad 'm' into 'IO', called at each action.
             -> ScottyT m ()
@@ -111,7 +111,7 @@ scottyOptsT opts runActionToIO s = do
 -- | Run a scotty application using the warp server, passing extra options, and
 -- listening on the provided socket.
 -- NB: scottySocket opts sock === scottySocketT opts sock id
-scottySocketT :: (Monad m, MonadUnliftIO n)
+scottySocketT :: (Monad m, MonadIO n)
               => Options
               -> Socket
               -> (m W.Response -> IO W.Response)
@@ -126,12 +126,12 @@ scottySocketT opts sock runActionToIO s = do
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
 -- NB: scottyApp === scottyAppT id
-scottyAppT :: (Monad m, MonadUnliftIO n)
+scottyAppT :: (Monad m, Monad n)
            => (m W.Response -> IO W.Response) -- ^ Run monad 'm' into 'IO', called at each action.
            -> ScottyT m ()
            -> n W.Application
-scottyAppT runActionToIO defs = runResourceT $ withInternalState $ \istate -> do
-    let s = execState (runS defs) (defaultScottyState istate)
+scottyAppT runActionToIO defs = do
+    let s = execState (runS defs) defaultScottyState
     let rapp req callback = do
           bodyInfo <- newBodyInfo req
           resp <- runActionToIO (applyAll notFoundApp ([midd bodyInfo | midd <- routes s]) req)
