@@ -10,6 +10,7 @@ import Control.Concurrent.STM (newTVarIO)
 import           Control.Monad.IO.Class (MonadIO(..))
 import UnliftIO (MonadUnliftIO(..))
 import qualified Control.Monad.State as MS
+import Control.Monad.Trans.Resource (InternalState)
 
 import           Data.String (fromString)
 import qualified Data.Text as T
@@ -20,9 +21,10 @@ import           Network.Wai (Request(..))
 import qualified Text.Regex as Regex
 
 import           Web.Scotty.Action
-import           Web.Scotty.Internal.Types (RoutePattern(..), RouteOptions, ActionEnv(..), ActionT, ScottyState(..), ScottyT(..), ErrorHandler, Middleware, BodyInfo, handler, addRoute, defaultScottyResponse)
+import           Web.Scotty.Internal.Types (RoutePattern(..), RouteOptions, ActionEnv(..), ScottyState(..), ScottyT(..), File, ErrorHandler, Middleware, BodyInfo, handler, addRoute, defaultScottyResponse)
 import           Web.Scotty.Util (decodeUtf8Lenient)
 import Web.Scotty.Body (cloneBodyInfo, getBodyAction, getBodyChunkAction, getFormParamsAndFilesAction)
+
 
 {- $setup
 >>> :{
@@ -101,7 +103,8 @@ let server = S.get "/foo/:bar" (S.pathParam "bar" >>= S.text)
 "something"
 -}
 addroute :: (MonadUnliftIO m) => StdMethod -> RoutePattern -> ActionT m () -> ScottyT m ()
-addroute method pat action = ScottyT $ MS.modify $ \s -> addRoute (route (routeOptions s) (handler s) (Just method) pat action) s
+addroute method pat action = ScottyT $ MS.modify $ \s ->
+  addRoute (route (routeOptions s) (handler s) (Just method) pat action) s
 
 route :: (MonadUnliftIO m) =>
          RouteOptions
@@ -122,9 +125,9 @@ route opts h method pat action bodyInfo app req =
               -- if `next` is called and we try to match further routes.
               -- Instead, make a "cloned" copy of the BodyInfo that allows the IO actions to be called
               -- without messing up the state of the original BodyInfo.
-              clonedBodyInfo <- cloneBodyInfo bodyInfo
+              cbi <- cloneBodyInfo bodyInfo
 
-              env <- mkEnv clonedBodyInfo req captures opts
+              env <- mkEnv cbi req captures opts
               res <- runAction h env action
               maybe tryNext return res
             Nothing -> tryNext
@@ -153,14 +156,20 @@ path :: Request -> T.Text
 path = T.cons '/' . T.intercalate "/" . pathInfo
 
 -- | Parse the request and construct the initial 'ActionEnv' with a default 200 OK response
-mkEnv :: MonadIO m => BodyInfo -> Request -> [Param] -> RouteOptions -> m ActionEnv
-mkEnv bodyInfo req captureps opts = do
-  (formps, bodyFiles) <- liftIO $ getFormParamsAndFilesAction req bodyInfo opts
+mkEnv :: MonadIO m =>
+         BodyInfo
+      -> Request
+      -> [Param]
+      -> RouteOptions
+      -> m ActionEnv
+mkEnv bodyInfo req pathps opts = do
   let
+    getFormData :: InternalState -> ParseRequestBodyOptions -> IO ([Param], [File FilePath])
+    getFormData istate prbo = getFormParamsAndFilesAction istate prbo req bodyInfo opts
     queryps = parseEncodedParams $ queryString req
-    bodyFiles' = [ (decodeUtf8Lenient k, fi) | (k,fi) <- bodyFiles ]
   responseInit <- liftIO $ newTVarIO defaultScottyResponse
-  return $ Env req captureps formps queryps (getBodyAction bodyInfo opts) (getBodyChunkAction bodyInfo) bodyFiles' responseInit
+  return $ Env req pathps queryps getFormData (getBodyAction bodyInfo opts) (getBodyChunkAction bodyInfo) responseInit
+
 
 
 parseEncodedParams :: Query -> [Param]

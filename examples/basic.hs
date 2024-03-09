@@ -9,7 +9,7 @@ import Network.Wai.Middleware.RequestLogger -- install wai-extra if you don't ha
 
 import Control.Exception (Exception(..))
 import Control.Monad
-import Control.Monad.Trans
+-- import Control.Monad.Trans
 import System.Random (newStdGen, randomRs)
 
 import Network.HTTP.Types (status302)

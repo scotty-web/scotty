@@ -2,7 +2,8 @@
 module Web.ScottySpec (main, spec) where
 
 import           Test.Hspec
-import           Test.Hspec.Wai
+import           Test.Hspec.Wai (with, request, get, post, put, patch, delete, options, (<:>), shouldRespondWith, postHtmlForm, matchHeaders, matchBody, matchStatus)
+import Test.Hspec.Wai.Extra (postMultipartForm, FileMeta(..))
 
 import           Control.Applicative
 import           Control.Monad
@@ -16,6 +17,7 @@ import Data.Time.Clock (secondsToDiffTime)
 
 import           Network.HTTP.Types
 import           Network.Wai (Application, Request(queryString), responseLBS)
+import           Network.Wai.Parse (defaultParseRequestBodyOptions)
 import qualified Control.Exception.Lifted as EL
 import qualified Control.Exception as E
 
@@ -65,7 +67,7 @@ spec = do
             makeRequest "/:paramName" `shouldRespondWith` ":paramName"
           it ("captures route parameters for " ++ method ++ " requests with url encoded '/' in path") $ do
             makeRequest "/a%2Fb" `shouldRespondWith` "a/b"
-            
+
     describe "addroute" $ do
       forM_ availableMethods $ \method -> do
         withApp (addroute method "/scotty" $ html "") $ do
@@ -115,7 +117,7 @@ spec = do
       context "when not specified" $ do
         withApp (Scotty.get "/" $ throw E.DivideByZero) $ do
           it "returns 500 on exceptions" $ do
-            get "/" `shouldRespondWith` "" {matchStatus = 500}
+            get "/" `shouldRespondWith` 500
       context "only applies to endpoints defined after it (#237)" $ do
         withApp (do
                     let h = Handler (\(_ :: E.SomeException) -> status status503 >> text "ok")
@@ -133,17 +135,29 @@ spec = do
       let
         large = TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..4500]::[Integer])]
         smol = TLE.encodeUtf8 . TL.pack . concat $ [show c | c <- ([1..50]::[Integer])]
-      withApp (Scotty.setMaxRequestBodySize 1 >> Scotty.matchAny "/upload" (do status status200)) $ do
-        it "should return 200 OK if the request body size is below 1 KB" $ do
-          request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
-            smol `shouldRespondWith` 200
-        it "should return 413 (Content Too Large) if the request body size is above 1 KB" $ do
-          request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
-            large `shouldRespondWith` 413
-      context "(counterexample)" $
-        withApp (Scotty.post "/" $ status status200) $ do
-          it "doesn't throw an uncaught exception if the body is large" $ do
-            request "POST" "/" [("Content-Type","multipart/form-data; boundary=--33")]
+      withApp (do
+                  Scotty.setMaxRequestBodySize 1
+                  Scotty.post "/upload" $ do
+                    _ <- files
+                    status status200
+              ) $ do
+        context "application/x-www-form-urlencoded" $ do
+          it "should return 200 OK if the request body size is below 1 KB" $ do
+            request "POST" "/upload" [("Content-Type","application/x-www-form-urlencoded")]
+              smol `shouldRespondWith` 200
+          it "should return 413 (Content Too Large) if the request body size is above 1 KB" $ do
+            request "POST" "/upload" [("Content-Type","application/x-www-form-urlencoded")]
+              large `shouldRespondWith` 413
+
+      withApp (Scotty.post "/" $ status status200) $ do
+          context "(counterexample)" $ do
+            it "doesn't throw an uncaught exception if the body is large" $ do
+              request "POST" "/" [("Content-Type","application/x-www-form-urlencoded")]
+                large `shouldRespondWith` 200
+      withApp (Scotty.setMaxRequestBodySize 1 >> Scotty.post "/upload" (do status status200)) $ do
+        context "multipart/form-data; boundary=--33" $ do
+          it "should return 200 OK if the request body size is above 1 KB (since multipart form bodies are only traversed or parsed on demand)" $ do
+            request "POST" "/upload" [("Content-Type","multipart/form-data; boundary=--33")]
               large `shouldRespondWith` 200
 
     describe "middleware" $ do
@@ -163,7 +177,7 @@ spec = do
             get "/" `shouldRespondWith` 200
         withApp (Scotty.get "/" $ EL.throwIO E.DivideByZero) $ do
           it "returns 500 on uncaught exceptions" $ do
-            get "/" `shouldRespondWith` "" {matchStatus = 500}
+            get "/" `shouldRespondWith` 500
 
     context "Alternative instance" $ do
       withApp (Scotty.get "/" $ empty >>= text) $
@@ -306,6 +320,57 @@ spec = do
           get "/a/42" `shouldRespondWith` 200
         it "responds with 200 OK if the parameter is not found" $ do
           get "/b/potato" `shouldRespondWith` 200
+
+    describe "files" $ do
+      withApp (Scotty.post "/files" $ do
+                  fs <- files
+                  text $ TL.pack $ show $ length fs) $ do
+        context "small number of files" $ do
+          it "loads uploaded files in memory" $ do
+            postMultipartForm "/files" "ABC123" [
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "first_file", "xxx")
+              ] `shouldRespondWith` 200 { matchBody = "1"}
+        context "file name too long (> 32 bytes)" $ do
+          it "responds with 413 - Request Too Large" $ do
+            postMultipartForm "/files" "ABC123" [
+              (FMFile "file.txt", "text/plain;charset=UTF-8", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzx", "xxx")
+                                                ] `shouldRespondWith` 413
+        context "large number of files (> 10)" $ do
+          it "responds with 413 - Request Too Large" $ do
+            postMultipartForm "/files" "ABC123" [
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx")
+              ] `shouldRespondWith` 413
+
+
+    describe "filesOpts" $ do
+      let
+          postForm = postMultipartForm "/files" "ABC123" [
+            (FMFile "file1.txt", "text/plain;charset=UTF-8", "first_file", "xxx"),
+            (FMFile "file2.txt", "text/plain;charset=UTF-8", "second_file", "yyy")
+            ]
+          processForm = do
+            filesOpts defaultParseRequestBodyOptions $ \_ fs -> do
+              text $ TL.pack $ show $ length fs
+      withApp (Scotty.post "/files" processForm
+              ) $ do
+        it "loads uploaded files in memory" $ do
+          postForm `shouldRespondWith` 200 { matchBody = "2"}
+      context "preserves the body of a POST request even after 'next' (#147)" $ do
+        withApp (do
+                    Scotty.post "/files" next
+                    Scotty.post "/files" processForm) $ do
+          it "loads uploaded files in memory" $ do
+            postForm `shouldRespondWith` 200 { matchBody = "2"}
 
 
     describe "text" $ do

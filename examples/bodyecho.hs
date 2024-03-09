@@ -3,7 +3,7 @@ module Main (main) where
 
 import Web.Scotty
 
-import Control.Monad.IO.Class (liftIO)
+-- import Control.Monad.IO.Class (liftIO)
 import qualified Blaze.ByteString.Builder as B
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL

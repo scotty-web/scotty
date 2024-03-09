@@ -19,15 +19,16 @@ import Weigh
 
 main :: IO ()
 main = do
-  mainWith $ do
-    setColumns [Case,Allocated,GCs,Live,Check,Max,MaxOS]
-    setFormat Markdown
-    io "ScottyM Strict" BL.putStr
-      (SS.evalState (runS $ renderBST htmlScotty) defaultScottyState)
-    io "ScottyM Lazy" BL.putStr
-      (SL.evalState (runScottyLazy $ renderBST htmlScottyLazy) defaultScottyState)
-    io "Identity" BL.putStr
-      (runIdentity $ renderBST htmlIdentity)
+    mainWith $ do
+      setColumns [Case,Allocated,GCs,Live,Check,Max,MaxOS]
+      setFormat Markdown
+      io "ScottyM Strict" BL.putStr
+        (SS.evalState (runS $ renderBST htmlScotty) defaultScottyState)
+      io "ScottyM Lazy" BL.putStr
+        (SL.evalState (runScottyLazy $ renderBST htmlScottyLazy) defaultScottyState)
+      io "Identity" BL.putStr
+        (runIdentity $ renderBST htmlIdentity)
+
 
 htmlTest :: Monad m => HtmlT m ()
 htmlTest = replicateM_ 2 $ div_ $ do
