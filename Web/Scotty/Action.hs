@@ -118,9 +118,9 @@ runAction :: MonadUnliftIO m =>
           -> m (Maybe Response)
 runAction mh env action = do
   ok <- flip runReaderT env $ runAM $ tryNext $ action `catches` concat
-    [ [actionErrorHandler]
+    [ [actionErrorHandler, statusErrorHandler, scottyExceptionHandler]
     , maybeToList mh
-    , [statusErrorHandler, scottyExceptionHandler, someExceptionHandler]
+    , [someExceptionHandler]
     ]
   res <- getResponse env
   return $ bool Nothing (Just $ mkResponse res) ok
