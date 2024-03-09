@@ -11,6 +11,7 @@ import Lucid.Base
 import Lucid.Html5
 import Web.Scotty
 import Web.Scotty.Internal.Types
+import qualified Control.Monad.Reader as R
 import qualified Control.Monad.State.Lazy as SL
 import qualified Control.Monad.State.Strict as SS
 import qualified Data.ByteString.Lazy as BL
@@ -19,15 +20,17 @@ import Weigh
 
 main :: IO ()
 main = do
-    mainWith $ do
-      setColumns [Case,Allocated,GCs,Live,Check,Max,MaxOS]
-      setFormat Markdown
-      io "ScottyM Strict" BL.putStr
-        (SS.evalState (runS $ renderBST htmlScotty) defaultScottyState)
-      io "ScottyM Lazy" BL.putStr
-        (SL.evalState (runScottyLazy $ renderBST htmlScottyLazy) defaultScottyState)
-      io "Identity" BL.putStr
-        (runIdentity $ renderBST htmlIdentity)
+  mainWith $ do
+    setColumns [Case,Allocated,GCs,Live,Check,Max,MaxOS]
+    setFormat Markdown
+    io "ScottyM Strict" BL.putStr
+      (SS.evalState
+        (R.runReaderT (runS $ renderBST htmlScotty) defaultOptions)
+        defaultScottyState)
+    io "ScottyM Lazy" BL.putStr
+      (SL.evalState (runScottyLazy $ renderBST htmlScottyLazy) defaultScottyState)
+    io "Identity" BL.putStr
+      (runIdentity $ renderBST htmlIdentity)
 
 
 htmlTest :: Monad m => HtmlT m ()

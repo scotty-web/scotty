@@ -121,7 +121,7 @@ scottySocket opts sock = Trans.scottySocketT opts sock id
 -- | Turn a scotty application into a WAI 'Application', which can be
 -- run with any WAI handler.
 scottyApp :: ScottyM () -> IO Application
-scottyApp = Trans.scottyAppT id
+scottyApp = Trans.scottyAppT defaultOptions id
 
 -- | Global handler for user-defined exceptions.
 defaultHandler :: ErrorHandler IO -> ScottyM ()
@@ -144,8 +144,8 @@ nested :: Application -> ActionM ()
 nested = Trans.nested
 
 -- | Set global size limit for the request body. Requests with body size exceeding the limit will not be
--- processed and an HTTP response 413 will be returned to the client. Size limit needs to be greater than 0, 
--- otherwise the application will terminate on start. 
+-- processed and an HTTP response 413 will be returned to the client. Size limit needs to be greater than 0,
+-- otherwise the application will terminate on start.
 setMaxRequestBodySize :: Kilobytes -> ScottyM ()
 setMaxRequestBodySize = Trans.setMaxRequestBodySize
 

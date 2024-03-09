@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP               #-}
+{-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE LambdaCase #-}
@@ -86,6 +87,7 @@ import qualified Data.Text.Lazy             as TL
 import qualified Data.Text.Lazy.Encoding    as TLE
 import           Data.Time                  (UTCTime)
 import           Data.Time.Format           (parseTimeM, defaultTimeLocale)
+import           Data.Typeable              (typeOf)
 import           Data.Word
 
 import           Network.HTTP.Types
@@ -102,6 +104,7 @@ import           Numeric.Natural
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, decodeUtf8Lenient)
 import           UnliftIO.Exception (Handler(..), catch, catches, throwIO)
+import           System.IO (hPutStrLn, stderr)
 
 import Network.Wai.Internal (ResponseReceived(..))
 
@@ -112,15 +115,16 @@ import Network.Wai.Internal (ResponseReceived(..))
 -- 'Nothing' indicates route failed (due to Next) and pattern matching should try the next available route.
 -- 'Just' indicates a successful response.
 runAction :: MonadUnliftIO m =>
-             Maybe (ErrorHandler m) -- ^ this handler (if present) is in charge of user-defined exceptions
+             Options
+          -> Maybe (ErrorHandler m) -- ^ this handler (if present) is in charge of user-defined exceptions
           -> ActionEnv
           -> ActionT m () -- ^ Route action to be evaluated
           -> m (Maybe Response)
-runAction mh env action = do
+runAction options mh env action = do
   ok <- flip runReaderT env $ runAM $ tryNext $ action `catches` concat
     [ [actionErrorHandler]
     , maybeToList mh
-    , [statusErrorHandler, scottyExceptionHandler, someExceptionHandler]
+    , [statusErrorHandler, scottyExceptionHandler, someExceptionHandler options]
     ]
   res <- getResponse env
   return $ bool Nothing (Just $ mkResponse res) ok
@@ -190,11 +194,15 @@ scottyExceptionHandler = Handler $ \case
     text $ T.unwords ["resourcet Exception:", T.pack (show rte)]
 
 -- | Uncaught exceptions turn into HTTP 500 Server Error codes
-someExceptionHandler :: MonadIO m => ErrorHandler m
-someExceptionHandler = Handler $ \case
-  (e :: E.SomeException) -> do
+someExceptionHandler :: MonadIO m => Options -> ErrorHandler m
+someExceptionHandler Options{verbose} =
+  Handler $ \(E.SomeException e) -> do
+    when (verbose > 0) $
+      liftIO $
+      hPutStrLn stderr $
+      "Unhandled exception of " <> show (typeOf e) <> ": " <> show e
     status status500
-    text $ T.unwords ["Uncaught server exception:", T.pack (show e)]
+
 
 -- | Throw a "500 Server Error" 'StatusError', which can be caught with 'catch'.
 --
