@@ -8,7 +8,6 @@ import Web.Scotty
 
 import Control.Concurrent.MVar
 import Control.Exception (Exception(..))
-import Control.Monad.IO.Class
 import qualified Data.Map as M
 import qualified Data.Text.Lazy as T
 import Data.Typeable (Typeable)

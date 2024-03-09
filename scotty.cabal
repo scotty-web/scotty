@@ -46,8 +46,8 @@ tested-with:         GHC == 8.10.7
                    , GHC == 9.0.2
                    , GHC == 9.2.8
                    , GHC == 9.4.6
-                   , GHC == 9.6.2
-                   , GHC == 9.6.3
+                   , GHC == 9.6.4
+                   , GHC == 9.8.2
 Extra-source-files:
     README.md
     changelog.md
@@ -73,7 +73,7 @@ Library
   build-depends:       aeson                 >= 0.6.2.1  && < 2.3,
                        base                  >= 4.14     && < 5,
                        blaze-builder         >= 0.3.3.0  && < 0.5,
-                       bytestring            >= 0.10.0.2 && < 0.13,
+                       bytestring            >= 0.10.0.2 ,
                        case-insensitive      >= 1.0.0.1  && < 1.3,
                        cookie                >= 0.4,
                        data-default-class >= 0.1,
@@ -83,15 +83,15 @@ Library
                        mtl                   >= 2.1.2    && < 2.4,
                        network               >= 2.6.0.2  && < 3.2,
                        regex-compat          >= 0.95.1   && < 0.96,
+                       resourcet,
                        stm,
-                       text                  >= 0.11.3.1 && < 2.2,
+                       text                  >= 0.11.3.1 ,
                        time                  >= 1.8,
                        transformers          >= 0.3.0.0  && < 0.7,
                        transformers-base     >= 0.4.1    && < 0.5,
-                       transformers-compat   >= 0.4      && < 0.8,
                        unliftio >= 0.2,
                        wai                   >= 3.0.0    && < 3.3,
-                       wai-extra             >= 3.0.0    && < 3.2,
+                       wai-extra             >= 3.1.14,
                        warp                  >= 3.0.13   && < 3.4
 
   if impl(ghc < 8.0)
@@ -105,6 +105,7 @@ Library
 test-suite spec
   main-is:             Spec.hs
   other-modules:       Web.ScottySpec
+                       Test.Hspec.Wai.Extra
   type:                exitcode-stdio-1.0
   default-language:    Haskell2010
   hs-source-dirs:      test
@@ -120,7 +121,8 @@ test-suite spec
                        scotty,
                        text,
                        time,
-                       wai
+                       wai,
+                       wai-extra
   build-tool-depends:  hspec-discover:hspec-discover == 2.*
   GHC-options:         -Wall -threaded -fno-warn-orphans
 
@@ -149,6 +151,7 @@ benchmark weigh
                        lucid,
                        bytestring,
                        mtl,
+                       resourcet,
                        text,
                        transformers,
                        weigh >= 0.0.16 && <0.1

@@ -25,12 +25,14 @@ module Web.Scotty
     , capture, regex, function, literal
       -- ** Accessing the Request and its fields
     , request, header, headers, body, bodyReader
-    , jsonData, files
+    , jsonData
       -- ** Accessing Path, Form and Query Parameters
     , param, params
     , pathParam, captureParam, formParam, queryParam
     , pathParamMaybe, captureParamMaybe, formParamMaybe, queryParamMaybe
     , pathParams, captureParams, formParams, queryParams
+      -- *** Files
+    , files, filesOpts, Trans.ParseRequestBodyOptions
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
       -- ** Setting Response Body
@@ -65,6 +67,7 @@ import Network.HTTP.Types (Status, StdMethod, ResponseHeaders)
 import Network.Socket (Socket)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
+import qualified Network.Wai.Parse as W (defaultParseRequestBodyOptions)
 
 import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, ScottyException, StatusError(..), Content(..))
 import UnliftIO.Exception (Handler(..), catch)
@@ -231,8 +234,18 @@ request :: ActionM Request
 request = Trans.request
 
 -- | Get list of uploaded files.
-files :: ActionM [File]
+--
+-- NB: Loads all file contents in memory with options 'W.defaultParseRequestBodyOptions'
+files :: ActionM [File ByteString]
 files = Trans.files
+
+-- | Get list of temp files and form parameters decoded from multipart payloads.
+--
+-- NB the temp files are deleted when the continuation exits
+filesOpts :: Trans.ParseRequestBodyOptions
+          -> ([Param] -> [File FilePath] -> ActionM a) -- ^ temp files validation, storage etc
+          -> ActionM a
+filesOpts = Trans.filesOpts
 
 -- | Get a request header. Header name is case-insensitive.
 header :: Text -> ActionM (Maybe Text)
@@ -243,6 +256,8 @@ headers :: ActionM [(Text, Text)]
 headers = Trans.headers
 
 -- | Get the request body.
+--
+-- NB: loads the entire request body in memory
 body :: ActionM ByteString
 body = Trans.body
 
@@ -253,6 +268,8 @@ bodyReader :: ActionM (IO BS.ByteString)
 bodyReader = Trans.bodyReader
 
 -- | Parse the request body as a JSON object and return it. Raises an exception if parse is unsuccessful.
+--
+-- NB: uses 'body' internally
 jsonData :: FromJSON a => ActionM a
 jsonData = Trans.jsonData
 

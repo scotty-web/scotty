@@ -32,6 +32,7 @@ main = do
     io "Identity" BL.putStr
       (runIdentity $ renderBST htmlIdentity)
 
+
 htmlTest :: Monad m => HtmlT m ()
 htmlTest = replicateM_ 2 $ div_ $ do
   replicateM_ 1000 $ div_ $ do

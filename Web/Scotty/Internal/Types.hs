@@ -25,27 +25,31 @@ import           Control.Monad.Reader (MonadReader(..), ReaderT, asks, mapReader
 import           Control.Monad.State.Strict (State, StateT(..))
 import           Control.Monad.Trans.Class (MonadTrans(..))
 import           Control.Monad.Trans.Control (MonadBaseControl, MonadTransControl)
+import qualified Control.Monad.Trans.Resource as RT (InternalState, InvalidAccess)
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS8 (ByteString)
 import           Data.Default.Class (Default, def)
 import           Data.String (IsString(..))
-import           Data.Text (Text, pack)
+import qualified Data.Text as T (Text, pack)
 import           Data.Typeable (Typeable)
 
 import           Network.HTTP.Types
 
 import           Network.Wai hiding (Middleware, Application)
 import qualified Network.Wai as Wai
-import           Network.Wai.Handler.Warp (Settings, defaultSettings)
+import qualified Network.Wai.Handler.Warp as W (Settings, defaultSettings, InvalidRequest(..))
 import           Network.Wai.Parse (FileInfo)
+import qualified Network.Wai.Parse as WPS (ParseRequestBodyOptions, RequestParseException(..))
 
 import UnliftIO.Exception (Handler(..), catch, catches)
 
 
+
+
 --------------------- Options -----------------------
 data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
-                       , settings :: Settings -- ^ Warp 'Settings'
+                       , settings :: W.Settings -- ^ Warp 'Settings'
                                               -- Note: to work around an issue in warp,
                                               -- the default FD cache duration is set to 0
                                               -- so changes to static files are always picked
@@ -58,7 +62,7 @@ instance Default Options where
   def = defaultOptions
 
 defaultOptions :: Options
-defaultOptions = Options 1 defaultSettings
+defaultOptions = Options 1 W.defaultSettings
 
 newtype RouteOptions = RouteOptions { maxRequestBodySize :: Maybe Kilobytes -- max allowed request size in KB
                                     }
@@ -96,8 +100,8 @@ data ScottyState m =
                 , routeOptions :: RouteOptions
                 }
 
-instance Default (ScottyState m) where
-  def = defaultScottyState
+-- instance Default (ScottyState m) where
+--   def = defaultScottyState
 
 defaultScottyState :: ScottyState m
 defaultScottyState = ScottyState [] [] Nothing defaultRouteOptions
@@ -128,7 +132,7 @@ newtype ScottyT m a =
 -- The exception constructor is not exposed to the user and all exceptions of this type are caught
 -- and processed within the 'runAction' function.
 data ActionError
-  = AERedirect Text -- ^ Redirect
+  = AERedirect T.Text -- ^ Redirect
   | AENext -- ^ Stop processing this route and skip to the next one
   | AEFinish -- ^ Stop processing the request
   deriving (Show, Typeable)
@@ -141,7 +145,7 @@ tryNext io = catch (io >> pure True) $ \e ->
     _ -> pure True
 
 -- | E.g. when a parameter is not found in a query string (400 Bad Request) or when parsing a JSON body fails (422 Unprocessable Entity)
-data StatusError = StatusError Status Text deriving (Show, Typeable)
+data StatusError = StatusError Status T.Text deriving (Show, Typeable)
 instance E.Exception StatusError
 {-# DEPRECATED StatusError "If it is supposed to be caught, a proper exception type should be defined" #-}
 
@@ -151,29 +155,45 @@ type ErrorHandler m = Handler (ActionT m) ()
 -- | Thrown e.g. when a request is too large
 data ScottyException
   = RequestTooLarge
-  | MalformedJSON LBS8.ByteString Text
-  | FailedToParseJSON LBS8.ByteString Text
-  | PathParameterNotFound Text
-  | QueryParameterNotFound Text
-  | FormFieldNotFound Text
-  | FailedToParseParameter Text Text Text
+  | MalformedJSON LBS8.ByteString T.Text
+  | FailedToParseJSON LBS8.ByteString T.Text
+  | PathParameterNotFound T.Text
+  | QueryParameterNotFound T.Text
+  | FormFieldNotFound T.Text
+  | FailedToParseParameter T.Text T.Text T.Text
+  | WarpRequestException W.InvalidRequest
+  | WaiRequestParseException WPS.RequestParseException -- request parsing
+  | ResourceTException RT.InvalidAccess -- use after free
   deriving (Show, Typeable)
 instance E.Exception ScottyException
 
 ------------------ Scotty Actions -------------------
-type Param = (Text, Text)
+type Param = (T.Text, T.Text)
 
-type File = (Text, FileInfo LBS8.ByteString)
+-- | Type parameter @t@ is the file content. Could be @()@ when not needed or a @FilePath@ for temp files instead.
+type File t = (T.Text, FileInfo t)
 
 data ActionEnv = Env { envReq       :: Request
                      , envPathParams :: [Param]
-                     , envFormParams    :: [Param]
                      , envQueryParams :: [Param]
+                     , envFormDataAction :: RT.InternalState -> WPS.ParseRequestBodyOptions -> IO ([Param], [File FilePath])
                      , envBody      :: IO LBS8.ByteString
                      , envBodyChunk :: IO BS.ByteString
-                     , envFiles     :: [File]
                      , envResponse :: TVar ScottyResponse
                      }
+
+
+
+
+formParamsAndFilesWith :: MonadUnliftIO m =>
+                          RT.InternalState
+                       -> WPS.ParseRequestBodyOptions
+                       -> ActionT m ([Param], [File FilePath])
+formParamsAndFilesWith istate prbo = action `catch` (\(e :: RT.InvalidAccess) -> E.throw $ ResourceTException e)
+  where
+    action = do
+      act <- ActionT $ asks envFormDataAction
+      liftIO $ act istate prbo
 
 getResponse :: MonadIO m => ActionEnv -> m ScottyResponse
 getResponse ae = liftIO $ readTVarIO (envResponse ae)
@@ -222,6 +242,10 @@ defaultScottyResponse = SR status200 [] (ContentBuilder mempty)
 newtype ActionT m a = ActionT { runAM :: ReaderT ActionEnv m a }
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadThrow, MonadCatch, MonadBase b, MonadBaseControl b, MonadTransControl, MonadUnliftIO)
 
+withActionEnv :: Monad m =>
+                 (ActionEnv -> ActionEnv) -> ActionT m a -> ActionT m a
+withActionEnv f (ActionT r) = ActionT $ local f r
+
 instance MonadReader r m => MonadReader r (ActionT m) where
   ask = ActionT $ lift ask
   local f = ActionT . mapReaderT (local f) . runAM
@@ -232,7 +256,7 @@ instance (MonadUnliftIO m) => MonadError StatusError (ActionT m) where
   catchError = catch
 -- | Modeled after the behaviour in scotty < 0.20, 'fail' throws a 'StatusError' with code 500 ("Server Error"), which can be caught with 'E.catch'.
 instance (MonadIO m) => MonadFail (ActionT m) where
-  fail = E.throw . StatusError status500 . pack
+  fail = E.throw . StatusError status500 . T.pack
 -- | 'empty' throws 'ActionError' 'AENext', whereas '(<|>)' catches any 'ActionError's or 'StatusError's in the first action and proceeds to the second one.
 instance (MonadUnliftIO m) => Alternative (ActionT m) where
   empty = E.throw AENext
@@ -273,11 +297,11 @@ instance
   mempty = return mempty
 
 ------------------ Scotty Routes --------------------
-data RoutePattern = Capture   Text
-                  | Literal   Text
+data RoutePattern = Capture   T.Text
+                  | Literal   T.Text
                   | Function  (Request -> Maybe [Param])
 
 instance IsString RoutePattern where
-    fromString = Capture . pack
+    fromString = Capture . T.pack
 
 

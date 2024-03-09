@@ -30,12 +30,15 @@ module Web.Scotty.Trans
     , capture, regex, function, literal
       -- ** Accessing the Request and its fields
     , request, Lazy.header, Lazy.headers, body, bodyReader
-    , jsonData, files
+    , jsonData
+
       -- ** Accessing Path, Form and Query Parameters
     , param, params
     , pathParam, captureParam, formParam, queryParam
     , pathParamMaybe, captureParamMaybe, formParamMaybe, queryParamMaybe
     , pathParams, captureParams, formParams, queryParams
+    -- *** Files
+    , files, filesOpts, ParseRequestBodyOptions
       -- ** Modifying the Response and Redirecting
     , status, Lazy.addHeader, Lazy.setHeader, Lazy.redirect
       -- ** Setting Response Body
@@ -136,7 +139,7 @@ scottyAppT options runActionToIO defs = do
           callback resp
     return $ applyAll rapp (middlewares s)
 
---- | Exception handler in charge of 'ScottyException' that's not caught by 'scottyExceptionHandler'
+-- | Exception handler in charge of 'ScottyException' that's not caught by 'scottyExceptionHandler'
 unhandledExceptionHandler :: MonadIO m => ScottyException -> m W.Response
 unhandledExceptionHandler = \case
   RequestTooLarge -> return $ W.responseBuilder status413 ct "Request is too big Jim!"

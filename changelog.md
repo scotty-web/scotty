@@ -1,11 +1,21 @@
 ## next [????.??.??]
 
+
+
 ### New
 * add `instance Parsable UTCTime` (#250)
+* add `filesOpts` (#369). Form parameters and files are only parsed from the request body if needed; `filesOpts` introduces options to limit uploads, a mechanism to back uploads with temporary files based on resourcet, as well as a continuation-based syntax to process such temporary files. This function is now the central mechanism for handling form parameters and files (`files` is written in terms of it).
 
 ### Fixes
 * Path parameters with value matching the parameter name prefixed by colon will properly populate `pathParams` with their literal value : `/:param` will match `/:param` and add a `Param` with value `("param", ":param")` (#301)
 * Accept text-2.1 (#364)
+* Remove dependency upper bounds on `text` and `bytestring` (#371)
+
+
+### Breaking changes
+* some ActionT API functions have now a MonadIO or MonadUnliftIO constraint rather than Monad reflecting that there is where request reading takes place. (#369)
+* the File type has now a type parameter to reflect whether it carries file contents or just a filepath pointing to the temp file (#369).
+
 
 
 ## 0.21 [2023.12.17]
@@ -23,10 +33,14 @@
 * Reverted the `MonadReader` instance of `ActionT` so that it inherits the base monad (#342)
 * Scotty's API such as `queryParam` now throws `ScottyException` rather than `StatusException`.
   Uncaught exceptions are handled by `scottyExceptionHandler`, resembling the existing behaviour
+  
+### Breaking changes
+* `File` type: the first component of the tuple is strict text now (used to be lazy prior to 0.21) (#370)
 
 ### Documentation
 * Add doctest, refactor some inline examples into doctests (#353)
 * document "`defaultHandler` only applies to endpoints defined after it" (#237)
+
 
 
 ## 0.20.1 [2023.10.03]

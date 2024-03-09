@@ -71,7 +71,7 @@ socketDescription sock = do
     SockAddrUnix u -> return $ "unix socket " ++ u
     _              -> fmap (\port -> "port " ++ show port) $ socketPort sock
 
--- | return request body or throw a 'RequestException' if request body too big
+-- | return request body or throw a 'ScottyException' if request body too big
 readRequestBody :: IO B.ByteString -- ^ body chunk reader
                 -> ([B.ByteString] -> IO [B.ByteString])
                 -> Maybe Kilobytes -- ^ max body size
@@ -96,6 +96,5 @@ readRequestBody rbody prefix maxSize = do
             if B.null b
               then throwIO RequestTooLarge
               else readUntilEmpty
-
 
 

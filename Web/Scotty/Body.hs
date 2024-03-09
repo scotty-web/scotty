@@ -1,5 +1,7 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, RecordWildCards,
-             OverloadedStrings, MultiWayIf #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiWayIf #-}
+{-# language OverloadedStrings #-}
+{-# language ScopedTypeVariables #-}
 module Web.Scotty.Body (
   newBodyInfo,
   cloneBodyInfo
@@ -7,20 +9,27 @@ module Web.Scotty.Body (
   , getFormParamsAndFilesAction
   , getBodyAction
   , getBodyChunkAction
+  -- wai-extra
+  , W.RequestParseException(..)
   ) where
 
 import           Control.Concurrent.MVar
 import           Control.Monad.IO.Class
+import Control.Monad.Trans.Resource (InternalState)
+import Data.Bifunctor (first, bimap)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
-import           Data.Maybe
 import qualified GHC.Exception as E (throw)
 import           Network.Wai (Request(..), getRequestBodyChunk)
-import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, BackEnd, lbsBackEnd, sinkRequestBody)
-import           Web.Scotty.Action (Param)
-import           Web.Scotty.Internal.Types (BodyInfo(..), BodyChunkBuffer(..), BodyPartiallyStreamed(..), RouteOptions(..))
-import           Web.Scotty.Util (readRequestBody, strictByteStringToLazyText, decodeUtf8Lenient)
+import qualified Network.Wai.Handler.Warp as Warp (InvalidRequest(..))
+import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, tempFileBackEnd, RequestBodyType(..), sinkRequestBodyEx, RequestParseException(..), ParseRequestBodyOptions)
+-- import UnliftIO (MonadUnliftIO(..))
+import UnliftIO.Exception (Handler(..), catches, throwIO)
+
+import           Web.Scotty.Internal.Types (BodyInfo(..), BodyChunkBuffer(..), BodyPartiallyStreamed(..), RouteOptions(..), File, ScottyException(..), Param)
+import           Web.Scotty.Util (readRequestBody, decodeUtf8Lenient)
+
 
 -- | Make a new BodyInfo with readProgress at 0 and an empty BodyChunkBuffer.
 newBodyInfo :: (MonadIO m) => Request -> m BodyInfo
@@ -36,26 +45,62 @@ cloneBodyInfo (BodyInfo _ chunkBufferVar getChunk) = liftIO $ do
   cleanReadProgressVar <- newMVar 0
   return $ BodyInfo cleanReadProgressVar chunkBufferVar getChunk
 
--- | Get the form params and files from the request. Requires reading the whole body.
-getFormParamsAndFilesAction :: Request -> BodyInfo -> RouteOptions -> IO ([Param], [W.File BL.ByteString])
-getFormParamsAndFilesAction req bodyInfo opts = do
-  let shouldParseBody = isJust $ W.getRequestBodyType req
+-- | Get the form params and files from the request.
+--
+-- NB : catches exceptions from 'warp' and 'wai-extra' and wraps them into 'ScottyException'
+getFormParamsAndFilesAction ::
+  InternalState
+  -> W.ParseRequestBodyOptions
+  -> Request -- ^ only used for its body type
+  -> BodyInfo -- ^ the request body contents are read from here
+  -> RouteOptions
+  -> IO ([Param], [File FilePath])
+getFormParamsAndFilesAction istate prbo req bodyInfo opts = do
+  let
+    bs2t = decodeUtf8Lenient
+    convertBoth = bimap bs2t bs2t
+    convertKey = first bs2t
+  bs <- getBodyAction bodyInfo opts
+  let
+    wholeBody = BL.toChunks bs
+  (formparams, fs) <- parseRequestBodyExBS istate prbo wholeBody (W.getRequestBodyType req) `catches` handleWaiParseSafeExceptions
+  return (convertBoth <$> formparams, convertKey <$> fs)
 
-  if shouldParseBody
-    then
-    do
-      bs <- getBodyAction bodyInfo opts
-      let wholeBody = BL.toChunks bs
-      (formparams, fs) <- parseRequestBody wholeBody W.lbsBackEnd req -- NB this loads the whole body into memory
-      let convert (k, v) = (decodeUtf8Lenient k, decodeUtf8Lenient v)
-      return (convert <$> formparams, fs)
-    else
-    return ([], [])
+-- | Wrap exceptions from upstream libraries into 'ScottyException'
+handleWaiParseSafeExceptions :: MonadIO m => [Handler m a]
+handleWaiParseSafeExceptions = [h1, h2]
+  where
+    h1 = Handler (\ (e :: W.RequestParseException ) -> throwIO $ WaiRequestParseException e)
+    h2 = Handler (\(e :: Warp.InvalidRequest) -> throwIO $ WarpRequestException e)
+
+-- | Adapted from wai-extra's Network.Wai.Parse, modified to accept body as list of Bytestrings.
+-- Reason: WAI's requestBody is an IO action that returns the body as chunks. Once read,
+-- they can't be read again. We read them into a lazy Bytestring, so Scotty user can get
+-- the raw body, even if they also want to call wai-extra's parsing routines.
+parseRequestBodyExBS :: MonadIO m =>
+                        InternalState
+                     -> W.ParseRequestBodyOptions
+                     -> [B.ByteString]
+                     -> Maybe W.RequestBodyType
+                     -> m ([W.Param], [W.File FilePath])
+parseRequestBodyExBS istate o bl rty =
+    case rty of
+        Nothing -> return ([], [])
+        Just rbt -> do
+            mvar <- liftIO $ newMVar bl -- MVar is a bit of a hack so we don't have to inline
+                                        -- large portions of Network.Wai.Parse
+            let provider = modifyMVar mvar $ \bsold -> case bsold of
+                                                []     -> return ([], B.empty)
+                                                (b:bs) -> return (bs, b)
+            liftIO $ W.sinkRequestBodyEx o (W.tempFileBackEnd istate) rbt provider
+
 
 -- | Retrieve the entire body, using the cached chunks in the BodyInfo and reading any other
 -- chunks if they still exist.
--- Mimic the previous behavior by throwing BodyPartiallyStreamed if the user has already
+-- Mimic the previous behavior by throwing 'BodyPartiallyStreamed' if the user has already
 -- started reading the body by chunks.
+--
+-- throw 'ScottyException' if request body too big
 getBodyAction :: BodyInfo -> RouteOptions -> IO (BL.ByteString)
 getBodyAction (BodyInfo readProgress chunkBufferVar getChunk) opts =
   modifyMVar readProgress $ \index ->
@@ -77,25 +122,5 @@ getBodyChunkAction (BodyInfo readProgress chunkBufferVar getChunk) =
          | hasFinished -> return (bcb, (index, mempty))
          | otherwise -> do
              newChunk <- getChunk
-             return (BodyChunkBuffer (newChunk == mempty) (chunks ++ [newChunk]), (index + 1, newChunk))
+             return (BodyChunkBuffer (B.null newChunk) (chunks ++ [newChunk]), (index + 1, newChunk))
 
-
--- Stolen from wai-extra's Network.Wai.Parse, modified to accept body as list of Bytestrings.
--- Reason: WAI's requestBody is an IO action that returns the body as chunks. Once read,
--- they can't be read again. We read them into a lazy Bytestring, so Scotty user can get
--- the raw body, even if they also want to call wai-extra's parsing routines.
-parseRequestBody :: MonadIO m
-                 => [B.ByteString]
-                 -> W.BackEnd y
-                 -> Request
-                 -> m ([W.Param], [W.File y])
-parseRequestBody bl s r =
-    case W.getRequestBodyType r of
-        Nothing -> return ([], [])
-        Just rbt -> do
-            mvar <- liftIO $ newMVar bl -- MVar is a bit of a hack so we don't have to inline
-                                        -- large portions of Network.Wai.Parse
-            let provider = modifyMVar mvar $ \bsold -> case bsold of
-                                                []     -> return ([], B.empty)
-                                                (b:bs) -> return (bs, b)
-            liftIO $ W.sinkRequestBody s rbt provider
