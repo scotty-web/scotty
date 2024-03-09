@@ -324,17 +324,17 @@ spec = do
       withApp (Scotty.post "/files" $ do
                   fs <- files
                   text $ TL.pack $ show $ length fs) $ do
-        context "Small number of files" $ do
+        context "small number of files" $ do
           it "loads uploaded files in memory" $ do
             postMultipartForm "/files" "ABC123" [
               (FMFile "file1.txt", "text/plain;charset=UTF-8", "first_file", "xxx")
               ] `shouldRespondWith` 200 { matchBody = "1"}
-        context "File name too long" $ do
-          it "?" $ do
+        context "file name too long (> 32 bytes)" $ do
+          it "responds with 413 - Request Too Large" $ do
             postMultipartForm "/files" "ABC123" [
               (FMFile "file.txt", "text/plain;charset=UTF-8", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzx", "xxx")
                                                 ] `shouldRespondWith` 413
-        context "Large number of files" $ do
+        context "large number of files (> 10)" $ do
           it "responds with 413 - Request Too Large" $ do
             postMultipartForm "/files" "ABC123" [
               (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
