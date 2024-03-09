@@ -33,6 +33,7 @@
 * Reverted the `MonadReader` instance of `ActionT` so that it inherits the base monad (#342)
 * Scotty's API such as `queryParam` now throws `ScottyException` rather than `StatusException`.
   Uncaught exceptions are handled by `scottyExceptionHandler`, resembling the existing behaviour
+* When in 'verbose' mode any unhandled exceptions are printed to stderr as well (#374)
   
 ### Breaking changes
 * `File` type: the first component of the tuple is strict text now (used to be lazy prior to 0.21) (#370)
