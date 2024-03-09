@@ -4,16 +4,17 @@
 
 ### New
 * add `instance Parsable UTCTime` (#250)
-* add `filesOpts` (#369). Form parameters and files are only parsed from the request body if needed; `filesOpts` introduces options to limit uploads, a mechanism to back uploads with temporary files based on resourcet, as well as a continuation-based syntax to process such temporary files. This function is now the central mechanism for handling form parameters and files (`files` is written in terms of it).
+* add `filesOpts` (#369). Form parameters and files are only parsed from the request body if needed; `filesOpts` introduces options to customize upload limits, a mechanism to back uploads with temporary files based on resourcet, as well as a continuation-based syntax to process such temporary files. 
 
 ### Fixes
+* `files` does not accept unbounded uploads anymore (see #183, #203), but like `filesOpts` it is backed by temporary files which are read back in memory and removed right away. The limits for `files` are prescribed by `defaultParseBodyOptions` in wai-extra (#369).
 * Path parameters with value matching the parameter name prefixed by colon will properly populate `pathParams` with their literal value : `/:param` will match `/:param` and add a `Param` with value `("param", ":param")` (#301)
 * Accept text-2.1 (#364)
 * Remove dependency upper bounds on `text` and `bytestring` (#371)
 
 
 ### Breaking changes
-* some ActionT API functions have now a MonadIO or MonadUnliftIO constraint rather than Monad reflecting that there is where request reading takes place. (#369)
+* some ActionT API functions have now a MonadIO or MonadUnliftIO constraint rather than Monad reflecting that there is where request reading takes place. E.g. `files` has now a MonadUnliftIO constraint on its base monad. (#369)
 * the File type has now a type parameter to reflect whether it carries file contents or just a filepath pointing to the temp file (#369).
 
 
