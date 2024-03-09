@@ -1,6 +1,7 @@
 ## next [????.??.??]
 
 
+## 0.22 [2024.03.09]
 
 ### New
 * add `instance Parsable UTCTime` (#250)
