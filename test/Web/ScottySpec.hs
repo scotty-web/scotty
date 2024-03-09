@@ -324,10 +324,32 @@ spec = do
       withApp (Scotty.post "/files" $ do
                   fs <- files
                   text $ TL.pack $ show $ length fs) $ do
-        it "loads uploaded files in memory" $ do
-          postMultipartForm "/files" "ABC123" [
-            (FMFile "file1.txt", "text/plain;charset=UTF-8", "first_file", "xxx")
-            ] `shouldRespondWith` 200 { matchBody = "1"}
+        context "Small number of files" $ do
+          it "loads uploaded files in memory" $ do
+            postMultipartForm "/files" "ABC123" [
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "first_file", "xxx")
+              ] `shouldRespondWith` 200 { matchBody = "1"}
+        context "File name too long" $ do
+          it "?" $ do
+            postMultipartForm "/files" "ABC123" [
+              (FMFile "file.txt", "text/plain;charset=UTF-8", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzx", "xxx")
+                                                ] `shouldRespondWith` 413
+        context "Large number of files" $ do
+          it "responds with 413 - Request Too Large" $ do
+            postMultipartForm "/files" "ABC123" [
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
+              (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx")
+              ] `shouldRespondWith` 413
+
 
     describe "filesOpts" $ do
       let
