@@ -6,7 +6,6 @@
 module Main (main) where
 
 import Control.Monad
-import Control.Monad.Trans.Resource (withInternalState, runResourceT)
 import Data.Functor.Identity
 import Lucid.Base
 import Lucid.Html5
@@ -20,18 +19,16 @@ import Weigh
 
 main :: IO ()
 main = do
-  withRes $ \istate ->
     mainWith $ do
       setColumns [Case,Allocated,GCs,Live,Check,Max,MaxOS]
       setFormat Markdown
       io "ScottyM Strict" BL.putStr
-        (SS.evalState (runS $ renderBST htmlScotty) (defaultScottyState istate))
+        (SS.evalState (runS $ renderBST htmlScotty) defaultScottyState)
       io "ScottyM Lazy" BL.putStr
-        (SL.evalState (runScottyLazy $ renderBST htmlScottyLazy) (defaultScottyState istate))
+        (SL.evalState (runScottyLazy $ renderBST htmlScottyLazy) defaultScottyState)
       io "Identity" BL.putStr
         (runIdentity $ renderBST htmlIdentity)
 
-withRes = runResourceT . withInternalState
 
 htmlTest :: Monad m => HtmlT m ()
 htmlTest = replicateM_ 2 $ div_ $ do

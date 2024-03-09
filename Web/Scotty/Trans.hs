@@ -69,7 +69,6 @@ import Control.Exception (assert)
 import Control.Monad (when)
 import Control.Monad.State.Strict (execState, modify)
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Resource (runResourceT, withInternalState)
 
 import Network.HTTP.Types (status404, status413, status500)
 import Network.Socket (Socket)
@@ -83,7 +82,6 @@ import Web.Scotty.Trans.Lazy as Lazy
 import Web.Scotty.Util (socketDescription)
 import Web.Scotty.Body (newBodyInfo)
 
-import UnliftIO (MonadUnliftIO(..))
 import UnliftIO.Exception (Handler(..), catch)
 
 

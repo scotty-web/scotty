@@ -322,7 +322,7 @@ spec = do
 
     describe "files" $ do
       withApp (Scotty.post "/files" $ do
-                  fs <- files -- XXX Control.Monad.Trans.Resource.register': The mutable state is being accessed after cleanup. Please contact the maintainers.
+                  fs <- files
                   text $ TL.pack $ show $ length fs) $ do
         it "loads uploaded files in memory" $ do
           postMultipartForm "/files" "ABC123" [
