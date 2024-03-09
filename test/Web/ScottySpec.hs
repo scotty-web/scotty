@@ -17,6 +17,7 @@ import Data.Time.Clock (secondsToDiffTime)
 
 import           Network.HTTP.Types
 import           Network.Wai (Application, Request(queryString), responseLBS)
+import           Network.Wai.Parse (defaultParseRequestBodyOptions)
 import qualified Control.Exception.Lifted as EL
 import qualified Control.Exception as E
 

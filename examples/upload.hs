@@ -10,7 +10,7 @@ import qualified Data.Text.Lazy as TL
 
 import Network.Wai.Middleware.RequestLogger
 import Network.Wai.Middleware.Static
-import Network.Wai.Parse (fileName, fileContent)
+import Network.Wai.Parse (fileName, fileContent, defaultParseRequestBodyOptions)
 
 import qualified Text.Blaze.Html5 as H
 import Text.Blaze.Html5.Attributes

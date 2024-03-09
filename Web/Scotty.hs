@@ -32,7 +32,7 @@ module Web.Scotty
     , pathParamMaybe, captureParamMaybe, formParamMaybe, queryParamMaybe
     , pathParams, captureParams, formParams, queryParams
       -- *** Files
-    , files, filesOpts, Trans.ParseRequestBodyOptions, Trans.defaultParseRequestBodyOptions
+    , files, filesOpts, Trans.ParseRequestBodyOptions
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
       -- ** Setting Response Body
@@ -67,6 +67,7 @@ import Network.HTTP.Types (Status, StdMethod, ResponseHeaders)
 import Network.Socket (Socket)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
+import qualified Network.Wai.Parse as W (defaultParseRequestBodyOptions)
 
 import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, ScottyException, StatusError(..), Content(..))
 import UnliftIO.Exception (Handler(..), catch)
@@ -232,7 +233,9 @@ redirect = Trans.redirect
 request :: ActionM Request
 request = Trans.request
 
--- | Get list of in-memory files.
+-- | Get list of uploaded files.
+--
+-- NB: Loads all file contents in memory with options 'W.defaultParseRequestBodyOptions'
 files :: ActionM [File ByteString]
 files = Trans.files
 
