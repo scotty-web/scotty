@@ -29,7 +29,6 @@ import qualified Control.Monad.Trans.Resource as RT (InternalState, InvalidAcces
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS8 (ByteString)
-import           Data.Default.Class (Default, def)
 import           Data.String (IsString(..))
 import qualified Data.Text as T (Text, pack)
 import           Data.Typeable (Typeable)
@@ -58,17 +57,11 @@ data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
                                               -- servers using `setFdCacheDuration`.
                        }
 
-instance Default Options where
-  def = defaultOptions
-
 defaultOptions :: Options
 defaultOptions = Options 1 W.defaultSettings
 
 newtype RouteOptions = RouteOptions { maxRequestBodySize :: Maybe Kilobytes -- max allowed request size in KB
                                     }
-
-instance Default RouteOptions where
-    def = defaultRouteOptions
 
 defaultRouteOptions :: RouteOptions
 defaultRouteOptions = RouteOptions Nothing
@@ -99,9 +92,6 @@ data ScottyState m =
                 , handler :: Maybe (ErrorHandler m)
                 , routeOptions :: RouteOptions
                 }
-
--- instance Default (ScottyState m) where
---   def = defaultScottyState
 
 defaultScottyState :: ScottyState m
 defaultScottyState = ScottyState [] [] Nothing defaultRouteOptions
@@ -231,8 +221,6 @@ setHeaderWith f sr = sr { srHeaders = f (srHeaders sr) }
 setStatus :: Status -> ScottyResponse -> ScottyResponse
 setStatus s sr = sr { srStatus = s }
 
-instance Default ScottyResponse where
-  def = defaultScottyResponse
 
 -- | The default response has code 200 OK and empty body
 defaultScottyResponse :: ScottyResponse
