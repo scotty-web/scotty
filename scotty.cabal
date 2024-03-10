@@ -92,7 +92,7 @@ Library
                        unliftio >= 0.2,
                        wai                   >= 3.0.0    && < 3.3,
                        wai-extra             >= 3.1.14,
-                       warp                  >= 3.0.13   && < 3.4
+                       warp                  >= 3.0.13
 
   if impl(ghc < 8.0)
     build-depends:     fail
