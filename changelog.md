@@ -1,6 +1,11 @@
 ## next [????.??.??]
 
 
+### Breaking changes
+* Remove dependency on data-default class (#386). We have been exporting constants for default config values since 0.20, and this dependency was simply unnecessary.
+
+
+
 ## 0.22 [2024.03.09]
 
 ### New
