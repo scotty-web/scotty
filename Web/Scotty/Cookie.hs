@@ -22,7 +22,7 @@ import Data.Monoid
 import Data.Maybe
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Read as TL (decimal)
-import Web.Scotty (scotty, html)
+import Web.Scotty (scotty, html, get)
 import Web.Scotty.Cookie (getCookie, setSimpleCookie)
 
 main :: IO ()
@@ -30,7 +30,7 @@ main = scotty 3000 $
     get \"/\" $ do
         hits <- liftM (fromMaybe \"0\") $ 'getCookie' \"hits\"
         let hits' =
-              case TL.decimal hits of
+              case TL.decimal $ TL.fromStrict hits of
                 Right n -> TL.pack . show . (+1) $ (fst n :: Integer)
                 Left _  -> \"1\"
         'setSimpleCookie' \"hits\" $ TL.toStrict hits'
