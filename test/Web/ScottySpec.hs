@@ -255,6 +255,8 @@ spec = do
       withApp (Scotty.get "/search" $ queryParam "query" >>= text) $ do
         it "returns query parameter with given name" $ do
           get "/search?query=haskell" `shouldRespondWith` "haskell"
+        it "decodes URL-encoding" $ do
+          get "/search?query=Kurf%C3%BCrstendamm" `shouldRespondWith` "Kurfürstendamm"
       withApp (Scotty.matchAny "/search" (do
                                              v <- queryParam "query"
                                              json (v :: Int) )) $ do
@@ -278,6 +280,9 @@ spec = do
 
         it "replaces non UTF-8 bytes with Unicode replacement character" $ do
           postForm "/search" "query=\xe9" `shouldRespondWith` "\xfffd"
+
+        it "decodes URL-encoding" $ do
+          postForm "/search" "query=Kurf%C3%BCrstendamm" `shouldRespondWith` "Kurfürstendamm"
       withApp (Scotty.post "/search" (do
                                              v <- formParam "query"
                                              json (v :: Int))) $ do
