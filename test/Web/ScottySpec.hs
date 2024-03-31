@@ -2,7 +2,7 @@
 module Web.ScottySpec (main, spec) where
 
 import           Test.Hspec
-import           Test.Hspec.Wai (with, request, get, post, put, patch, delete, options, (<:>), shouldRespondWith, postHtmlForm, matchHeaders, matchBody, matchStatus)
+import           Test.Hspec.Wai (WaiSession, with, request, get, post, put, patch, delete, options, (<:>), shouldRespondWith, matchHeaders, matchBody, matchStatus)
 import Test.Hspec.Wai.Extra (postMultipartForm, FileMeta(..))
 
 import           Control.Applicative
@@ -21,6 +21,7 @@ import GHC.Generics (Generic)
 import           Network.HTTP.Types
 import           Network.Wai (Application, Request(queryString), responseLBS)
 import           Network.Wai.Parse (defaultParseRequestBodyOptions)
+import           Network.Wai.Test (SResponse)
 import qualified Control.Exception.Lifted as EL
 import qualified Control.Exception as E
 
@@ -34,6 +35,7 @@ import           Control.Concurrent.Async (withAsync)
 import           Control.Exception (bracketOnError)
 import qualified Data.ByteString as BS
 import           Data.ByteString (ByteString)
+import qualified Data.ByteString.Lazy as LBS
 import           Network.Socket (Family(..), SockAddr(..), Socket, SocketOption(..), SocketType(..), bind, close, connect, listen, maxListenQueue, setSocketOption, socket)
 import           Network.Socket.ByteString (send, recv)
 import           System.Directory (removeFile)
@@ -51,6 +53,9 @@ data SearchForm = SearchForm
   } deriving (Generic)
 
 instance FromForm SearchForm where
+
+postForm :: ByteString -> LBS.ByteString -> WaiSession st SResponse
+postForm p = request "POST" p [("Content-Type","application/x-www-form-urlencoded")]
 
 spec :: Spec
 spec = do
@@ -285,14 +290,15 @@ spec = do
     describe "formData" $ do
       withApp (Scotty.post "/search" $ formData >>= (text . sfQuery)) $ do
         it "decodes the form" $ do
-          postHtmlForm "/search" [("sfQuery", "Haskell"), ("sfYear", "2024")] `shouldRespondWith` "Haskell"
+          postForm "/search" "sfQuery=Haskell&sfYear=2024" `shouldRespondWith` "Haskell"
+
+        it "decodes URL-encoding" $ do
+          postForm "/search" "sfQuery=Kurf%C3%BCrstendamm&sfYear=2024" `shouldRespondWith` "Kurfürstendamm"
 
         it "returns 400 when the form can't is malformed" $ do
-          postHtmlForm "/search" [("sfQuery", "Haskell")] `shouldRespondWith` 400
+          postForm "/search" "sfQuery=Haskell" `shouldRespondWith` 400
 
     describe "formParam" $ do
-      let
-        postForm p bdy = request "POST" p [("Content-Type","application/x-www-form-urlencoded")] bdy
       withApp (Scotty.post "/search" $ formParam "query" >>= text) $ do
         it "returns form parameter with given name" $ do
           postForm "/search" "query=haskell" `shouldRespondWith` "haskell"
@@ -378,7 +384,7 @@ spec = do
 
     describe "filesOpts" $ do
       let
-          postForm = postMultipartForm "/files" "ABC123" [
+          postMpForm = postMultipartForm "/files" "ABC123" [
             (FMFile "file1.txt", "text/plain;charset=UTF-8", "first_file", "xxx"),
             (FMFile "file2.txt", "text/plain;charset=UTF-8", "second_file", "yyy")
             ]
@@ -388,13 +394,13 @@ spec = do
       withApp (Scotty.post "/files" processForm
               ) $ do
         it "loads uploaded files in memory" $ do
-          postForm `shouldRespondWith` 200 { matchBody = "2"}
+          postMpForm `shouldRespondWith` 200 { matchBody = "2"}
       context "preserves the body of a POST request even after 'next' (#147)" $ do
         withApp (do
                     Scotty.post "/files" next
                     Scotty.post "/files" processForm) $ do
           it "loads uploaded files in memory" $ do
-            postForm `shouldRespondWith` 200 { matchBody = "2"}
+            postMpForm `shouldRespondWith` 200 { matchBody = "2"}
 
 
     describe "text" $ do
