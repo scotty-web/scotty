@@ -30,7 +30,7 @@ module Web.Scotty.Trans
     , capture, regex, function, literal
       -- ** Accessing the Request and its fields
     , request, Lazy.header, Lazy.headers, body, bodyReader
-    , jsonData
+    , jsonData, formData
 
       -- ** Accessing Path, Form and Query Parameters
     , param, params

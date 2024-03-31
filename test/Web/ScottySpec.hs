@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, CPP, ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings, CPP, ScopedTypeVariables, DeriveGeneric #-}
 module Web.ScottySpec (main, spec) where
 
 import           Test.Hspec
@@ -9,11 +9,14 @@ import           Control.Applicative
 import           Control.Monad
 import           Data.Char
 import           Data.String
+import           Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 import Data.Time (UTCTime(..))
 import Data.Time.Calendar (fromGregorian)
 import Data.Time.Clock (secondsToDiffTime)
+
+import GHC.Generics (Generic)
 
 import           Network.HTTP.Types
 import           Network.Wai (Application, Request(queryString), responseLBS)
@@ -21,6 +24,7 @@ import           Network.Wai.Parse (defaultParseRequestBodyOptions)
 import qualified Control.Exception.Lifted as EL
 import qualified Control.Exception as E
 
+import           Web.FormUrlEncoded (FromForm)
 import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request, options)
 import qualified Web.Scotty as Scotty
 import qualified Web.Scotty.Cookie as SC (getCookie, setSimpleCookie, deleteCookie)
@@ -40,6 +44,13 @@ main = hspec spec
 
 availableMethods :: [StdMethod]
 availableMethods = [GET, POST, HEAD, PUT, PATCH, DELETE, OPTIONS]
+
+data SearchForm = SearchForm
+  { sfQuery :: Text
+  , sfYear :: Int
+  } deriving (Generic)
+
+instance FromForm SearchForm where
 
 spec :: Spec
 spec = do
@@ -270,6 +281,14 @@ spec = do
                 ) $ do
           it "catches a ScottyException" $ do
             get "/search?query=potato" `shouldRespondWith` 200 { matchBody = "z"}
+    
+    describe "formData" $ do
+      withApp (Scotty.post "/search" $ formData >>= (text . sfQuery)) $ do
+        it "decodes the form" $ do
+          postHtmlForm "/search" [("sfQuery", "Haskell"), ("sfYear", "2024")] `shouldRespondWith` "Haskell"
+
+        it "returns 400 when the form can't is malformed" $ do
+          postHtmlForm "/search" [("sfQuery", "Haskell")] `shouldRespondWith` 400
 
     describe "formParam" $ do
       let

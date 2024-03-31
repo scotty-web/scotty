@@ -23,6 +23,7 @@ module Web.Scotty.Action
     , liftAndCatchIO
     , json
     , jsonData
+    , formData
     , next
     , param
     , pathParam
@@ -101,6 +102,7 @@ import qualified Network.Wai.Parse as W (FileInfo(..), ParseRequestBodyOptions, 
 
 import           Numeric.Natural
 
+import           Web.FormUrlEncoded (FromForm, urlDecodeAsForm)
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, decodeUtf8Lenient)
 import           UnliftIO.Exception (Handler(..), catch, catches, throwIO)
@@ -165,6 +167,13 @@ scottyExceptionHandler = Handler $ \case
     status status422
     raw $ BL.unlines
       [ "jsonData: failed to parse"
+      , "Body: " <> bs
+      , "Error: " <> BL.fromStrict (encodeUtf8 err)
+      ]
+  MalformedForm bs err -> do
+    status status400
+    raw $ BL.unlines
+      [ "formData: malformed"
       , "Body: " <> bs
       , "Error: " <> BL.fromStrict (encodeUtf8 err)
       ]
@@ -353,6 +362,19 @@ jsonData = do
       Right value -> case A.fromJSON value of
         A.Error err -> throwIO $ FailedToParseJSON b $ T.pack err
         A.Success a -> return a
+
+-- | Parse the request body as @x-www-form-urlencoded@ form data and return it.
+--
+--   The form is parsed using 'urlDecodeAsForm'. If that returns 'Left', the
+--   status is set to 400 and an exception is thrown.
+--
+-- NB : Internally this uses 'body'.
+formData :: (FromForm a, MonadIO m) => ActionT m a
+formData = do
+  b <- body
+  case urlDecodeAsForm b of
+    Left err -> throwIO $ MalformedForm b err
+    Right value -> return value
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
