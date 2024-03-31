@@ -295,7 +295,7 @@ spec = do
         it "decodes URL-encoding" $ do
           postForm "/search" "sfQuery=Kurf%C3%BCrstendamm&sfYear=2024" `shouldRespondWith` "Kurfürstendamm"
 
-        it "returns 400 when the form can't is malformed" $ do
+        it "returns 400 when the form is malformed" $ do
           postForm "/search" "sfQuery=Haskell" `shouldRespondWith` 400
 
     describe "formParam" $ do
