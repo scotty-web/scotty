@@ -38,7 +38,7 @@ module Web.Scotty.Trans
     , pathParamMaybe, captureParamMaybe, formParamMaybe, queryParamMaybe
     , pathParams, captureParams, formParams, queryParams
     -- *** Files
-    , files, filesOpts, ParseRequestBodyOptions
+    , files, filesOpts
       -- ** Modifying the Response and Redirecting
     , status, Lazy.addHeader, Lazy.setHeader, Lazy.redirect
       -- ** Setting Response Body

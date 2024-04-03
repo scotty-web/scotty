@@ -32,7 +32,7 @@ module Web.Scotty
     , pathParamMaybe, captureParamMaybe, formParamMaybe, queryParamMaybe
     , pathParams, captureParams, formParams, queryParams
       -- *** Files
-    , files, filesOpts, Trans.ParseRequestBodyOptions
+    , files, filesOpts
       -- ** Modifying the Response and Redirecting
     , status, addHeader, setHeader, redirect
       -- ** Setting Response Body
@@ -67,7 +67,7 @@ import Network.HTTP.Types (Status, StdMethod, ResponseHeaders)
 import Network.Socket (Socket)
 import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
-import qualified Network.Wai.Parse as W (defaultParseRequestBodyOptions)
+import qualified Network.Wai.Parse as W
 
 import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, ScottyException, StatusError(..), Content(..))
 import UnliftIO.Exception (Handler(..), catch)
@@ -242,7 +242,7 @@ files = Trans.files
 -- | Get list of temp files and form parameters decoded from multipart payloads.
 --
 -- NB the temp files are deleted when the continuation exits
-filesOpts :: Trans.ParseRequestBodyOptions
+filesOpts :: W.ParseRequestBodyOptions
           -> ([Param] -> [File FilePath] -> ActionM a) -- ^ temp files validation, storage etc
           -> ActionM a
 filesOpts = Trans.filesOpts
