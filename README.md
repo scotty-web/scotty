@@ -23,31 +23,21 @@ As for the name: Sinatra + Warp = Scotty.
 
 ## Examples
 
-Run /basic.hs to see Scotty in action:
+Run `examples/basic.hs` to see Scotty in action (if you haven't, run `cabal update` first):
 
-```bash
-runghc examples/basic.hs
 ```
-`Setting phasers to stun... (port 3000) (ctrl-c to quit)`
-
-Or equivalently with [`stack`](https://docs.haskellstack.org/en/stable/):
-
-```bash
-stack exec -- scotty-basic
+$ cabal run scotty-basic
+Setting phasers to stun... (port 3000) (ctrl-c to quit)
 ```
 
-Once the server is running you can interact with it with curl or a browser:
+Once the server is running you can interact with it with `curl` or a browser:
 
-```bash
-curl localhost:3000
 ```
-`foobar`
-
-```bash
-curl localhost:3000/foo_query?p=42
+$ curl localhost:3000
+foobar
+$ curl localhost:3000/foo_query?p=42
+<h1>42</h1>
 ```
-`<h1>42</h1>`
-
 
 Additionally, the `examples` directory shows a number of concrete use cases, e.g. 
 
@@ -57,6 +47,8 @@ Additionally, the `examples` directory shows a number of concrete use cases, e.g
 * [cookies](./examples/cookies.hs)
 * [file upload](./examples/upload.hs)
 * and more
+
+You can run these using `cabal run scotty-exceptions`, `cabal run scotty-globalstate` etc.
 
 ## More Information
 
