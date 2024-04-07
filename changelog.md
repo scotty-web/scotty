@@ -1,8 +1,10 @@
 ## next [????.??.??]
+
 * Fixed cookie example from `Cookie` module documentation. `getCookie` Function would return strict variant of `Text`. Will convert it into lazy variant using `fromStrict`. 
 
 ### Breaking changes
 * Remove dependency on data-default class (#386). We have been exporting constants for default config values since 0.20, and this dependency was simply unnecessary.
+* Remove re-export of `Network.Wai.Parse.ParseRequestBodyOptions` from `Web.Scotty` and `Web.Scotty.Trans`. This is a type from `wai-extra` so exporting it is unnecessary.
 
 
 
