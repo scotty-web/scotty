@@ -25,19 +25,25 @@ As for the name: Sinatra + Warp = Scotty.
 
 Run `examples/basic.hs` to see Scotty in action (if you haven't, run `cabal update` first):
 
+```bash
+cabal run scotty-basic
 ```
-$ cabal run scotty-basic
-Setting phasers to stun... (port 3000) (ctrl-c to quit)
-```
+
+`Setting phasers to stun... (port 3000) (ctrl-c to quit)`
 
 Once the server is running you can interact with it with `curl` or a browser:
 
+```bash
+curl localhost:3000
 ```
-$ curl localhost:3000
-foobar
-$ curl localhost:3000/foo_query?p=42
-<h1>42</h1>
+
+`foobar`
+
+```bash
+curl localhost:3000/foo_query?p=42
 ```
+
+`<h1>42</h1>`
 
 Additionally, the `examples` directory shows a number of concrete use cases, e.g. 
 
