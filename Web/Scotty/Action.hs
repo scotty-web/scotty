@@ -80,7 +80,9 @@ import qualified Data.ByteString.Char8      as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive       as CI
 import           Data.Traversable (for)
+import qualified Data.HashMap.Strict        as HashMap
 import           Data.Int
+import           Data.List (foldl')
 import           Data.Maybe                 (maybeToList)
 import qualified Data.Text                  as T
 import           Data.Text.Encoding         as STE
@@ -102,7 +104,7 @@ import qualified Network.Wai.Parse as W (FileInfo(..), ParseRequestBodyOptions, 
 
 import           Numeric.Natural
 
-import           Web.FormUrlEncoded (FromForm, urlDecodeAsForm)
+import           Web.FormUrlEncoded (Form(..), FromForm(..))
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, decodeUtf8Lenient)
 import           UnliftIO.Exception (Handler(..), catch, catches, throwIO)
@@ -170,11 +172,10 @@ scottyExceptionHandler = Handler $ \case
       , "Body: " <> bs
       , "Error: " <> BL.fromStrict (encodeUtf8 err)
       ]
-  MalformedForm bs err -> do
+  MalformedForm err -> do
     status status400
     raw $ BL.unlines
       [ "formData: malformed"
-      , "Body: " <> bs
       , "Error: " <> BL.fromStrict (encodeUtf8 err)
       ]
   PathParameterNotFound k -> do
@@ -367,14 +368,20 @@ jsonData = do
 --
 --   The form is parsed using 'urlDecodeAsForm'. If that returns 'Left', the
 --   status is set to 400 and an exception is thrown.
---
--- NB : Internally this uses 'body'.
-formData :: (FromForm a, MonadIO m) => ActionT m a
+formData :: (FromForm a, MonadUnliftIO m) => ActionT m a
 formData = do
-  b <- body
-  case urlDecodeAsForm b of
-    Left err -> throwIO $ MalformedForm b err
+  form <- paramListToForm <$> formParams
+  case fromForm form of
+    Left err -> throwIO $ MalformedForm err
     Right value -> return value
+  where
+    -- This rather contrived implementation uses cons and reverse to avoid quadratic complexity (e.g. using HashMap.insertWith (++)).
+    -- It iterates over all parameters, prepending values for duplicate keys and reverses all hashmap entries afterwards.
+    paramListToForm :: [Param] -> Form
+    paramListToForm = Form . fmap reverse . foldl' (\f (k, v) -> HashMap.alter (prependValue v) k f) HashMap.empty
+
+    prependValue :: a -> Maybe [a] -> Maybe [a]
+    prependValue v = Just . maybe [v] (v :)
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
