@@ -60,6 +60,7 @@ module Web.Scotty.Trans
       -- * Monad Transformers
     , ScottyT, ActionT
     , ScottyState, defaultScottyState
+    , module Web.Scotty.Cookie
     ) where
 
 import Blaze.ByteString.Builder (fromByteString)
@@ -84,6 +85,7 @@ import Web.Scotty.Util (socketDescription)
 import Web.Scotty.Body (newBodyInfo)
 
 import UnliftIO.Exception (Handler(..), catch)
+import Web.Scotty.Cookie (setSimpleCookie,getCookie,getCookies,deleteCookie,makeSimpleCookie)
 
 
 -- | Run a scotty application using the warp server.
