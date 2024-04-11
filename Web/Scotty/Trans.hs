@@ -60,7 +60,8 @@ module Web.Scotty.Trans
       -- * Monad Transformers
     , ScottyT, ActionT
     , ScottyState, defaultScottyState
-    , module Web.Scotty.Cookie
+    -- ** Functions from Cookie module
+    , setSimpleCookie,getCookie,getCookies,deleteCookie,makeSimpleCookie
     ) where
 
 import Blaze.ByteString.Builder (fromByteString)

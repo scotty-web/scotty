@@ -52,7 +52,8 @@ module Web.Scotty
       -- * Types
     , ScottyM, ActionM, RoutePattern, File, Content(..), Kilobytes, ErrorHandler, Handler(..)
     , ScottyState, defaultScottyState
-    , module Web.Scotty.Cookie
+    -- ** Functions from Cookie module
+    , setSimpleCookie,getCookie,getCookies,deleteCookie,makeSimpleCookie
     ) where
 
 import qualified Web.Scotty.Trans as Trans
