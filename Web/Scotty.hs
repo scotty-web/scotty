@@ -52,6 +52,8 @@ module Web.Scotty
       -- * Types
     , ScottyM, ActionM, RoutePattern, File, Content(..), Kilobytes, ErrorHandler, Handler(..)
     , ScottyState, defaultScottyState
+    -- ** Functions from Cookie module
+    , setSimpleCookie,getCookie,getCookies,deleteCookie,makeSimpleCookie
     ) where
 
 import qualified Web.Scotty.Trans as Trans
@@ -71,6 +73,7 @@ import qualified Network.Wai.Parse as W
 
 import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, ScottyException, StatusError(..), Content(..))
 import UnliftIO.Exception (Handler(..), catch)
+import Web.Scotty.Cookie (setSimpleCookie,getCookie,getCookies,deleteCookie,makeSimpleCookie)
 
 {- $setup
 >>> :{
