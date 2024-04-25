@@ -375,8 +375,10 @@ formData = do
     Left err -> throwIO $ MalformedForm err
     Right value -> return value
   where
-    -- This rather contrived implementation uses cons and reverse to avoid quadratic complexity (e.g. using HashMap.insertWith (++)).
-    -- It iterates over all parameters, prepending values for duplicate keys and reverses all hashmap entries afterwards.
+    -- This rather contrived implementation uses cons and reverse to avoid
+    -- quadratic complexity when constructing a Form from a list of Param.
+    -- It's equivalent to using HashMap.insertWith (++) which does have
+    -- quadratic complexity due to appending at the end of list.
     paramListToForm :: [Param] -> Form
     paramListToForm = Form . fmap reverse . foldl' (\f (k, v) -> HashMap.alter (prependValue v) k f) HashMap.empty
 
