@@ -23,6 +23,7 @@ module Web.Scotty.Action
     , liftAndCatchIO
     , json
     , jsonData
+    , formData
     , next
     , param
     , pathParam
@@ -79,7 +80,9 @@ import qualified Data.ByteString.Char8      as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive       as CI
 import           Data.Traversable (for)
+import qualified Data.HashMap.Strict        as HashMap
 import           Data.Int
+import           Data.List (foldl')
 import           Data.Maybe                 (maybeToList)
 import qualified Data.Text                  as T
 import           Data.Text.Encoding         as STE
@@ -101,6 +104,7 @@ import qualified Network.Wai.Parse as W (FileInfo(..), ParseRequestBodyOptions, 
 
 import           Numeric.Natural
 
+import           Web.FormUrlEncoded (Form(..), FromForm(..))
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, decodeUtf8Lenient)
 import           UnliftIO.Exception (Handler(..), catch, catches, throwIO)
@@ -166,6 +170,12 @@ scottyExceptionHandler = Handler $ \case
     raw $ BL.unlines
       [ "jsonData: failed to parse"
       , "Body: " <> bs
+      , "Error: " <> BL.fromStrict (encodeUtf8 err)
+      ]
+  MalformedForm err -> do
+    status status400
+    raw $ BL.unlines
+      [ "formData: malformed"
       , "Error: " <> BL.fromStrict (encodeUtf8 err)
       ]
   PathParameterNotFound k -> do
@@ -353,6 +363,27 @@ jsonData = do
       Right value -> case A.fromJSON value of
         A.Error err -> throwIO $ FailedToParseJSON b $ T.pack err
         A.Success a -> return a
+
+-- | Parse the request body as @x-www-form-urlencoded@ form data and return it.
+--
+--   The form is parsed using 'urlDecodeAsForm'. If that returns 'Left', the
+--   status is set to 400 and an exception is thrown.
+formData :: (FromForm a, MonadUnliftIO m) => ActionT m a
+formData = do
+  form <- paramListToForm <$> formParams
+  case fromForm form of
+    Left err -> throwIO $ MalformedForm err
+    Right value -> return value
+  where
+    -- This rather contrived implementation uses cons and reverse to avoid
+    -- quadratic complexity when constructing a Form from a list of Param.
+    -- It's equivalent to using HashMap.insertWith (++) which does have
+    -- quadratic complexity due to appending at the end of list.
+    paramListToForm :: [Param] -> Form
+    paramListToForm = Form . fmap reverse . foldl' (\f (k, v) -> HashMap.alter (prependValue v) k f) HashMap.empty
+
+    prependValue :: a -> Maybe [a] -> Maybe [a]
+    prependValue v = Just . maybe [v] (v :)
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --

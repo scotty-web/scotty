@@ -1,26 +1,31 @@
-{-# LANGUAGE OverloadedStrings, CPP, ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings, CPP, ScopedTypeVariables, DeriveGeneric #-}
 module Web.ScottySpec (main, spec) where
 
 import           Test.Hspec
-import           Test.Hspec.Wai (with, request, get, post, put, patch, delete, options, (<:>), shouldRespondWith, postHtmlForm, matchHeaders, matchBody, matchStatus)
+import           Test.Hspec.Wai (WaiSession, with, request, get, post, put, patch, delete, options, (<:>), shouldRespondWith, matchHeaders, matchBody, matchStatus)
 import Test.Hspec.Wai.Extra (postMultipartForm, FileMeta(..))
 
 import           Control.Applicative
 import           Control.Monad
 import           Data.Char
 import           Data.String
+import           Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 import Data.Time (UTCTime(..))
 import Data.Time.Calendar (fromGregorian)
 import Data.Time.Clock (secondsToDiffTime)
 
+import GHC.Generics (Generic)
+
 import           Network.HTTP.Types
 import           Network.Wai (Application, Request(queryString), responseLBS)
 import           Network.Wai.Parse (defaultParseRequestBodyOptions)
+import           Network.Wai.Test (SResponse)
 import qualified Control.Exception.Lifted as EL
 import qualified Control.Exception as E
 
+import           Web.FormUrlEncoded (FromForm)
 import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request, options)
 import qualified Web.Scotty as Scotty
 import qualified Web.Scotty.Cookie as SC (getCookie, setSimpleCookie, deleteCookie)
@@ -30,6 +35,7 @@ import           Control.Concurrent.Async (withAsync)
 import           Control.Exception (bracketOnError)
 import qualified Data.ByteString as BS
 import           Data.ByteString (ByteString)
+import qualified Data.ByteString.Lazy as LBS
 import           Network.Socket (Family(..), SockAddr(..), Socket, SocketOption(..), SocketType(..), bind, close, connect, listen, maxListenQueue, setSocketOption, socket)
 import           Network.Socket.ByteString (send, recv)
 import           System.Directory (removeFile)
@@ -40,6 +46,16 @@ main = hspec spec
 
 availableMethods :: [StdMethod]
 availableMethods = [GET, POST, HEAD, PUT, PATCH, DELETE, OPTIONS]
+
+data SearchForm = SearchForm
+  { sfQuery :: Text
+  , sfYear :: Int
+  } deriving (Generic)
+
+instance FromForm SearchForm where
+
+postForm :: ByteString -> LBS.ByteString -> WaiSession st SResponse
+postForm p = request "POST" p [("Content-Type","application/x-www-form-urlencoded")]
 
 spec :: Spec
 spec = do
@@ -255,6 +271,8 @@ spec = do
       withApp (Scotty.get "/search" $ queryParam "query" >>= text) $ do
         it "returns query parameter with given name" $ do
           get "/search?query=haskell" `shouldRespondWith` "haskell"
+        it "decodes URL-encoding" $ do
+          get "/search?query=Kurf%C3%BCrstendamm" `shouldRespondWith` "Kurfürstendamm"
       withApp (Scotty.matchAny "/search" (do
                                              v <- queryParam "query"
                                              json (v :: Int) )) $ do
@@ -268,16 +286,28 @@ spec = do
                 ) $ do
           it "catches a ScottyException" $ do
             get "/search?query=potato" `shouldRespondWith` 200 { matchBody = "z"}
+    
+    describe "formData" $ do
+      withApp (Scotty.post "/search" $ formData >>= (text . sfQuery)) $ do
+        it "decodes the form" $ do
+          postForm "/search" "sfQuery=Haskell&sfYear=2024" `shouldRespondWith` "Haskell"
+
+        it "decodes URL-encoding" $ do
+          postForm "/search" "sfQuery=Kurf%C3%BCrstendamm&sfYear=2024" `shouldRespondWith` "Kurfürstendamm"
+
+        it "returns 400 when the form is malformed" $ do
+          postForm "/search" "sfQuery=Haskell" `shouldRespondWith` 400
 
     describe "formParam" $ do
-      let
-        postForm p bdy = request "POST" p [("Content-Type","application/x-www-form-urlencoded")] bdy
       withApp (Scotty.post "/search" $ formParam "query" >>= text) $ do
         it "returns form parameter with given name" $ do
           postForm "/search" "query=haskell" `shouldRespondWith` "haskell"
 
         it "replaces non UTF-8 bytes with Unicode replacement character" $ do
           postForm "/search" "query=\xe9" `shouldRespondWith` "\xfffd"
+
+        it "decodes URL-encoding" $ do
+          postForm "/search" "query=Kurf%C3%BCrstendamm" `shouldRespondWith` "Kurfürstendamm"
       withApp (Scotty.post "/search" (do
                                              v <- formParam "query"
                                              json (v :: Int))) $ do
@@ -354,7 +384,7 @@ spec = do
 
     describe "filesOpts" $ do
       let
-          postForm = postMultipartForm "/files" "ABC123" [
+          postMpForm = postMultipartForm "/files" "ABC123" [
             (FMFile "file1.txt", "text/plain;charset=UTF-8", "first_file", "xxx"),
             (FMFile "file2.txt", "text/plain;charset=UTF-8", "second_file", "yyy")
             ]
@@ -364,13 +394,13 @@ spec = do
       withApp (Scotty.post "/files" processForm
               ) $ do
         it "loads uploaded files in memory" $ do
-          postForm `shouldRespondWith` 200 { matchBody = "2"}
+          postMpForm `shouldRespondWith` 200 { matchBody = "2"}
       context "preserves the body of a POST request even after 'next' (#147)" $ do
         withApp (do
                     Scotty.post "/files" next
                     Scotty.post "/files" processForm) $ do
           it "loads uploaded files in memory" $ do
-            postForm `shouldRespondWith` 200 { matchBody = "2"}
+            postMpForm `shouldRespondWith` 200 { matchBody = "2"}
 
 
     describe "text" $ do

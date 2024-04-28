@@ -147,6 +147,7 @@ data ScottyException
   = RequestTooLarge
   | MalformedJSON LBS8.ByteString T.Text
   | FailedToParseJSON LBS8.ByteString T.Text
+  | MalformedForm T.Text
   | PathParameterNotFound T.Text
   | QueryParameterNotFound T.Text
   | FormFieldNotFound T.Text

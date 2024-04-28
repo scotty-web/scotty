@@ -25,7 +25,7 @@ module Web.Scotty
     , capture, regex, function, literal
       -- ** Accessing the Request and its fields
     , request, header, headers, body, bodyReader
-    , jsonData
+    , jsonData, formData
       -- ** Accessing Path, Form and Query Parameters
     , param, params
     , pathParam, captureParam, formParam, queryParam
@@ -71,6 +71,7 @@ import Network.Wai (Application, Middleware, Request, StreamingBody)
 import Network.Wai.Handler.Warp (Port)
 import qualified Network.Wai.Parse as W
 
+import Web.FormUrlEncoded (FromForm)
 import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, ScottyException, StatusError(..), Content(..))
 import UnliftIO.Exception (Handler(..), catch)
 import Web.Scotty.Cookie (setSimpleCookie,getCookie,getCookies,deleteCookie,makeSimpleCookie)
@@ -275,6 +276,12 @@ bodyReader = Trans.bodyReader
 -- NB: uses 'body' internally
 jsonData :: FromJSON a => ActionM a
 jsonData = Trans.jsonData
+
+-- | Parse the request body as @x-www-form-urlencoded@ form data and return it. Raises an exception if parse is unsuccessful.
+--
+-- NB: uses 'body' internally
+formData :: FromForm a => ActionM a
+formData = Trans.formData
 
 -- | Get a parameter. First looks in captures, then form data, then query parameters.
 --
