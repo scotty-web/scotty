@@ -23,7 +23,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified GHC.Exception as E (throw)
 import           Network.Wai (Request(..), getRequestBodyChunk)
 import qualified Network.Wai.Handler.Warp as Warp (InvalidRequest(..))
-import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, tempFileBackEnd, RequestBodyType(..), sinkRequestBodyEx, RequestParseException(..), ParseRequestBodyOptions)
+import qualified Network.Wai.Parse as W (File, Param, getRequestBodyType, tempFileBackEnd, RequestBodyType(..), sinkRequestBodyEx, RequestParseException(..), ParseRequestBodyOptions,FileInfo(..))
 -- import UnliftIO (MonadUnliftIO(..))
 import UnliftIO.Exception (Handler(..), catches, throwIO)
 
@@ -64,7 +64,10 @@ getFormParamsAndFilesAction istate prbo req bodyInfo opts = do
   let
     wholeBody = BL.toChunks bs
   (formparams, fs) <- parseRequestBodyExBS istate prbo wholeBody (W.getRequestBodyType req) `catches` handleWaiParseSafeExceptions
-  return (convertBoth <$> formparams, convertKey <$> fs)
+  let 
+    fs' = filter emptyFile fs
+  return (convertBoth <$> formparams, convertKey <$> fs')
+    where emptyFile (_,fInfo) = ("\"\"" /= (W.fileName fInfo))
 
 -- | Wrap exceptions from upstream libraries into 'ScottyException'
 handleWaiParseSafeExceptions :: MonadIO m => [Handler m a]
