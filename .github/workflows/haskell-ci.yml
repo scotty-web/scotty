@@ -22,6 +22,7 @@ jobs:
           - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.4.6"  }
           - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.6.4"  }
           - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.8.2"  }
+          - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.10.1" }
       fail-fast: false
 
     steps:
