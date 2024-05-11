@@ -30,7 +30,7 @@ module Web.Scotty.Trans
     , capture, regex, function, literal
       -- ** Accessing the Request and its fields
     , request, Lazy.header, Lazy.headers, body, bodyReader
-    , jsonData
+    , jsonData, formData
 
       -- ** Accessing Path, Form and Query Parameters
     , param, params
@@ -38,7 +38,7 @@ module Web.Scotty.Trans
     , pathParamMaybe, captureParamMaybe, formParamMaybe, queryParamMaybe
     , pathParams, captureParams, formParams, queryParams
     -- *** Files
-    , files, filesOpts, ParseRequestBodyOptions
+    , files, filesOpts
       -- ** Modifying the Response and Redirecting
     , status, Lazy.addHeader, Lazy.setHeader, Lazy.redirect
       -- ** Setting Response Body
@@ -60,6 +60,8 @@ module Web.Scotty.Trans
       -- * Monad Transformers
     , ScottyT, ActionT
     , ScottyState, defaultScottyState
+    -- ** Functions from Cookie module
+    , setSimpleCookie,getCookie,getCookies,deleteCookie,makeSimpleCookie
     ) where
 
 import Blaze.ByteString.Builder (fromByteString)
@@ -84,6 +86,7 @@ import Web.Scotty.Util (socketDescription)
 import Web.Scotty.Body (newBodyInfo)
 
 import UnliftIO.Exception (Handler(..), catch)
+import Web.Scotty.Cookie (setSimpleCookie,getCookie,getCookies,deleteCookie,makeSimpleCookie)
 
 
 -- | Run a scotty application using the warp server.

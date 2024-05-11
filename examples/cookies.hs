@@ -5,10 +5,10 @@ module Main (main) where
 import Control.Monad (forM_)
 
 import qualified Text.Blaze.Html5 as H
-import Text.Blaze.Html5.Attributes
-import Text.Blaze.Html.Renderer.Text (renderHtml)
-import Web.Scotty
-import Web.Scotty.Cookie (CookiesText, setSimpleCookie, getCookies)
+import           Text.Blaze.Html5.Attributes
+import           Text.Blaze.Html.Renderer.Text (renderHtml)
+import           Web.Scotty -- Web.Scotty exports setSimpleCookie,getCookies
+import           Web.Scotty.Cookie (CookiesText)
 
 renderCookiesTable :: CookiesText -> H.Html
 renderCookiesTable cs =
