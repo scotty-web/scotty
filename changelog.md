@@ -7,7 +7,7 @@
 ### Breaking changes
 * Remove dependency on data-default class (#386). We have been exporting constants for default config values since 0.20, and this dependency was simply unnecessary.
 * Remove re-export of `Network.Wai.Parse.ParseRequestBodyOptions` from `Web.Scotty` and `Web.Scotty.Trans`. This is a type from `wai-extra` so exporting it is unnecessary.
-
+* (#396) Fixed unwated behaviour of `files` and `filesOpts` while not uploading any file.
 
 
 ## 0.22 [2024.03.09]

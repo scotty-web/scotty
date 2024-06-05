@@ -380,7 +380,9 @@ spec = do
               (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx"),
               (FMFile "file1.txt", "text/plain;charset=UTF-8", "file", "xxx")
               ] `shouldRespondWith` 413
-
+        context "Not uploading file should return empty list (#396)" $ do
+          it "Length of list should be 0" $ do
+            postMultipartForm "/files" "ABC123" [(FMFile "", "", "", "")] `shouldRespondWith` "0"
 
     describe "filesOpts" $ do
       let
@@ -401,6 +403,10 @@ spec = do
                     Scotty.post "/files" processForm) $ do
           it "loads uploaded files in memory" $ do
             postMpForm `shouldRespondWith` 200 { matchBody = "2"}
+      context "Not uploading file should return empty list (#396)" $ do
+        withApp (Scotty.post "/files" processForm) $ do
+          it "Length of list should be 0" $ do
+            postMultipartForm "/files" "ABC123" [(FMFile "", "", "", "")] `shouldRespondWith` "0"
 
 
     describe "text" $ do
