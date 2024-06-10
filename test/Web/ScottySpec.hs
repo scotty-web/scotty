@@ -223,6 +223,64 @@ spec = do
         it "Responds with a 302 Redirect" $ do
           get "/a" `shouldRespondWith` 302 { matchHeaders = ["Location" <:> "/b"] }
 
+    describe "redirect300" $ do
+      withApp (
+        do
+          Scotty.get "/a" $ redirect300 "/b"
+              ) $ do
+        it "Responds with a 300 Redirect" $ do
+          get "/a" `shouldRespondWith` 300 { matchHeaders = ["Location" <:> "/b"] }
+
+
+    describe "redirect301" $ do
+      withApp (
+        do
+          Scotty.get "/a" $ redirect301 "/b"
+              ) $ do
+        it "Responds with a 301 Redirect" $ do
+          get "/a" `shouldRespondWith` 301 { matchHeaders = ["Location" <:> "/b"] }
+
+    describe "redirect302" $ do
+      withApp (
+        do
+          Scotty.get "/a" $ redirect302 "/b"
+              ) $ do
+        it "Responds with a 302 Redirect" $ do
+          get "/a" `shouldRespondWith` 302 { matchHeaders = ["Location" <:> "/b"] }
+
+
+    describe "redirect303" $ do
+      withApp (
+        do
+          Scotty.delete "/a" $ redirect303 "/b"
+              ) $ do
+        it "Responds with a 303 as passed in" $ do
+          delete "/a" `shouldRespondWith` 303 { matchHeaders = ["Location" <:> "/b"]}
+
+    describe "redirect304" $ do
+      withApp (
+        do
+          Scotty.get "/a" $ redirect304 "/b"
+              ) $ do
+        it "Responds with a 304 Redirect" $ do
+          get "/a" `shouldRespondWith` 304 { matchHeaders = ["Location" <:> "/b"] }
+
+    describe "redirect307" $ do
+      withApp (
+        do
+          Scotty.get "/a" $ redirect307 "/b"
+              ) $ do
+        it "Responds with a 307 Redirect" $ do
+          get "/a" `shouldRespondWith` 307 { matchHeaders = ["Location" <:> "/b"] }
+
+    describe "redirect308" $ do
+      withApp (
+        do
+          Scotty.get "/a" $ redirect308 "/b"
+              ) $ do
+        it "Responds with a 308 Redirect" $ do
+          get "/a" `shouldRespondWith` 308 { matchHeaders = ["Location" <:> "/b"] }
+
     describe "Parsable" $ do
       it "parses a UTCTime string" $ do
         parseParam "2023-12-18T00:38:00Z" `shouldBe` Right (UTCTime (fromGregorian 2023 12 18) (secondsToDiffTime (60 * 38)) )
