@@ -26,8 +26,8 @@ raiseStatus :: Monad m => Status -> T.Text -> ActionT m a
 raiseStatus s = Base.raiseStatus s . T.toStrict
 {-# DEPRECATED raiseStatus "Use status, text, and finish instead" #-}
 
--- | Redirect to given URL. Like throwing an uncatchable exception. Any code after the call to redirect
--- will not be run.
+-- | Synonym for 'redirect302'.
+-- If you are unsure which redirect to use, you probably want this one.
 --
 -- > redirect "http://www.google.com"
 --
@@ -35,7 +35,49 @@ raiseStatus s = Base.raiseStatus s . T.toStrict
 --
 -- > redirect "/foo/bar"
 redirect :: (Monad m) => T.Text -> ActionT m a
-redirect = Base.redirect . T.toStrict
+redirect = redirect302
+
+-- | Redirect to given URL with status 300 (Multiple Choices). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect300 :: (Monad m) => T.Text -> ActionT m a
+redirect300 = Base.redirect300 . T.toStrict
+
+-- | Redirect to given URL with status 301 (Moved Permanently). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect301 :: (Monad m) => T.Text -> ActionT m a
+redirect301 = Base.redirect301 . T.toStrict
+
+-- | Redirect to given URL with status 302 (Found). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect302 :: (Monad m) => T.Text -> ActionT m a
+redirect302 = Base.redirect302 . T.toStrict
+
+-- | Redirect to given URL with status 303 (See Other). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect303 :: (Monad m) => T.Text -> ActionT m a
+redirect303 = Base.redirect303 . T.toStrict
+
+-- | Redirect to given URL with status 304 (Not Modified). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect304 :: (Monad m) => T.Text -> ActionT m a
+redirect304 = Base.redirect304 . T.toStrict
+
+-- | Redirect to given URL with status 307 (Temporary Redirect). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect307 :: (Monad m) => T.Text -> ActionT m a
+redirect307 = Base.redirect307 . T.toStrict
+
+-- | Redirect to given URL with status 308 (Permanent Redirect). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect308 :: (Monad m) => T.Text -> ActionT m a
+redirect308 = Base.redirect308 . T.toStrict
 
 -- | Get a request header. Header name is case-insensitive.
 header :: (Monad m) => T.Text -> ActionT m (Maybe T.Text)

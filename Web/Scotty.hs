@@ -33,8 +33,10 @@ module Web.Scotty
     , pathParams, captureParams, formParams, queryParams
       -- *** Files
     , files, filesOpts
-      -- ** Modifying the Response and Redirecting
-    , status, addHeader, setHeader, redirect
+      -- ** Modifying the Response
+    , status, addHeader, setHeader
+      -- ** Redirecting
+    , redirect, redirect300, redirect301, redirect302, redirect303, redirect304, redirect307, redirect308
       -- ** Setting Response Body
       --
       -- | Note: only one of these should be present in any given route
@@ -222,8 +224,8 @@ liftAndCatchIO :: IO a -> ActionM a
 liftAndCatchIO = Trans.liftAndCatchIO
 {-# DEPRECATED liftAndCatchIO "Use liftIO instead" #-}
 
--- | Redirect to given URL. Like throwing an uncatchable exception. Any code after the call to redirect
--- will not be run.
+-- | Synonym for 'redirect302'.
+-- If you are unsure which redirect to use, you probably want this one.
 --
 -- > redirect "http://www.google.com"
 --
@@ -232,6 +234,48 @@ liftAndCatchIO = Trans.liftAndCatchIO
 -- > redirect "/foo/bar"
 redirect :: Text -> ActionM a
 redirect = Trans.redirect
+
+-- | Redirect to given URL with status 300 (Multiple Choices). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect300 :: Text -> ActionM a
+redirect300 = Trans.redirect300
+
+-- | Redirect to given URL with status 301 (Moved Permanently). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect301 :: Text -> ActionM a
+redirect301 = Trans.redirect301
+
+-- | Redirect to given URL with status 302 (Found). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect302 :: Text -> ActionM a
+redirect302 = Trans.redirect302
+
+-- | Redirect to given URL with status 303 (See Other). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect303 :: Text -> ActionM a
+redirect303 = Trans.redirect303
+
+-- | Redirect to given URL with status 304 (Not Modified). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect304 :: Text -> ActionM a
+redirect304 = Trans.redirect304
+
+-- | Redirect to given URL with status 307 (Temporary Redirect). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect307 :: Text -> ActionM a
+redirect307 = Trans.redirect307
+
+-- | Redirect to given URL with status 308 (Permanent Redirect). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect308 :: Text -> ActionM a
+redirect308 = Trans.redirect308
 
 -- | Get the 'Request' object.
 request :: ActionM Request

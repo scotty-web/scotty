@@ -29,8 +29,11 @@ module Web.Scotty.Trans.Strict
     , captureParamMaybe, formParamMaybe, queryParamMaybe
     , captureParams, formParams, queryParams
     , jsonData, files
-      -- ** Modifying the Response and Redirecting
-    , status, Base.addHeader, Base.setHeader, Base.redirect
+      -- ** Modifying the Response 
+    , status, Base.addHeader, Base.setHeader
+      -- ** Redirecting
+    , Base.redirect, Base.redirect300, Base.redirect301, Base.redirect302, Base.redirect303
+    , Base.redirect304, Base.redirect307, Base.redirect308
       -- ** Setting Response Body
       --
       -- | Note: only one of these should be present in any given route

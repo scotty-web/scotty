@@ -3,6 +3,7 @@
 * Fixed cookie example from `Cookie` module documentation. `getCookie` Function would return strict variant of `Text`. Will convert it into lazy variant using `fromStrict`. 
 * Exposed simple functions of `Cookie` module via `Web.Scotty` & `Web.Scotty.Trans`.
 * Add tests for URL encoding of query parameters and form parameters. Add `formData` action for decoding `FromForm` instances (#321).
+* Add explicit redirect functions for all redirect status codes.
 
 ### Breaking changes
 * Remove dependency on data-default class (#386). We have been exporting constants for default config values since 0.20, and this dependency was simply unnecessary.

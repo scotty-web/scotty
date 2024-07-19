@@ -122,7 +122,7 @@ newtype ScottyT m a =
 -- The exception constructor is not exposed to the user and all exceptions of this type are caught
 -- and processed within the 'runAction' function.
 data ActionError
-  = AERedirect T.Text -- ^ Redirect
+  = AERedirect Status T.Text -- ^ Redirect
   | AENext -- ^ Stop processing this route and skip to the next one
   | AEFinish -- ^ Stop processing the request
   deriving (Show, Typeable)

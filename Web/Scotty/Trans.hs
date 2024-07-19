@@ -39,8 +39,11 @@ module Web.Scotty.Trans
     , pathParams, captureParams, formParams, queryParams
     -- *** Files
     , files, filesOpts
-      -- ** Modifying the Response and Redirecting
-    , status, Lazy.addHeader, Lazy.setHeader, Lazy.redirect
+      -- ** Modifying the Response
+    , status, Lazy.addHeader, Lazy.setHeader
+      -- ** Redirecting
+    , Lazy.redirect, Lazy.redirect300, Lazy.redirect301, Lazy.redirect302, Lazy.redirect303
+    , Lazy.redirect304, Lazy.redirect307, Lazy.redirect308
       -- ** Setting Response Body
       --
       -- | Note: only one of these should be present in any given route

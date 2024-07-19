@@ -46,6 +46,13 @@ module Web.Scotty.Action
     , nested
     , readEither
     , redirect
+    , redirect300
+    , redirect301
+    , redirect302
+    , redirect303
+    , redirect304
+    , redirect307
+    , redirect308
     , request
     , rescue
     , setHeader
@@ -146,8 +153,8 @@ statusErrorHandler = Handler $ \case
 -- All other cases of 'ActionError' are converted to HTTP responses.
 actionErrorHandler :: MonadIO m => ErrorHandler m
 actionErrorHandler = Handler $ \case
-  AERedirect url -> do
-    status status302
+  AERedirect s url -> do
+    status s
     setHeader "Location" url
   AENext -> next
   AEFinish -> return ()
@@ -270,8 +277,8 @@ liftAndCatchIO :: MonadIO m => IO a -> ActionT m a
 liftAndCatchIO = liftIO
 {-# DEPRECATED liftAndCatchIO "Use liftIO instead" #-}
 
--- | Redirect to given URL. Like throwing an uncatchable exception. Any code after the call to redirect
--- will not be run.
+-- | Synonym for 'redirect302'.
+-- If you are unsure which redirect to use, you probably want this one.
 --
 -- > redirect "http://www.google.com"
 --
@@ -279,7 +286,52 @@ liftAndCatchIO = liftIO
 --
 -- > redirect "/foo/bar"
 redirect :: (Monad m) => T.Text -> ActionT m a
-redirect = E.throw . AERedirect
+redirect = redirect302
+
+-- | Redirect to given URL with status 300 (Multiple Choices). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect300 :: (Monad m) => T.Text -> ActionT m a
+redirect300 = redirectStatus status300
+
+-- | Redirect to given URL with status 301 (Moved Permanently). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect301 :: (Monad m) => T.Text -> ActionT m a
+redirect301 = redirectStatus status301
+
+-- | Redirect to given URL with status 302 (Found). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect302 :: (Monad m) => T.Text -> ActionT m a
+redirect302 = redirectStatus status302
+
+-- | Redirect to given URL with status 303 (See Other). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect303 :: (Monad m) => T.Text -> ActionT m a
+redirect303 = redirectStatus status303
+
+-- | Redirect to given URL with status 304 (Not Modified). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect304 :: (Monad m) => T.Text -> ActionT m a
+redirect304 = redirectStatus status304
+
+-- | Redirect to given URL with status 307 (Temporary Redirect). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect307 :: (Monad m) => T.Text -> ActionT m a
+redirect307 = redirectStatus status307
+
+-- | Redirect to given URL with status 308 (Permanent Redirect). Like throwing
+-- an uncatchable exception. Any code after the call to
+-- redirect will not be run.
+redirect308 :: (Monad m) => T.Text -> ActionT m a
+redirect308 = redirectStatus status308
+
+redirectStatus :: (Monad m) => Status -> T.Text -> ActionT m a
+redirectStatus s = E.throw . AERedirect s
 
 -- | Finish the execution of the current action. Like throwing an uncatchable
 -- exception. Any code after the call to finish will not be run.
