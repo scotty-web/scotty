@@ -64,7 +64,11 @@ module Web.Scotty.Trans
     , ScottyT, ActionT
     , ScottyState, defaultScottyState
     -- ** Functions from Cookie module
-    , setSimpleCookie,getCookie,getCookies,deleteCookie,makeSimpleCookie
+    , setSimpleCookie, getCookie, getCookies, deleteCookie, makeSimpleCookie
+    -- ** Session Management
+    , Session (..), SessionId, SessionJar, createSessionJar,
+    createUserSession, createSession, readUserSession,
+    readSession, getUserSession, getSession, addSession, deleteSession, maintainSessions
     ) where
 
 import Blaze.ByteString.Builder (fromByteString)
@@ -90,6 +94,9 @@ import Web.Scotty.Body (newBodyInfo)
 
 import UnliftIO.Exception (Handler(..), catch)
 import Web.Scotty.Cookie (setSimpleCookie,getCookie,getCookies,deleteCookie,makeSimpleCookie)
+import Web.Scotty.Session (Session (..), SessionId, SessionJar, createSessionJar,
+    createUserSession, createSession, readUserSession,
+    readSession, getUserSession, getSession, addSession, deleteSession, maintainSessions)
 
 
 -- | Run a scotty application using the warp server.

@@ -11,6 +11,7 @@ import           Data.Char
 import           Data.String
 import           Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as TL
+import qualified Data.Text as T
 import qualified Data.Text.Lazy.Encoding as TLE
 import Data.Time (UTCTime(..))
 import Data.Time.Calendar (fromGregorian)
@@ -537,6 +538,20 @@ spec = do
       withApp (Scotty.get "/nested" (nested simpleApp)) $ do
         it "responds with the expected simpleApp response" $ do
           get "/nested" `shouldRespondWith` 200 {matchHeaders = ["Content-Type" <:> "text/plain"], matchBody = "Hello, Web!"}
+    
+    describe "Session Management" $ do
+      withApp (Scotty.get "/scotty" $ do
+                 sessionJar <- liftIO createSessionJar 
+                 sess <- createUserSession sessionJar ("foo" :: T.Text)
+                 mRes <- readSession sessionJar (sessId sess)
+                 case mRes of
+                   Nothing -> Scotty.status status400
+                   Just res -> do 
+                     if res /= "foo" then Scotty.status status400
+                     else text "all good"
+                        ) $ do
+        it "Roundtrip of session by adding and fetching a value" $ do
+          get "/scotty" `shouldRespondWith` 200
 
 -- Unix sockets not available on Windows
 #if !defined(mingw32_HOST_OS)

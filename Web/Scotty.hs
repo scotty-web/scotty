@@ -55,7 +55,11 @@ module Web.Scotty
     , ScottyM, ActionM, RoutePattern, File, Content(..), Kilobytes, ErrorHandler, Handler(..)
     , ScottyState, defaultScottyState
     -- ** Functions from Cookie module
-    , setSimpleCookie,getCookie,getCookies,deleteCookie,makeSimpleCookie
+    , setSimpleCookie, getCookie, getCookies, deleteCookie, makeSimpleCookie
+    -- ** Session Management
+    , Session (..), SessionId, SessionJar, createSessionJar,
+    createUserSession, createSession, readUserSession,
+    readSession, getUserSession, getSession, addSession, deleteSession, maintainSessions
     ) where
 
 import qualified Web.Scotty.Trans as Trans
@@ -76,7 +80,10 @@ import qualified Network.Wai.Parse as W
 import Web.FormUrlEncoded (FromForm)
 import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, ScottyException, StatusError(..), Content(..))
 import UnliftIO.Exception (Handler(..), catch)
-import Web.Scotty.Cookie (setSimpleCookie,getCookie,getCookies,deleteCookie,makeSimpleCookie)
+import Web.Scotty.Cookie (setSimpleCookie, getCookie, getCookies, deleteCookie, makeSimpleCookie)
+import Web.Scotty.Session (Session (..), SessionId, SessionJar, createSessionJar,
+    createUserSession, createSession, readUserSession,
+    readSession, getUserSession, getSession, addSession, deleteSession, maintainSessions)
 
 {- $setup
 >>> :{
