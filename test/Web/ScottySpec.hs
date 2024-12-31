@@ -545,8 +545,8 @@ spec = do
                  sess <- createUserSession sessionJar ("foo" :: T.Text)
                  mRes <- readSession sessionJar (sessId sess)
                  case mRes of
-                   Nothing -> Scotty.status status400
-                   Just res -> do 
+                   Left _ -> Scotty.status status400
+                   Right res -> do 
                      if res /= "foo" then Scotty.status status400
                      else text "all good"
                         ) $ do
