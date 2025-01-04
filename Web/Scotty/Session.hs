@@ -2,9 +2,9 @@
 {-# LANGUAGE LambdaCase #-}
 
 {- |
-Module      : Web.Scotty.Cookie
-Copyright   : (c) 2014, 2015 Mārtiņš Mačs,
-              (c) 2023 Marco Zocca
+Module      : Web.Scotty.Session
+Copyright   : (c) 2025 Tushar Adhatrao,
+              (c) 2025 Marco Zocca
 
 License     : BSD-3-Clause
 Maintainer  :
@@ -32,8 +32,8 @@ main = do
             html $ "Session created with ID: " <> sessId sess
         -- Route to read a session
         get "/read" $ do
-            mSession <- getUserSession sessionJar
-            case mSession of
+            eSession <- getUserSession sessionJar
+            case eSession of
                 Left _-> html "No session found or session expired."
                 Right sess -> html $ "Session content: " <> sessContent sess
 @
@@ -116,7 +116,7 @@ maintainSessions sessionJar =
         threadDelay 1000000
         
 
--- | Adds a new session to the session jar.
+-- | Adds or overwrites a new session to the session jar.
 addSession :: SessionJar a -> Session a -> IO ()
 addSession sessionJar sess =
     atomically $ modifyTVar sessionJar $ \m -> HM.insert (sessId sess) sess m
@@ -143,7 +143,7 @@ deleteSession sessionJar sId =
                 HM.delete sId
 
 {- | Retrieves the current user's session based on the "sess_id" cookie.
-| Returns 'Nothing' if the session is expired or does not exist.
+| Returns `Left SessionStatus` if the session is expired or does not exist.
 -}
 getUserSession :: (MonadIO m) => SessionJar a -> ActionT m (Either SessionStatus (Session a))
 getUserSession sessionJar = do
@@ -170,18 +170,23 @@ sessionTTL :: NominalDiffTime
 sessionTTL = 36000 -- in seconds
 
 -- | Creates a new session for a user, storing the content and setting a cookie.
-createUserSession :: (MonadIO m) => SessionJar a -> a -> ActionT m (Session a)
-createUserSession sessionJar content = do
-    sess <- liftIO $ createSession sessionJar content
+createUserSession :: (MonadIO m) => 
+    SessionJar a -- ^ SessionJar, which can be created by createSessionJar
+    -> Maybe Int  -- ^ Optional expiration time (in seconds)
+    -> a          -- ^ Content
+    -> ActionT m (Session a)
+createUserSession sessionJar mbExpirationTime content = do
+    sess <- liftIO $ createSession sessionJar mbExpirationTime content
     setSimpleCookie "sess_id" (sessId sess)
     return sess
 
--- | Creates a new session with a generated ID, sets its expiration, and adds it to the session jar.
-createSession :: SessionJar a -> a -> IO (Session a)
-createSession sessionJar content = do
+-- | Creates a new session with a generated ID, sets its expiration, 
+-- | and adds it to the session jar.
+createSession :: SessionJar a -> Maybe Int -> a -> IO (Session a)
+createSession sessionJar mbExpirationTime content = do
     sId <- liftIO $ T.pack <$> replicateM 32 (randomRIO ('a', 'z'))
     now <- getCurrentTime
-    let expiresAt = addUTCTime sessionTTL now
+    let expiresAt = addUTCTime (maybe sessionTTL fromIntegral mbExpirationTime) now
         sess = Session sId expiresAt content
     liftIO $ addSession sessionJar sess
     return $ Session sId expiresAt content

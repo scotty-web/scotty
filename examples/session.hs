@@ -15,7 +15,7 @@ main = do
             password <- queryParam "password" :: ActionM String
             if username == "foo" && password == "bar"
                 then do
-                    _ <- createUserSession sessionJar "foo"
+                    _ <- createUserSession sessionJar Nothing "foo"
                     text "Login successful!"
                 else
                     text "Invalid username or password."

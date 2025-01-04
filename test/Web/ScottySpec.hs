@@ -542,7 +542,7 @@ spec = do
     describe "Session Management" $ do
       withApp (Scotty.get "/scotty" $ do
                  sessionJar <- liftIO createSessionJar 
-                 sess <- createUserSession sessionJar ("foo" :: T.Text)
+                 sess <- createUserSession sessionJar Nothing ("foo" :: T.Text)
                  mRes <- readSession sessionJar (sessId sess)
                  case mRes of
                    Left _ -> Scotty.status status400
