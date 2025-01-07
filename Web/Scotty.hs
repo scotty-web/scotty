@@ -55,7 +55,12 @@ module Web.Scotty
     , ScottyM, ActionM, RoutePattern, File, Content(..), Kilobytes, ErrorHandler, Handler(..)
     , ScottyState, defaultScottyState
     -- ** Functions from Cookie module
-    , setSimpleCookie,getCookie,getCookies,deleteCookie,makeSimpleCookie
+    , setSimpleCookie, getCookie, getCookies, deleteCookie, makeSimpleCookie
+    -- ** Session Management
+    , Session (..), SessionId, SessionJar, SessionStatus
+    , createSessionJar, createUserSession, createSession, addSession
+    , readSession, getUserSession, getSession, readUserSession
+    , deleteSession, maintainSessions
     ) where
 
 import qualified Web.Scotty.Trans as Trans
@@ -76,7 +81,9 @@ import qualified Network.Wai.Parse as W
 import Web.FormUrlEncoded (FromForm)
 import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, ScottyException, StatusError(..), Content(..))
 import UnliftIO.Exception (Handler(..), catch)
-import Web.Scotty.Cookie (setSimpleCookie,getCookie,getCookies,deleteCookie,makeSimpleCookie)
+import Web.Scotty.Cookie (setSimpleCookie, getCookie, getCookies, deleteCookie, makeSimpleCookie)
+import Web.Scotty.Session (Session (..), SessionId, SessionJar, SessionStatus , createSessionJar,
+    createSession, addSession, maintainSessions)
 
 {- $setup
 >>> :{
@@ -594,5 +601,32 @@ literal :: String -> RoutePattern
 literal = Trans.literal
 
 
+-- | Retrieves a session by its ID from the session jar.
+getSession :: SessionJar a -> SessionId -> ActionM (Either SessionStatus (Session a))
+getSession = Trans.getSession
+    
+-- | Deletes a session by its ID from the session jar.
+deleteSession :: SessionJar a -> SessionId -> ActionM ()
+deleteSession = Trans.deleteSession
+    
+{- | Retrieves the current user's session based on the "sess_id" cookie.
+| Returns `Left SessionStatus` if the session is expired or does not exist.
+-}
+getUserSession :: SessionJar a -> ActionM (Either SessionStatus (Session a))
+getUserSession = Trans.getUserSession
 
+-- | Reads the content of a session by its ID.
+readSession :: SessionJar a -> SessionId -> ActionM (Either SessionStatus a)
+readSession = Trans.readSession
 
+-- | Reads the content of the current user's session.
+readUserSession ::SessionJar a -> ActionM (Either SessionStatus a)
+readUserSession = Trans.readUserSession
+
+-- | Creates a new session for a user, storing the content and setting a cookie.
+createUserSession :: 
+    SessionJar a -- ^ SessionJar, which can be created by createSessionJar
+    -> Maybe Int  -- ^ Optional expiration time (in seconds)
+    -> a          -- ^ Content
+    -> ActionM (Session a)
+createUserSession = Trans.createUserSession

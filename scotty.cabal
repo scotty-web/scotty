@@ -64,6 +64,7 @@ Library
                        Web.Scotty.Trans.Strict
                        Web.Scotty.Internal.Types
                        Web.Scotty.Cookie
+                       Web.Scotty.Session
   other-modules:       Web.Scotty.Action
                        Web.Scotty.Body
                        Web.Scotty.Route
@@ -93,7 +94,8 @@ Library
                        unordered-containers  >= 0.2.10.0 && < 0.3,
                        wai                   >= 3.0.0    && < 3.3,
                        wai-extra             >= 3.1.14,
-                       warp                  >= 3.0.13
+                       warp                  >= 3.0.13,
+                       random                >= 1.0.0.0
 
   if impl(ghc < 8.0)
     build-depends:     fail
