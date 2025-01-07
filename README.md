@@ -56,6 +56,7 @@ Additionally, the `examples` directory shows a number of concrete use cases, e.g
 * [configuration](./examples/reader.hs)
 * [cookies](./examples/cookies.hs)
 * [file upload](./examples/upload.hs)
+* [session](./examples/session.hs)
 * and more
 
 ## More Information
