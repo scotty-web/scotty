@@ -54,8 +54,8 @@ module Web.Scotty
       -- * Types
     , ScottyM, ActionM, RoutePattern, File, Content(..), Kilobytes, ErrorHandler, Handler(..)
     , ScottyState, defaultScottyState
-    -- ** Functions from Cookie module
-    , setSimpleCookie, getCookie, getCookies, deleteCookie, makeSimpleCookie
+    -- ** Cookie functions
+    , setCookie, setSimpleCookie, getCookie, getCookies, deleteCookie, Cookie.makeSimpleCookie
     -- ** Session Management
     , Session (..), SessionId, SessionJar, SessionStatus
     , createSessionJar, createUserSession, createSession, addSession
@@ -71,6 +71,7 @@ import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString as BS
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Text.Lazy (Text, toStrict)
+import qualified Data.Text as T
 
 import Network.HTTP.Types (Status, StdMethod, ResponseHeaders)
 import Network.Socket (Socket)
@@ -81,7 +82,7 @@ import qualified Network.Wai.Parse as W
 import Web.FormUrlEncoded (FromForm)
 import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, ScottyException, StatusError(..), Content(..))
 import UnliftIO.Exception (Handler(..), catch)
-import Web.Scotty.Cookie (setSimpleCookie, getCookie, getCookies, deleteCookie, makeSimpleCookie)
+import qualified Web.Scotty.Cookie as Cookie 
 import Web.Scotty.Session (Session (..), SessionId, SessionJar, SessionStatus , createSessionJar,
     createSession, addSession, maintainSessions)
 
@@ -630,3 +631,31 @@ createUserSession ::
     -> a          -- ^ Content
     -> ActionM (Session a)
 createUserSession = Trans.createUserSession
+
+-- Cookie functions
+
+-- | Set a cookie, with full access to its options (see 'SetCookie')
+setCookie :: Cookie.SetCookie -> ActionM ()
+setCookie = Cookie.setCookie
+
+-- | 'makeSimpleCookie' and 'setCookie' combined.
+setSimpleCookie :: T.Text -- ^ name
+                -> T.Text -- ^ value
+                -> ActionM ()
+setSimpleCookie = Cookie.setSimpleCookie
+
+-- | Lookup one cookie name
+getCookie :: T.Text -- ^ name
+            -> ActionM (Maybe T.Text)
+getCookie = Cookie.getCookie
+
+-- | Returns all cookies
+getCookies :: ActionM Cookie.CookiesText
+getCookies = Cookie.getCookies
+
+-- | Browsers don't directly delete a cookie, but setting its expiry to a past date (e.g. the UNIX epoch) 
+-- ensures that the cookie will be invalidated 
+-- (whether and when it will be actually deleted by the browser seems to be browser-dependent).
+deleteCookie :: T.Text -- ^ name
+             -> ActionM ()
+deleteCookie = Cookie.deleteCookie 
