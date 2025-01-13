@@ -47,7 +47,7 @@ import UnliftIO.Exception (Handler(..), catch, catches)
 
 
 --------------------- Options -----------------------
-data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
+data Options = Options { verbose :: Int -- ^ Verbosity level: 0 = silent, 1 (default) = startup text, print unhandled exceptions to stderr
                        , settings :: W.Settings -- ^ Warp 'Settings'
                                               -- Note: to work around an issue in warp,
                                               -- the default FD cache duration is set to 0
