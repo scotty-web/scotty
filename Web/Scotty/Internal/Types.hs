@@ -7,6 +7,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE LambdaCase #-}
 module Web.Scotty.Internal.Types where
 
 import           Blaze.ByteString.Builder (Builder)
@@ -18,11 +19,11 @@ import qualified Control.Exception as E
 import           Control.Monad (MonadPlus(..))
 import           Control.Monad.Base (MonadBase)
 import           Control.Monad.Catch (MonadCatch, MonadThrow)
-import           Control.Monad.Error.Class (MonadError(..))
+import           Control.Monad.Error.Class ()
 import           Control.Monad.IO.Class (MonadIO(..))
 import UnliftIO (MonadUnliftIO(..))
 import           Control.Monad.Reader (MonadReader(..), ReaderT, asks, mapReaderT)
-import           Control.Monad.State.Strict (State, StateT(..))
+import           Control.Monad.State.Strict (State)
 import           Control.Monad.Trans.Class (MonadTrans(..))
 import           Control.Monad.Trans.Control (MonadBaseControl, MonadTransControl)
 import qualified Control.Monad.Trans.Resource as RT (InternalState, InvalidAccess)
@@ -129,15 +130,10 @@ data ActionError
 instance E.Exception ActionError
 
 tryNext :: MonadUnliftIO m => m a -> m Bool
-tryNext io = catch (io >> pure True) $ \e ->
-  case e of
+tryNext io = catch (io >> pure True) $
+  \case
     AENext -> pure False
     _ -> pure True
-
--- | E.g. when a parameter is not found in a query string (400 Bad Request) or when parsing a JSON body fails (422 Unprocessable Entity)
-data StatusError = StatusError Status T.Text deriving (Show, Typeable)
-instance E.Exception StatusError
-{-# DEPRECATED StatusError "If it is supposed to be caught, a proper exception type should be defined" #-}
 
 -- | Specializes a 'Handler' to the 'ActionT' monad
 type ErrorHandler m = Handler (ActionT m) ()
@@ -239,13 +235,6 @@ instance MonadReader r m => MonadReader r (ActionT m) where
   ask = ActionT $ lift ask
   local f = ActionT . mapReaderT (local f) . runAM
 
--- | Models the invariant that only 'StatusError's can be thrown and caught.
-instance (MonadUnliftIO m) => MonadError StatusError (ActionT m) where
-  throwError = E.throw
-  catchError = catch
--- | Modeled after the behaviour in scotty < 0.20, 'fail' throws a 'StatusError' with code 500 ("Server Error"), which can be caught with 'E.catch'.
-instance (MonadIO m) => MonadFail (ActionT m) where
-  fail = E.throw . StatusError status500 . T.pack
 -- | 'empty' throws 'ActionError' 'AENext', whereas '(<|>)' catches any 'ActionError's or 'StatusError's in the first action and proceeds to the second one.
 instance (MonadUnliftIO m) => Alternative (ActionT m) where
   empty = E.throw AENext
@@ -258,13 +247,11 @@ instance (MonadUnliftIO m) => MonadPlus (ActionT m) where
 
 -- | catches either ActionError (thrown by 'next'),
 -- 'ScottyException' (thrown if e.g. a query parameter is not found)
--- or 'StatusError' (via 'raiseStatus')
 tryAnyStatus :: MonadUnliftIO m => m a -> m Bool
-tryAnyStatus io = (io >> pure True) `catches` [h1, h2, h3]
+tryAnyStatus io = (io >> pure True) `catches` [h1, h2]
   where
     h1 = Handler $ \(_ :: ActionError) -> pure False
-    h2 = Handler $ \(_ :: StatusError) -> pure False
-    h3 = Handler $ \(_ :: ScottyException) -> pure False
+    h2 = Handler $ \(_ :: ScottyException) -> pure False
 
 instance (Semigroup a) => Semigroup (ScottyT m a) where
   x <> y = (<>) <$> x <*> y

@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, RankNTypes #-}
+{-# LANGUAGE RankNTypes #-}
 -- | It should be noted that most of the code snippets below depend on the
 -- OverloadedStrings language pragma.
 --
@@ -27,7 +27,6 @@ module Web.Scotty
     , request, header, headers, body, bodyReader
     , jsonData, formData
       -- ** Accessing Path, Form and Query Parameters
-    , param, params
     , pathParam, captureParam, formParam, queryParam
     , pathParamMaybe, captureParamMaybe, formParamMaybe, queryParamMaybe
     , pathParams, captureParams, formParams, queryParams
@@ -45,9 +44,8 @@ module Web.Scotty
       -- ** Accessing the fields of the Response
     , getResponseHeaders, getResponseStatus, getResponseContent
       -- ** Exceptions
-    , raise, raiseStatus, throw, rescue, next, finish, defaultHandler, liftAndCatchIO
+    , throw, next, finish, defaultHandler
     , liftIO, catch
-    , StatusError(..)
     , ScottyException(..)
       -- * Parsing Parameters
     , Param, Trans.Parsable(..), Trans.readEither
@@ -80,7 +78,7 @@ import Network.Wai.Handler.Warp (Port)
 import qualified Network.Wai.Parse as W
 
 import Web.FormUrlEncoded (FromForm)
-import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, ScottyException, StatusError(..), Content(..))
+import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, ScottyException, Content(..))
 import UnliftIO.Exception (Handler(..), catch)
 import qualified Web.Scotty.Cookie as Cookie 
 import Web.Scotty.Session (Session (..), SessionId, SessionJar, SessionStatus , createSessionJar,
@@ -163,20 +161,6 @@ nested = Trans.nested
 setMaxRequestBodySize :: Kilobytes -> ScottyM ()
 setMaxRequestBodySize = Trans.setMaxRequestBodySize
 
--- | Throw a "500 Server Error" 'StatusError', which can be caught with 'catch'.
---
--- Uncaught exceptions turn into HTTP 500 responses.
-raise :: Text -> ActionM a
-raise = Trans.raise
-{-# DEPRECATED raise "Throw an exception instead" #-}
-
--- | Throw a 'StatusError' exception that has an associated HTTP error code and can be caught with 'catch'.
---
--- Uncaught exceptions turn into HTTP responses corresponding to the given status.
-raiseStatus :: Status -> Text -> ActionM a
-raiseStatus = Trans.raiseStatus
-{-# DEPRECATED raiseStatus "Use status, text, and finish instead" #-}
-
 -- | Throw an exception which can be caught within the scope of the current Action with 'catch'.
 --
 -- If the exception is not caught locally, another option is to implement a global 'Handler' (with 'defaultHandler') that defines its interpretation and a translation to HTTP error codes.
@@ -219,18 +203,6 @@ next = Trans.next
 -- /Since: 0.10.3/
 finish :: ActionM a
 finish = Trans.finish
-
--- | Catch an exception e.g. a 'StatusError' or a user-defined exception.
---
--- > raise JustKidding `catch` (\msg -> text msg)
-rescue :: E.Exception e => ActionM a -> (e -> ActionM a) -> ActionM a
-rescue = Trans.rescue
-{-# DEPRECATED rescue "Use catch instead" #-}
-
--- | Like 'liftIO', but catch any IO exceptions and turn them into Scotty exceptions.
-liftAndCatchIO :: IO a -> ActionM a
-liftAndCatchIO = Trans.liftAndCatchIO
-{-# DEPRECATED liftAndCatchIO "Use liftIO instead" #-}
 
 -- | Synonym for 'redirect302'.
 -- If you are unsure which redirect to use, you probably want this one.
@@ -335,17 +307,6 @@ jsonData = Trans.jsonData
 formData :: FromForm a => ActionM a
 formData = Trans.formData
 
--- | Get a parameter. First looks in captures, then form data, then query parameters.
---
--- * Raises an exception which can be caught by 'catch' if parameter is not found.
---
--- * If parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
---   This means captures are somewhat typed, in that a route won't match if a correctly typed
---   capture cannot be parsed.
-param :: Trans.Parsable a => Text -> ActionM a
-param = Trans.param . toStrict
-{-# DEPRECATED param "(#204) Not a good idea to treat all parameters identically. Use pathParam, formParam and queryParam instead. "#-}
-
 -- | Synonym for 'pathParam'
 --
 -- /Since: 0.20/
@@ -413,14 +374,6 @@ formParamMaybe = Trans.formParamMaybe . toStrict
 -- /Since: 0.21/
 queryParamMaybe :: (Trans.Parsable a) => Text -> ActionM (Maybe a)
 queryParamMaybe = Trans.queryParamMaybe . toStrict
-
-
-
-
--- | Get all parameters from path, form and query (in that order).
-params :: ActionM [Param]
-params = Trans.params
-{-# DEPRECATED params "(#204) Not a good idea to treat all parameters identically. Use pathParams, formParams and queryParams instead. "#-}
 
 -- | Synonym for 'pathParams'
 captureParams :: ActionM [Param]

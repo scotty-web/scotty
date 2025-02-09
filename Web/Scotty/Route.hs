@@ -23,7 +23,7 @@ import qualified Text.Regex as Regex
 
 import           Web.Scotty.Action
 
-import           Web.Scotty.Internal.Types (Options, RoutePattern(..), RouteOptions, ActionEnv(..), ActionT, ScottyState(..), ScottyT(..), ErrorHandler, Middleware, BodyInfo, File, handler, addRoute, defaultScottyResponse)
+import           Web.Scotty.Internal.Types (Options, RoutePattern(..), RouteOptions, ActionEnv(..), ScottyState(..), ScottyT(..), ErrorHandler, Middleware, BodyInfo, File, handler, addRoute, defaultScottyResponse)
 
 import           Web.Scotty.Util (decodeUtf8Lenient)
 import Web.Scotty.Body (cloneBodyInfo, getBodyAction, getBodyChunkAction, getFormParamsAndFilesAction)

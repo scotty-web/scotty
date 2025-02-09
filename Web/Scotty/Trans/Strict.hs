@@ -24,7 +24,6 @@ module Web.Scotty.Trans.Strict
     , capture, regex, function, literal
       -- ** Accessing the Request, Captures, and Query Parameters
     , request, Base.header, Base.headers, body, bodyReader
-    , param, params
     , captureParam, formParam, queryParam
     , captureParamMaybe, formParamMaybe, queryParamMaybe
     , captureParams, formParams, queryParams
@@ -44,8 +43,7 @@ module Web.Scotty.Trans.Strict
       -- ** Accessing the fields of the Response
     , getResponseHeaders, getResponseStatus, getResponseContent
       -- ** Exceptions
-    , Base.raise, Base.raiseStatus, throw, rescue, next, finish, defaultHandler, liftAndCatchIO
-    , StatusError(..)
+    , throw, next, finish, defaultHandler
     , ScottyException(..)
       -- * Parsing Parameters
     , Param, Parsable(..), readEither

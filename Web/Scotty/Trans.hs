@@ -33,7 +33,6 @@ module Web.Scotty.Trans
     , jsonData, formData
 
       -- ** Accessing Path, Form and Query Parameters
-    , param, params
     , pathParam, captureParam, formParam, queryParam
     , pathParamMaybe, captureParamMaybe, formParamMaybe, queryParamMaybe
     , pathParams, captureParams, formParams, queryParams
@@ -52,9 +51,8 @@ module Web.Scotty.Trans
       -- ** Accessing the fields of the Response
     , getResponseHeaders, getResponseStatus, getResponseContent
       -- ** Exceptions
-    , Lazy.raise, Lazy.raiseStatus, throw, rescue, next, finish, defaultHandler, liftAndCatchIO
+    , throw, next, finish, defaultHandler
     , liftIO, catch
-    , StatusError(..)
     , ScottyException(..)
       -- * Parsing Parameters
     , Param, Parsable(..), readEither
@@ -87,7 +85,7 @@ import Network.Wai.Handler.Warp (Port, runSettings, runSettingsSocket, setPort, 
 
 import Web.Scotty.Action
 import Web.Scotty.Route
-import Web.Scotty.Internal.Types (ScottyT(..), defaultScottyState, Application, RoutePattern, Options(..), defaultOptions, RouteOptions(..), defaultRouteOptions, ErrorHandler, Kilobytes, File, addMiddleware, setHandler, updateMaxRequestBodySize, routes, middlewares, ScottyException(..), ScottyState, defaultScottyState, StatusError(..), Content(..))
+import Web.Scotty.Internal.Types (ScottyT(..), defaultScottyState, Application, RoutePattern, Options(..), defaultOptions, RouteOptions(..), defaultRouteOptions, ErrorHandler, Kilobytes, File, addMiddleware, setHandler, updateMaxRequestBodySize, routes, middlewares, ScottyException(..), ScottyState, defaultScottyState, Content(..))
 import Web.Scotty.Trans.Lazy as Lazy
 import Web.Scotty.Util (socketDescription)
 import Web.Scotty.Body (newBodyInfo)
@@ -143,8 +141,8 @@ scottyAppT :: (Monad m, Monad n)
            -> (m W.Response -> IO W.Response) -- ^ Run monad 'm' into 'IO', called at each action.
            -> ScottyT m ()
            -> n W.Application
-scottyAppT options runActionToIO defs = do
-    let s = execState (runReaderT (runS defs) options) defaultScottyState
+scottyAppT opts runActionToIO defs = do
+    let s = execState (runReaderT (runS defs) opts) defaultScottyState
     let rapp req callback = do
           bodyInfo <- newBodyInfo req
           resp <- runActionToIO (applyAll notFoundApp ([midd bodyInfo | midd <- routes s]) req)

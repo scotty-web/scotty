@@ -5,26 +5,10 @@ import Control.Monad.IO.Class
 import Data.Bifunctor (bimap)
 import qualified Data.Text.Lazy as T
   
-import Network.HTTP.Types (Status)
+import Network.HTTP.Types ()
 
 import qualified Web.Scotty.Action as Base
 import Web.Scotty.Internal.Types
-
--- | Throw a "500 Server Error" 'StatusError', which can be caught with 'rescue'.
---
--- Uncaught exceptions turn into HTTP 500 responses.
-raise :: (MonadIO m) =>
-         T.Text -- ^ Error text
-      -> ActionT m a
-raise  = Base.raise . T.toStrict
-{-# DEPRECATED raise "Throw an exception instead" #-}
-
--- | Throw a 'StatusError' exception that has an associated HTTP error code and can be caught with 'rescue'.
---
--- Uncaught exceptions turn into HTTP responses corresponding to the given status.
-raiseStatus :: Monad m => Status -> T.Text -> ActionT m a
-raiseStatus s = Base.raiseStatus s . T.toStrict
-{-# DEPRECATED raiseStatus "Use status, text, and finish instead" #-}
 
 -- | Synonym for 'redirect302'.
 -- If you are unsure which redirect to use, you probably want this one.
