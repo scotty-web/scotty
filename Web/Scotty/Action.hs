@@ -105,7 +105,7 @@ import           Numeric.Natural
 
 import           Web.FormUrlEncoded (Form(..), FromForm(..))
 import           Web.Scotty.Internal.Types
-import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString)
+import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, decodeUtf8Lenient)
 import           UnliftIO.Exception (Handler(..), catches, throwIO)
 import           System.IO (hPutStrLn, stderr)
 
