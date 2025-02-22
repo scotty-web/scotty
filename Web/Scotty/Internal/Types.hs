@@ -19,7 +19,6 @@ import qualified Control.Exception as E
 import           Control.Monad (MonadPlus(..))
 import           Control.Monad.Base (MonadBase)
 import           Control.Monad.Catch (MonadCatch, MonadThrow)
-import           Control.Monad.Error.Class ()
 import           Control.Monad.IO.Class (MonadIO(..))
 import UnliftIO (MonadUnliftIO(..))
 import           Control.Monad.Reader (MonadReader(..), ReaderT, asks, mapReaderT)
@@ -33,7 +32,7 @@ import qualified Data.ByteString.Lazy.Char8 as LBS8 (ByteString)
 import           Data.String (IsString(..))
 import qualified Data.Text as T (Text, pack)
 import           Data.Typeable (Typeable)
-
+import           GHC.Stack (callStack)
 import           Network.HTTP.Types
 
 import           Network.Wai hiding (Middleware, Application)
@@ -42,7 +41,7 @@ import qualified Network.Wai.Handler.Warp as W (Settings, defaultSettings, Inval
 import           Network.Wai.Parse (FileInfo)
 import qualified Network.Wai.Parse as WPS (ParseRequestBodyOptions, RequestParseException(..))
 
-import UnliftIO.Exception (Handler(..), catch, catches)
+import UnliftIO.Exception (Handler(..), catch, catches, StringException(..))
 
 
 
@@ -234,6 +233,13 @@ withActionEnv f (ActionT r) = ActionT $ local f r
 instance MonadReader r m => MonadReader r (ActionT m) where
   ask = ActionT $ lift ask
   local f = ActionT . mapReaderT (local f) . runAM
+
+-- | MonadFail instance for ActionT that converts 'fail' calls into Scotty exceptions
+-- which allows these failures to be caught by Scotty's error handling system
+-- and properly returned as HTTP 500 responses. The instance throws a 'StringException'
+-- containing both the failure message and a call stack for debugging purposes.
+instance (MonadIO m) => MonadFail (ActionT m) where
+  fail msg = E.throw $ StringException msg callStack
 
 -- | 'empty' throws 'ActionError' 'AENext', whereas '(<|>)' catches any 'ActionError's or 'StatusError's in the first action and proceeds to the second one.
 instance (MonadUnliftIO m) => Alternative (ActionT m) where

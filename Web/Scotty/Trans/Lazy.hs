@@ -5,8 +5,6 @@ import Control.Monad.IO.Class
 import Data.Bifunctor (bimap)
 import qualified Data.Text.Lazy as T
   
-import Network.HTTP.Types ()
-
 import qualified Web.Scotty.Action as Base
 import Web.Scotty.Internal.Types
 

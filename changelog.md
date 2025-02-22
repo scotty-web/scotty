@@ -10,7 +10,9 @@
 ### Breaking changes
 * Remove dependency on data-default class (#386). We have been exporting constants for default config values since 0.20, and this dependency was simply unnecessary.
 * Remove re-export of `Network.Wai.Parse.ParseRequestBodyOptions` from `Web.Scotty` and `Web.Scotty.Trans`. This is a type from `wai-extra` so exporting it is unnecessary.
-* Remove deprecations
+* Remove deprecated exports (#408) `liftAndCatchIO`, `param`, `params`, `raise`, `raiseStatus`, `rescue` from `Web.Scotty`
+* Remove deprecated `StatusError` type from `Scotty.Internal.Types`.
+* Remove typeclass instance `MonadError StatusError (ActionT m)` from `Scotty.Internal.Types`
 
 ## 0.22 [2024.03.09]
 
