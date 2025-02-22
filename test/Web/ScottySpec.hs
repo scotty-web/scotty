@@ -217,7 +217,7 @@ spec = do
         text "ok")) $
         it "can catch the Exception thrown by fail" $ do
           get "/" `shouldRespondWith` 200 { matchBody = "ok"}
-          
+
     describe "redirect" $ do
       withApp (
         do
