@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -20,12 +18,10 @@ module Web.Scotty.Action
     , headers
     , html
     , htmlLazy
-    , liftAndCatchIO
     , json
     , jsonData
     , formData
     , next
-    , param
     , pathParam
     , captureParam
     , formParam
@@ -34,13 +30,10 @@ module Web.Scotty.Action
     , captureParamMaybe
     , formParamMaybe
     , queryParamMaybe
-    , params
     , pathParams
     , captureParams
     , formParams
     , queryParams
-    , raise
-    , raiseStatus
     , throw
     , raw
     , nested
@@ -54,7 +47,6 @@ module Web.Scotty.Action
     , redirect307
     , redirect308
     , request
-    , rescue
     , setHeader
     , status
     , stream
@@ -76,7 +68,7 @@ import qualified Control.Exception          as E
 import           Control.Monad              (when)
 import           Control.Monad.IO.Class     (MonadIO(..))
 import UnliftIO (MonadUnliftIO(..))
-import           Control.Monad.Reader       (MonadReader(..), ReaderT(..))
+import           Control.Monad.Reader       (MonadReader(..), ReaderT(..), asks)
 import Control.Monad.Trans.Resource (withInternalState, runResourceT)
 
 import           Control.Concurrent.MVar
@@ -114,7 +106,7 @@ import           Numeric.Natural
 import           Web.FormUrlEncoded (Form(..), FromForm(..))
 import           Web.Scotty.Internal.Types
 import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, decodeUtf8Lenient)
-import           UnliftIO.Exception (Handler(..), catch, catches, throwIO)
+import           UnliftIO.Exception (Handler(..), catches, throwIO)
 import           System.IO (hPutStrLn, stderr)
 
 import Network.Wai.Internal (ResponseReceived(..))
@@ -135,19 +127,10 @@ runAction options mh env action = do
   ok <- flip runReaderT env $ runAM $ tryNext $ action `catches` concat
     [ [actionErrorHandler]
     , maybeToList mh
-    , [statusErrorHandler, scottyExceptionHandler, someExceptionHandler options]
+    , [scottyExceptionHandler, someExceptionHandler options]
     ]
   res <- getResponse env
   return $ bool Nothing (Just $ mkResponse res) ok
-
--- | Catches 'StatusError' and produces an appropriate HTTP response.
-statusErrorHandler :: MonadIO m => ErrorHandler m
-statusErrorHandler = Handler $ \case
-  StatusError s e -> do
-    status s
-    let code = T.pack $ show $ statusCode s
-    let msg = decodeUtf8Lenient $ statusMessage s
-    html $ mconcat ["<h1>", code, " ", msg, "</h1>", e]
 
 -- | Exception handler in charge of 'ActionError'. Rethrowing 'Next' here is caught by 'tryNext'.
 -- All other cases of 'ActionError' are converted to HTTP responses.
@@ -220,23 +203,6 @@ someExceptionHandler Options{verbose} =
       "Unhandled exception of " <> show (typeOf e) <> ": " <> show e
     status status500
 
-
--- | Throw a "500 Server Error" 'StatusError', which can be caught with 'catch'.
---
--- Uncaught exceptions turn into HTTP 500 responses.
-raise :: (MonadIO m) =>
-         T.Text -- ^ Error text
-      -> ActionT m a
-raise  = raiseStatus status500
-{-# DEPRECATED raise "Throw an exception instead" #-}
-
--- | Throw a 'StatusError' exception that has an associated HTTP error code and can be caught with 'catch'.
---
--- Uncaught exceptions turn into HTTP responses corresponding to the given status.
-raiseStatus :: Monad m => Status -> T.Text -> ActionT m a
-raiseStatus s = E.throw . StatusError s
-{-# DEPRECATED raiseStatus "Use status, text, and finish instead" #-}
-
 -- | Throw an exception which can be caught within the scope of the current Action with 'catch'.
 --
 -- If the exception is not caught locally, another option is to implement a global 'Handler' (with 'defaultHandler') that defines its interpretation and a translation to HTTP error codes.
@@ -264,18 +230,6 @@ throw = E.throw
 -- >   text $ "You made a request to: " <> w
 next :: Monad m => ActionT m a
 next = E.throw AENext
-
--- | Catch an exception e.g. a 'StatusError' or a user-defined exception.
---
--- > raise JustKidding `catch` (\msg -> text msg)
-rescue :: (MonadUnliftIO m, E.Exception e) => ActionT m a -> (e -> ActionT m a) -> ActionT m a
-rescue = catch
-{-# DEPRECATED rescue "Use catch instead" #-}
-
--- | Catch any synchronous IO exceptions
-liftAndCatchIO :: MonadIO m => IO a -> ActionT m a
-liftAndCatchIO = liftIO
-{-# DEPRECATED liftAndCatchIO "Use liftIO instead" #-}
 
 -- | Synonym for 'redirect302'.
 -- If you are unsure which redirect to use, you probably want this one.
@@ -437,21 +391,6 @@ formData = do
     prependValue :: a -> Maybe [a] -> Maybe [a]
     prependValue v = Just . maybe [v] (v :)
 
--- | Get a parameter. First looks in captures, then form data, then query parameters.
---
--- * Raises an exception which can be caught by 'catch' if parameter is not found.
---
--- * If parameter is found, but 'parseParam' fails to parse to the correct type, 'next' is called.
---   This means captures are somewhat typed, in that a route won't match if a correctly typed
---   capture cannot be parsed.
-param :: (Parsable a, MonadIO m) => T.Text -> ActionT m a
-param k = do
-    val <- ActionT $ (lookup k . getParams) <$> ask
-    case val of
-        Nothing -> raiseStatus status500 $ "Param: " <> k <> " not found!"
-        Just v  -> either (const next) return $ parseParam (TL.fromStrict v)
-{-# DEPRECATED param "(#204) Not a good idea to treat all parameters identically. Use captureParam, formParam and queryParam instead. "#-}
-
 -- | Synonym for 'pathParam'
 captureParam :: (Parsable a, MonadIO m) => T.Text -> ActionT m a
 captureParam = pathParam
@@ -570,15 +509,10 @@ paramWithMaybe :: (Monad m, Parsable b) =>
                -> T.Text -- ^ parameter name
                -> ActionT m (Maybe b)
 paramWithMaybe f k = do
-    val <- ActionT $ (lookup k . f) <$> ask
+    val <- ActionT $ asks (lookup k . f)
     case val of
       Nothing -> pure Nothing
       Just v -> either (const $ pure Nothing) (pure . Just) $ parseParam $ TL.fromStrict v
-
--- | Get all parameters from path, form and query (in that order).
-params :: Monad m => ActionT m [Param]
-params = paramsWith getParams
-{-# DEPRECATED params "(#204) Not a good idea to treat all parameters identically. Use pathParams, formParams and queryParams instead. "#-}
 
 -- | Get path parameters
 pathParams :: Monad m => ActionT m [Param]
@@ -598,13 +532,7 @@ queryParams :: Monad m => ActionT m [Param]
 queryParams = paramsWith envQueryParams
 
 paramsWith :: Monad m => (ActionEnv -> a) -> ActionT m a
-paramsWith f = ActionT (f <$> ask)
-
-{-# DEPRECATED getParams "(#204) Not a good idea to treat all parameters identically" #-}
--- | Returns path and query parameters as a single list
-getParams :: ActionEnv -> [Param]
-getParams e = envPathParams e <> [] <> envQueryParams e
-
+paramsWith f = ActionT (asks f)
 
 -- === access the fields of the Response being constructed
 
