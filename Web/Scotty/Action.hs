@@ -583,9 +583,9 @@ instance Parsable () where
 instance (Parsable a) => Parsable [a] where parseParam = parseParamList
 
 instance Parsable Bool where
-    parseParam t = if t' == TL.toCaseFold "true"
+    parseParam t = if t' == TL.toCaseFold "true" || t' == TL.toCaseFold "on"
                    then Right True
-                   else if t' == TL.toCaseFold "false"
+                   else if t' == TL.toCaseFold "false" || t' == TL.toCaseFold "off"
                         then Right False
                         else Left "parseParam Bool: no parse"
         where t' = TL.toCaseFold t
