@@ -376,6 +376,15 @@ spec = do
           postForm "/search" "query=42" `shouldRespondWith` 200
         it "responds with 400 Bad Request if the form parameter cannot be parsed at the right type" $ do
           postForm "/search" "query=potato" `shouldRespondWith` 400
+      withApp (Scotty.post "/checkbox" (do
+                                             e <- formParam "enabled"
+                                             json (e :: Bool))) $ do
+        it "responds with 200 OK if the checkbox parameter can be parsed at the right type" $ do
+          postForm "/checkbox" "enabled=true" `shouldRespondWith` 200
+          postForm "/checkbox" "enabled=on" `shouldRespondWith` 200
+          postForm "/checkbox" "enabled=false" `shouldRespondWith` 200
+        it "responds with 400 Bad Request if the checkbox parameter cannot be parsed at the right type" $ do
+          postForm "/checkbox" "enabled=undefined" `shouldRespondWith` 400
 
       withApp (do
                   Scotty.post "/" $ next
