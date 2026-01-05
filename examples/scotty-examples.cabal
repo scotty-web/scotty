@@ -143,6 +143,32 @@ executable scotty-urlshortener
                        wai-middleware-static
   GHC-options:         -Wall -threaded
 
+executable scotty-session
+  main-is:             session.hs
+  default-language:    Haskell2010
+  hs-source-dirs:      .
+  build-depends:       base >= 4.6 && < 5,
+                       scotty,
+                       text
+  GHC-options:         -Wall -threaded
+
+executable scotty-cryptocookie
+  main-is:             cryptocookie.hs
+  default-language:    Haskell2010
+  hs-source-dirs:      .
+  build-depends:       base >= 4.6 && < 5,
+                       aeson,
+                       bytestring,
+                       memory,
+                       scotty,
+                       text,
+                       wai,
+                       wai-cryptocookie >= 0.3,
+                       wai-csrf,
+                       wai-extra,
+                       warp
+  GHC-options:         -Wall -threaded
+
 source-repository head
   type:     git
   location: https://github.com/scotty-web/scotty
