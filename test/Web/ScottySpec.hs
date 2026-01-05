@@ -29,6 +29,7 @@ import qualified Control.Exception as E
 import           Web.FormUrlEncoded (FromForm)
 import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request, options)
 import qualified Web.Scotty as Scotty
+import           Web.Scotty.Trans (scottyAppT)
 import qualified Web.Scotty.Cookie as SC (getCookie, setSimpleCookie, deleteCookie)
 
 #if !defined(mingw32_HOST_OS)
@@ -563,6 +564,36 @@ spec = do
                         ) $ do
         it "Roundtrip of session by adding and fetching a value" $ do
           get "/scotty" `shouldRespondWith` 200
+
+  describe "JSON Mode" $ do
+    let scottyAppJson = scottyAppT (defaultOptions { jsonMode = True }) id
+    let withJsonApp = with . scottyAppJson
+    
+    describe "notFound" $ do
+      context "when JSON mode is enabled" $ do
+        withJsonApp (return ()) $ do
+          it "returns 404 with JSON response" $ do
+            get "/" `shouldRespondWith` 
+              "{\"status\":404,\"description\":\"File Not Found!\"}" 
+              {matchStatus = 404, matchHeaders = ["Content-Type" <:> "application/json"]}
+
+    describe "exception handlers" $ do
+      context "when JSON mode is enabled" $ do
+        withJsonApp (Scotty.get "/" $ throw E.DivideByZero) $ do
+          it "returns 500 with JSON response for unhandled exceptions" $ do
+            get "/" `shouldRespondWith` 500 {matchHeaders = ["Content-Type" <:> "application/json; charset=utf-8"]}
+
+        withJsonApp (Scotty.get "/param/:id" $ do
+                       (_ :: Int) <- pathParam "nonexistent"
+                       text "ok") $ do
+          it "returns 500 with JSON response for missing path parameter" $ do
+            get "/param/test" `shouldRespondWith` 500 {matchHeaders = ["Content-Type" <:> "application/json; charset=utf-8"]}
+
+        withJsonApp (Scotty.get "/query" $ do
+                       (_ :: Int) <- queryParam "missing"
+                       text "ok") $ do
+          it "returns 400 with JSON response for missing query parameter" $ do
+            get "/query" `shouldRespondWith` 400 {matchHeaders = ["Content-Type" <:> "application/json; charset=utf-8"]}
 
 -- Unix sockets not available on Windows
 #if !defined(mingw32_HOST_OS)

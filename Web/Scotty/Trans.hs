@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, RankNTypes #-}
+{-# LANGUAGE OverloadedStrings, RankNTypes, NamedFieldPuns #-}
 {-# language LambdaCase #-}
 -- | It should be noted that most of the code snippets below depend on the
 -- OverloadedStrings language pragma.
@@ -145,24 +145,35 @@ scottyAppT opts runActionToIO defs = do
     let s = execState (runReaderT (runS defs) opts) defaultScottyState
     let rapp req callback = do
           bodyInfo <- newBodyInfo req
-          resp <- runActionToIO (applyAll notFoundApp ([midd bodyInfo | midd <- routes s]) req)
-            `catch` unhandledExceptionHandler
+          resp <- runActionToIO (applyAll (notFoundApp opts) ([midd bodyInfo | midd <- routes s]) req)
+            `catch` unhandledExceptionHandler opts
           callback resp
     return $ applyAll rapp (middlewares s)
 
 -- | Exception handler in charge of 'ScottyException' that's not caught by 'scottyExceptionHandler'
-unhandledExceptionHandler :: MonadIO m => ScottyException -> m W.Response
-unhandledExceptionHandler = \case
-  RequestTooLarge -> return $ W.responseBuilder status413 ct "Request is too big Jim!"
-  e -> return $ W.responseBuilder status500 ct $ "Internal Server Error: " <> fromString (show e)
+unhandledExceptionHandler :: MonadIO m => Options -> ScottyException -> m W.Response
+unhandledExceptionHandler Options{jsonMode} = \case
+  RequestTooLarge ->
+    if jsonMode
+      then return $ W.responseBuilder status413 ctJson $ fromString "{\"status\":413,\"description\":\"Request is too big Jim!\"}"
+      else return $ W.responseBuilder status413 ctText "Request is too big Jim!"
+  e ->
+    if jsonMode
+      then return $ W.responseBuilder status500 ctJson $ fromString $ "{\"status\":500,\"description\":\"Internal Server Error: " <> show e <> "\"}"
+      else return $ W.responseBuilder status500 ctText $ "Internal Server Error: " <> fromString (show e)
   where
-    ct = [("Content-Type", "text/plain")]
+    ctText = [("Content-Type", "text/plain")]
+    ctJson = [("Content-Type", "application/json")]
 
 applyAll :: Foldable t => a -> t (a -> a) -> a
 applyAll = foldl (flip ($))
 
-notFoundApp :: Monad m => Application m
-notFoundApp _ = return $ W.responseBuilder status404 [("Content-Type","text/html")]
+notFoundApp :: Monad m => Options -> Application m
+notFoundApp Options{jsonMode} _ =
+  if jsonMode
+    then return $ W.responseBuilder status404 [("Content-Type","application/json")]
+                       $ fromByteString "{\"status\":404,\"description\":\"File Not Found!\"}"
+    else return $ W.responseBuilder status404 [("Content-Type","text/html")]
                        $ fromByteString "<h1>404: File Not Found!</h1>"
 
 -- | Global handler for user-defined exceptions.
