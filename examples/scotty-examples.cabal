@@ -158,7 +158,6 @@ executable scotty-cryptocookie
   hs-source-dirs:      .
   build-depends:       base >= 4.6 && < 5,
                        aeson,
-                       blaze-html,
                        bytestring,
                        memory,
                        scotty,
@@ -167,8 +166,7 @@ executable scotty-cryptocookie
                        wai-cryptocookie >= 0.3,
                        wai-csrf,
                        wai-extra,
-                       warp,
-                       cookie
+                       warp
   GHC-options:         -Wall -threaded
 
 source-repository head
