@@ -56,7 +56,8 @@ Additionally, the `examples` directory shows a number of concrete use cases, e.g
 * [configuration](./examples/reader.hs)
 * [cookies](./examples/cookies.hs)
 * [file upload](./examples/upload.hs)
-* [session](./examples/session.hs)
+* [session management](./examples/session.hs)
+* [encrypted sessions with wai-cryptocookie](./examples/cryptocookie.hs) - see [investigation doc](./doc/cryptocookie-investigation.md)
 * and more
 
 ## More Information
