@@ -33,7 +33,8 @@ module Main (main) where
 
 import Web.Scotty
 import qualified Data.Text as T
-import Data.Aeson (ToJSON, FromJSON)
+import qualified Data.Text.Lazy as TL
+import Data.Aeson (ToJSON, FromJSON, object, (.=))
 import GHC.Generics (Generic)
 import qualified Network.Wai as Wai
 import Network.Wai.Middleware.RequestLogger (logStdoutDev)
@@ -43,6 +44,8 @@ import qualified Wai.CSRF
 import qualified Data.Aeson as Ae
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString.Lazy as BL
+import Data.IORef
+import Control.Monad.IO.Class (liftIO)
 
 -- | Session data (will be encrypted in cookie)
 data UserSession = UserSession
@@ -85,7 +88,15 @@ main = do
     putStrLn "Starting server on port 3000..."
     putStrLn ""
     putStrLn "Visit: http://localhost:3000/"
+    putStrLn "Endpoints:"
+    putStrLn "  /          - Home page"
+    putStrLn "  /session   - View current session (demonstrates mSessionData usage)"
+    putStrLn "  /status    - Check session status"
     putStrLn ""
+    
+    -- Create an IORef to share session data between middleware and Scotty actions
+    -- In production, use WAI vault for proper request-scoped data
+    sessionRef <- newIORef Nothing
     
     -- Step 4: Build Scotty application
     app <- scottyApp $ do
@@ -94,13 +105,54 @@ main = do
         -- Home page - minimal text response
         get "/" $ do
             text "wai-cryptocookie + Scotty example running. See cryptocookie-README.md for documentation."
+        
+        -- Example endpoint that uses session data
+        get "/session" $ do
+            mSession <- liftIO $ readIORef sessionRef
+            case mSession of
+                Nothing -> do
+                    text "No session found. The session cookie is encrypted and managed by wai-cryptocookie middleware."
+                Just (_, Nothing) -> do
+                    text "CSRF token present but no session data in cookie."
+                Just (_, Just userSession) -> do
+                    html $ TL.pack $ unlines
+                        [ "<html><body>"
+                        , "<h1>Encrypted Session Data</h1>"
+                        , "<p>The following data was decrypted from the session cookie:</p>"
+                        , "<ul>"
+                        , "<li><strong>User ID:</strong> " ++ show (userId userSession) ++ "</li>"
+                        , "<li><strong>Username:</strong> " ++ T.unpack (username userSession) ++ "</li>"
+                        , "<li><strong>Role:</strong> " ++ T.unpack (role userSession) ++ "</li>"
+                        , "</ul>"
+                        , "<p><em>Note: This data is encrypted with AES-256-GCM-SIV and bound to the CSRF token.</em></p>"
+                        , "<p><a href=\"/\">Back to home</a></p>"
+                        , "</body></html>"
+                        ]
+        
+        -- Status endpoint showing whether session exists
+        get "/status" $ do
+            mSession <- liftIO $ readIORef sessionRef
+            case mSession of
+                Nothing -> 
+                    json $ object ["status" .= ("no_session" :: T.Text)]
+                Just (_, Nothing) -> 
+                    json $ object ["status" .= ("csrf_only" :: T.Text)]
+                Just (_, Just userSession) -> 
+                    json $ object 
+                        [ "status" .= ("authenticated" :: T.Text)
+                        , "user_id" .= userId userSession
+                        , "username" .= username userSession
+                        , "role" .= role userSession
+                        ]
     
     -- Step 5: Apply middleware stack
     -- The composition order is important: CSRF first, then cryptocookie
     let handleSession :: Maybe (Wai.CSRF.Token, Maybe UserSession) -> Wai.Application
-        handleSession _mSessionData = app
-        -- In a real app, you would store mSessionData in the vault
-        -- or pass it through to your Scotty actions
+        handleSession mSessionData req respond = do
+            -- Store session data in IORef so Scotty actions can access it
+            -- In a production app, you would use WAI vault for proper request-scoped storage
+            writeIORef sessionRef mSessionData
+            app req respond
         
         fullApp =
           Wai.CSRF.middleware csrfConfig $ \mCsrfToken ->
