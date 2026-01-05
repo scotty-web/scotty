@@ -212,9 +212,9 @@ scottyExceptionHandler Options{jsonMode} = Handler $ \case
     if jsonMode
       then json $ A.object
         [ "status" A..= (400 :: Int)
-        , "description" A..= T.unwords [ "Query parameter", k, "not found"]
+        , "description" A..= T.unwords [ "Form field", k, "not found"]
         ]
-      else text $ T.unwords [ "Query parameter", k, "not found"]
+      else text $ T.unwords [ "Form field", k, "not found"]
   FailedToParseParameter k v e -> do
     status status400
     if jsonMode
