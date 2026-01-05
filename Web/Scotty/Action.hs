@@ -231,7 +231,7 @@ scottyExceptionHandler Options{jsonMode} = Handler $ \case
           [ "status" A..= (413 :: Int)
           , "description" A..= ("Request header fields too large" :: T.Text)
           ]
-        else return ()
+        else text "Request header fields too large"
     weo -> do -- FIXME fall-through case on InvalidRequest, it would be nice to return more specific error messages and codes here
       status status400
       if jsonMode
@@ -271,7 +271,7 @@ someExceptionHandler Options{verbose, jsonMode} =
         [ "status" A..= (500 :: Int)
         , "description" A..= ("Internal Server Error" :: T.Text)
         ]
-      else return ()
+      else text "Internal Server Error"
 
 -- | Throw an exception which can be caught within the scope of the current Action with 'catch'.
 --
