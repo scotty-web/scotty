@@ -1,6 +1,8 @@
 ## next [????.??.??]
 
 * Added sessions (#317).
+* Added wai-cryptocookie integration example demonstrating encrypted session cookies (#317).
+* Fixed `formData` to use `Data.Map.Map` instead of `HashMap` for `Form` type from `Web.FormUrlEncoded`.
 * Fixed cookie example from `Cookie` module documentation. `getCookie` Function would return strict variant of `Text`. Will convert it into lazy variant using `fromStrict`. 
 * Exposed simple functions of `Cookie` module via `Web.Scotty` & `Web.Scotty.Trans`.
 * Add tests for URL encoding of query parameters and form parameters. Add `formData` action for decoding `FromForm` instances (#321).
