@@ -2,12 +2,14 @@
 module Main (main) where
 
 import Web.Scotty
+import qualified Web.Scotty.Session as Session
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text as T
+import Control.Monad.IO.Class (liftIO)
 
 main :: IO ()
 main = do
-    sessionJar <- liftIO createSessionJar :: IO (SessionJar T.Text)
+    sessionJar <- liftIO Session.createSessionJar :: IO (Session.SessionJar T.Text)
     scotty 3000 $ do
         -- Login route
         get "/login" $ do
@@ -15,16 +17,16 @@ main = do
             password <- queryParam "password" :: ActionM String
             if username == "foo" && password == "bar"
                 then do
-                    _ <- createUserSession sessionJar Nothing "foo"
+                    _ <- Session.createUserSession sessionJar Nothing "foo"
                     text "Login successful!"
                 else
                     text "Invalid username or password."
         -- Dashboard route
         get "/dashboard" $ do
-            mUser <- readUserSession sessionJar
+            mUser <- Session.readUserSession sessionJar
             case mUser of
-                Nothing -> text "Hello, user."
-                Just userName -> text $ "Hello, " <> LT.fromStrict userName <> "."
+                Left _ -> text "Hello, user. Please log in."
+                Right userName -> text $ "Hello, " <> LT.fromStrict userName <> "."
         -- Logout route
         get "/logout" $ do
             deleteCookie "sess_id"
