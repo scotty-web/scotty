@@ -69,7 +69,7 @@ module Web.Scotty.Trans
     readSession, getUserSession, getSession, addSession, deleteSession, maintainSessions
     ) where
 
-import Blaze.ByteString.Builder (fromByteString)
+import Blaze.ByteString.Builder (fromByteString, fromLazyByteString)
 import Blaze.ByteString.Builder.Char8 (fromString)
 
 import Control.Exception (assert)
@@ -77,6 +77,9 @@ import Control.Monad (when)
 import Control.Monad.Reader (runReaderT)
 import Control.Monad.State.Strict (execState, modify)
 import Control.Monad.IO.Class
+
+import qualified Data.Aeson as A
+import qualified Data.Text as T
 
 import Network.HTTP.Types (status404, status413, status500)
 import Network.Socket (Socket)
@@ -155,11 +158,19 @@ unhandledExceptionHandler :: MonadIO m => Options -> ScottyException -> m W.Resp
 unhandledExceptionHandler Options{jsonMode} = \case
   RequestTooLarge ->
     if jsonMode
-      then return $ W.responseBuilder status413 ctJson $ fromString "{\"status\":413,\"description\":\"Request is too big Jim!\"}"
+      then return $ W.responseBuilder status413 ctJson $ 
+        fromLazyByteString $ A.encode $ A.object
+          [ "status" A..= (413 :: Int)
+          , "description" A..= ("Request is too big Jim!" :: T.Text)
+          ]
       else return $ W.responseBuilder status413 ctText "Request is too big Jim!"
   e ->
     if jsonMode
-      then return $ W.responseBuilder status500 ctJson $ fromString $ "{\"status\":500,\"description\":\"Internal Server Error: " <> show e <> "\"}"
+      then return $ W.responseBuilder status500 ctJson $ 
+        fromLazyByteString $ A.encode $ A.object
+          [ "status" A..= (500 :: Int)
+          , "description" A..= ("Internal Server Error: " <> T.pack (show e))
+          ]
       else return $ W.responseBuilder status500 ctText $ "Internal Server Error: " <> fromString (show e)
   where
     ctText = [("Content-Type", "text/plain")]
@@ -172,7 +183,10 @@ notFoundApp :: Monad m => Options -> Application m
 notFoundApp Options{jsonMode} _ =
   if jsonMode
     then return $ W.responseBuilder status404 [("Content-Type","application/json")]
-                       $ fromByteString "{\"status\":404,\"description\":\"File Not Found!\"}"
+                       $ fromLazyByteString $ A.encode $ A.object
+                           [ "status" A..= (404 :: Int)
+                           , "description" A..= ("File Not Found!" :: T.Text)
+                           ]
     else return $ W.responseBuilder status404 [("Content-Type","text/html")]
                        $ fromByteString "<h1>404: File Not Found!</h1>"
 

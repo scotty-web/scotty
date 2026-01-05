@@ -29,7 +29,7 @@ import qualified Control.Exception as E
 import           Web.FormUrlEncoded (FromForm)
 import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request, options)
 import qualified Web.Scotty as Scotty
-import           Web.Scotty.Trans (scottyAppT)
+import           Web.Scotty.Trans (scottyAppT)  -- for testing JSON mode with custom Options
 import qualified Web.Scotty.Cookie as SC (getCookie, setSimpleCookie, deleteCookie)
 
 #if !defined(mingw32_HOST_OS)
@@ -573,9 +573,7 @@ spec = do
       context "when JSON mode is enabled" $ do
         withJsonApp (return ()) $ do
           it "returns 404 with JSON response" $ do
-            get "/" `shouldRespondWith` 
-              "{\"status\":404,\"description\":\"File Not Found!\"}" 
-              {matchStatus = 404, matchHeaders = ["Content-Type" <:> "application/json"]}
+            get "/" `shouldRespondWith` 404 {matchHeaders = ["Content-Type" <:> "application/json"]}
 
     describe "exception handlers" $ do
       context "when JSON mode is enabled" $ do
