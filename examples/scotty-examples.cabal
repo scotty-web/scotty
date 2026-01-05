@@ -157,10 +157,18 @@ executable scotty-cryptocookie
   default-language:    Haskell2010
   hs-source-dirs:      .
   build-depends:       base >= 4.6 && < 5,
+                       aeson,
                        blaze-html,
+                       bytestring,
+                       memory,
                        scotty,
                        text,
-                       wai-extra
+                       wai,
+                       wai-cryptocookie >= 0.3,
+                       wai-csrf,
+                       wai-extra,
+                       warp,
+                       cookie
   GHC-options:         -Wall -threaded
 
 source-repository head
