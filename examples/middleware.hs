@@ -23,7 +23,7 @@ main = do
     putStrLn "  curl -H 'X-Custom: value' http://localhost:3000/headers"
     putStrLn "  curl -H 'X-Token!#$: valid' http://localhost:3000/headers"
     putStrLn "\nTo test invalid headers (these will return 500):"
-    putStrLn "  curl -H 'Invalid Header: value' http://localhost:3000/  # space in name"
+    putStrLn "  curl -H 'Invalid Header: value' http://localhost:3000/  # header name cannot contain spaces"
     putStrLn "  Note: Headers with CR/LF in values will also be rejected"
     putStrLn "\nPress Ctrl+C to stop\n"
     
@@ -47,8 +47,9 @@ main = do
         -- Endpoint group 2: Shows all request headers that passed validation
         get "/headers" $ do
             allHeaders <- headers
-            let headerList = map (\(name, value) -> 
-                    TL.pack (show (CI.original name)) <> ": " <> value <> "\n") allHeaders
+            let formatHeader (name, value) = 
+                    TL.pack (show (CI.original name)) <> ": " <> value <> "\n"
+                headerList = map formatHeader allHeaders
             text $ mconcat 
                 [ "Your request headers (all validated by middleware):\n\n"
                 , mconcat headerList
