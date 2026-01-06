@@ -21,6 +21,7 @@ import GHC.Generics (Generic)
 
 import           Network.HTTP.Types
 import           Network.Wai (Application, Request(queryString), responseLBS)
+import           Network.Wai.Middleware.ValidateHeaders (validateHeadersMiddleware, defaultValidateHeadersSettings)
 import           Network.Wai.Parse (defaultParseRequestBodyOptions)
 import           Network.Wai.Test (SResponse)
 import qualified Control.Exception.Lifted as EL
@@ -238,6 +239,90 @@ spec = do
                 ) $ do
          it "returns query parameter with given name" $ do
            get "/search" `shouldRespondWith` "haskell"
+
+      context "ValidateHeaders middleware" $ do
+        context "rejects invalid header values" $ do
+          withApp (do
+                      Scotty.middleware $ validateHeadersMiddleware defaultValidateHeadersSettings
+                      Scotty.get "/test" $ do
+                        setHeader "X-Custom" "value\r\nwith\r\nnewlines"
+                        text "should not reach here"
+                  ) $ do
+            it "returns 500 when header value contains CR/LF" $ do
+              get "/test" `shouldRespondWith` 500
+
+          withApp (do
+                      Scotty.middleware $ validateHeadersMiddleware defaultValidateHeadersSettings
+                      Scotty.get "/test" $ do
+                        setHeader "X-Custom" "value\nwith\nnewlines"
+                        text "should not reach here"
+                  ) $ do
+            it "returns 500 when header value contains LF" $ do
+              get "/test" `shouldRespondWith` 500
+
+          withApp (do
+                      Scotty.middleware $ validateHeadersMiddleware defaultValidateHeadersSettings
+                      Scotty.get "/test" $ do
+                        setHeader "X-Custom" "value\0with\0null"
+                        text "should not reach here"
+                  ) $ do
+            it "returns 500 when header value contains NUL" $ do
+              get "/test" `shouldRespondWith` 500
+
+          withApp (do
+                      Scotty.middleware $ validateHeadersMiddleware defaultValidateHeadersSettings
+                      Scotty.get "/test" $ do
+                        setHeader "X-Custom" "trailing space "
+                        text "should not reach here"
+                  ) $ do
+            it "returns 500 when header value has trailing whitespace" $ do
+              get "/test" `shouldRespondWith` 500
+
+          withApp (do
+                      Scotty.middleware $ validateHeadersMiddleware defaultValidateHeadersSettings
+                      Scotty.get "/test" $ do
+                        setHeader "X-Custom" " leading space"
+                        text "should not reach here"
+                  ) $ do
+            it "returns 500 when header value has leading whitespace" $ do
+              get "/test" `shouldRespondWith` 500
+
+        context "allows valid header values" $ do
+          withApp (do
+                      Scotty.middleware $ validateHeadersMiddleware defaultValidateHeadersSettings
+                      Scotty.get "/test" $ do
+                        setHeader "X-Custom" "valid-value"
+                        text "success"
+                  ) $ do
+            it "returns 200 when header value is valid" $ do
+              get "/test" `shouldRespondWith` "success" {matchStatus = 200}
+
+          withApp (do
+                      Scotty.middleware $ validateHeadersMiddleware defaultValidateHeadersSettings
+                      Scotty.get "/test" $ do
+                        setHeader "X-Custom" "value with spaces"
+                        text "success"
+                  ) $ do
+            it "returns 200 when header value contains internal spaces" $ do
+              get "/test" `shouldRespondWith` "success" {matchStatus = 200}
+
+          withApp (do
+                      Scotty.middleware $ validateHeadersMiddleware defaultValidateHeadersSettings
+                      Scotty.get "/test" $ do
+                        setHeader "Content-Type" "text/plain; charset=utf-8"
+                        text "success"
+                  ) $ do
+            it "returns 200 for standard Content-Type header" $ do
+              get "/test" `shouldRespondWith` 200
+
+        context "can be disabled by not adding the middleware" $ do
+          withApp (do
+                      Scotty.get "/test" $ do
+                        setHeader "X-Custom" "value\r\nwith\r\nnewlines"
+                        text "no validation"
+                  ) $ do
+            it "allows invalid headers when middleware is not enabled" $ do
+              get "/test" `shouldRespondWith` "no validation" {matchStatus = 200}
 
   describe "ActionM" $ do
     context "MonadBaseControl instance" $ do
