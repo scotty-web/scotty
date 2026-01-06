@@ -80,6 +80,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive       as CI
 import           Data.Traversable (for)
 import qualified Data.Map.Strict            as Map
+import qualified Data.HashMap.Strict        as HM
 import           Data.Int
 import           Data.List (foldl')
 import           Data.Maybe                 (maybeToList)
@@ -455,7 +456,7 @@ formData = do
     -- It's equivalent to using HashMap.insertWith (++) which does have
     -- quadratic complexity due to appending at the end of list.
     paramListToForm :: [Param] -> Form
-    paramListToForm = Form . fmap reverse . foldl' (\f (k, v) -> Map.alter (prependValue v) k f) Map.empty
+    paramListToForm = Form . fmap reverse . foldl' (\f (k, v) -> HM.alter (prependValue v) k f) HM.empty
 
     prependValue :: a -> Maybe [a] -> Maybe [a]
     prependValue v = Just . maybe [v] (v :)
