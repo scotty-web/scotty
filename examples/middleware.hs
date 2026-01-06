@@ -7,7 +7,6 @@ import Network.Wai.Middleware.ValidateHeaders (validateHeadersMiddleware, defaul
 import Data.Aeson (object, (.=))
 import qualified Data.Text.Lazy as TL
 import qualified Data.ByteString.Lazy as BL
-import Network.HTTP.Types (HeaderName)
 import qualified Data.CaseInsensitive as CI
 
 main :: IO ()
@@ -25,7 +24,7 @@ main = do
     putStrLn "  curl -H 'X-Token!#$: valid' http://localhost:3000/headers"
     putStrLn "\nTo test invalid headers (these will return 500):"
     putStrLn "  curl -H 'Invalid Header: value' http://localhost:3000/  # space in name"
-    putStrLn "  curl -H 'X-Bad: val\\r\\nue' http://localhost:3000/     # CR/LF in value"
+    putStrLn "  Note: Headers with CR/LF in values will also be rejected"
     putStrLn "\nPress Ctrl+C to stop\n"
     
     scotty 3000 $ do

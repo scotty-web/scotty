@@ -111,7 +111,6 @@ executable scotty-middleware
                        aeson,
                        bytestring,
                        case-insensitive,
-                       http-types,
                        scotty,
                        text,
                        wai-extra
