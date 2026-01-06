@@ -110,6 +110,8 @@ executable scotty-middleware
   build-depends:       base >= 4.6 && < 5,
                        aeson,
                        bytestring,
+                       case-insensitive,
+                       http-types,
                        scotty,
                        text,
                        wai-extra
