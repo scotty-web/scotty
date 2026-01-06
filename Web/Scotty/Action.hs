@@ -79,7 +79,6 @@ import qualified Data.ByteString.Char8      as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive       as CI
 import           Data.Traversable (for)
-import qualified Data.HashMap.Strict        as HashMap
 import qualified Data.Map.Strict            as Map
 import           Data.Int
 import           Data.List (foldl')

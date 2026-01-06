@@ -1,4 +1,4 @@
-## next [????.??.??]
+## 0.30 [2026.01.06]
 
 * Added sessions (#317).
 * Fixed cookie example from `Cookie` module documentation. `getCookie` Function would return strict variant of `Text`. Will convert it into lazy variant using `fromStrict`. 
