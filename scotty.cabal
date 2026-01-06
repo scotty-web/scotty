@@ -83,7 +83,7 @@ Library
                        http-types            >= 0.9.1    && < 0.13,
                        monad-control         >= 1.0.0.3  && < 1.1,
                        mtl                   >= 2.1.2    && < 2.4,
-                       network               >= 2.6.0.2  && < 3.2,
+                       network               >= 2.6.0.2  && < 3.3,
                        regex-compat          >= 0.95.1   && < 0.96,
                        resourcet,
                        stm,
