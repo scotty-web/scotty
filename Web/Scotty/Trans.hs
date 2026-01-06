@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, RankNTypes, NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings, RankNTypes #-}
 {-# language LambdaCase #-}
 -- | It should be noted that most of the code snippets below depend on the
 -- OverloadedStrings language pragma.
@@ -155,9 +155,9 @@ scottyAppT opts runActionToIO defs = do
 
 -- | Exception handler in charge of 'ScottyException' that's not caught by 'scottyExceptionHandler'
 unhandledExceptionHandler :: MonadIO m => Options -> ScottyException -> m W.Response
-unhandledExceptionHandler Options{jsonMode} = \case
+unhandledExceptionHandler opts = \case
   RequestTooLarge ->
-    if jsonMode
+    if jsonMode opts
       then return $ W.responseBuilder status413 ctJson $ 
         fromLazyByteString $ A.encode $ A.object
           [ "status" A..= (413 :: Int)
@@ -165,7 +165,7 @@ unhandledExceptionHandler Options{jsonMode} = \case
           ]
       else return $ W.responseBuilder status413 ctText "Request is too big Jim!"
   e ->
-    if jsonMode
+    if jsonMode opts
       then return $ W.responseBuilder status500 ctJson $ 
         fromLazyByteString $ A.encode $ A.object
           [ "status" A..= (500 :: Int)
@@ -174,14 +174,14 @@ unhandledExceptionHandler Options{jsonMode} = \case
       else return $ W.responseBuilder status500 ctText $ "Internal Server Error: " <> fromString (show e)
   where
     ctText = [("Content-Type", "text/plain")]
-    ctJson = [("Content-Type", "application/json")]
+    ctJson = [("Content-Type", "application/json; charset=utf-8")]
 
 applyAll :: Foldable t => a -> t (a -> a) -> a
 applyAll = foldl (flip ($))
 
 notFoundApp :: Monad m => Options -> Application m
-notFoundApp Options{jsonMode} _ =
-  if jsonMode
+notFoundApp opts _ =
+  if jsonMode opts
     then return $ W.responseBuilder status404 [("Content-Type","application/json; charset=utf-8")]
                        $ fromLazyByteString $ A.encode $ A.object
                            [ "status" A..= (404 :: Int)

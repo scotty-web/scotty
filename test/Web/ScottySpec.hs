@@ -573,7 +573,7 @@ spec = do
       context "when JSON mode is enabled" $ do
         withJsonApp (return ()) $ do
           it "returns 404 with JSON response" $ do
-            get "/" `shouldRespondWith` 404 {matchHeaders = ["Content-Type" <:> "application/json"]}
+            get "/" `shouldRespondWith` 404 {matchHeaders = ["Content-Type" <:> "application/json; charset=utf-8"]}
 
     describe "exception handlers" $ do
       context "when JSON mode is enabled" $ do
