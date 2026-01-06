@@ -7,6 +7,7 @@
 * Add explicit redirect functions for all redirect status codes.
 * Added ActionM variants for cookie module functions (#406).
 * Updated `Parsable` instance for `Bool` to accept `on` for HTML form checkboxes.
+* Added `jsonMode` flag to `Options` to return JSON-formatted error responses instead of HTML (#97). When enabled, all default error handlers (404, 500, etc.) return JSON with format `{"status": <code>, "description": "<message>"}`. Content-Type is set to `application/json; charset=utf-8`.
 
 ### Breaking changes
 * Remove dependency on data-default class (#386). We have been exporting constants for default config values since 0.20, and this dependency was simply unnecessary.

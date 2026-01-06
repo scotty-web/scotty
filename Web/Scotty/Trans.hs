@@ -69,7 +69,7 @@ module Web.Scotty.Trans
     readSession, getUserSession, getSession, addSession, deleteSession, maintainSessions
     ) where
 
-import Blaze.ByteString.Builder (fromByteString)
+import Blaze.ByteString.Builder (fromByteString, fromLazyByteString)
 import Blaze.ByteString.Builder.Char8 (fromString)
 
 import Control.Exception (assert)
@@ -77,6 +77,9 @@ import Control.Monad (when)
 import Control.Monad.Reader (runReaderT)
 import Control.Monad.State.Strict (execState, modify)
 import Control.Monad.IO.Class
+
+import qualified Data.Aeson as A
+import qualified Data.Text as T
 
 import Network.HTTP.Types (status404, status413, status500)
 import Network.Socket (Socket)
@@ -145,24 +148,46 @@ scottyAppT opts runActionToIO defs = do
     let s = execState (runReaderT (runS defs) opts) defaultScottyState
     let rapp req callback = do
           bodyInfo <- newBodyInfo req
-          resp <- runActionToIO (applyAll notFoundApp ([midd bodyInfo | midd <- routes s]) req)
-            `catch` unhandledExceptionHandler
+          resp <- runActionToIO (applyAll (notFoundApp opts) ([midd bodyInfo | midd <- routes s]) req)
+            `catch` unhandledExceptionHandler opts
           callback resp
     return $ applyAll rapp (middlewares s)
 
 -- | Exception handler in charge of 'ScottyException' that's not caught by 'scottyExceptionHandler'
-unhandledExceptionHandler :: MonadIO m => ScottyException -> m W.Response
-unhandledExceptionHandler = \case
-  RequestTooLarge -> return $ W.responseBuilder status413 ct "Request is too big Jim!"
-  e -> return $ W.responseBuilder status500 ct $ "Internal Server Error: " <> fromString (show e)
+unhandledExceptionHandler :: MonadIO m => Options -> ScottyException -> m W.Response
+unhandledExceptionHandler opts = \case
+  RequestTooLarge ->
+    if jsonMode opts
+      then return $ W.responseBuilder status413 ctJson $ 
+        fromLazyByteString $ A.encode $ A.object
+          [ "status" A..= (413 :: Int)
+          , "description" A..= ("Request is too big Jim!" :: T.Text)
+          ]
+      else return $ W.responseBuilder status413 ctText "Request is too big Jim!"
+  e ->
+    if jsonMode opts
+      then return $ W.responseBuilder status500 ctJson $ 
+        fromLazyByteString $ A.encode $ A.object
+          [ "status" A..= (500 :: Int)
+          , "description" A..= ("Internal Server Error: " <> T.pack (show e))
+          ]
+      else return $ W.responseBuilder status500 ctText $ "Internal Server Error: " <> fromString (show e)
   where
-    ct = [("Content-Type", "text/plain")]
+    ctText = [("Content-Type", "text/plain")]
+    ctJson = [("Content-Type", "application/json; charset=utf-8")]
 
 applyAll :: Foldable t => a -> t (a -> a) -> a
 applyAll = foldl (flip ($))
 
-notFoundApp :: Monad m => Application m
-notFoundApp _ = return $ W.responseBuilder status404 [("Content-Type","text/html")]
+notFoundApp :: Monad m => Options -> Application m
+notFoundApp opts _ =
+  if jsonMode opts
+    then return $ W.responseBuilder status404 [("Content-Type","application/json; charset=utf-8")]
+                       $ fromLazyByteString $ A.encode $ A.object
+                           [ "status" A..= (404 :: Int)
+                           , "description" A..= ("File Not Found!" :: T.Text)
+                           ]
+    else return $ W.responseBuilder status404 [("Content-Type","text/html")]
                        $ fromByteString "<h1>404: File Not Found!</h1>"
 
 -- | Global handler for user-defined exceptions.
