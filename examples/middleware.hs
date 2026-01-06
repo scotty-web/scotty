@@ -34,13 +34,12 @@ main = scotty 3000 $ do
     get "/headers" $ do
         agent <- header "User-Agent"
         case agent of
-            Just ua -> html $ mconcat 
-                [ "<h1>Header Information</h1>"
-                , "<p>Your User-Agent: ", ua, "</p>"
-                , "<p>This request was logged by the middleware chain.</p>"
-                , "<p>Response headers are validated to prevent injection attacks.</p>"
+            Just ua -> text $ mconcat 
+                [ "Your User-Agent: ", ua, "\n\n"
+                , "This request was logged by the middleware chain.\n"
+                , "Response headers are validated to prevent injection attacks."
                 ]
-            Nothing -> html "<h1>Header Information</h1><p>No User-Agent header found</p>"
+            Nothing -> text "No User-Agent header found"
     
     -- Endpoint group 4: POST request to demonstrate logging of different methods
     post "/echo" $ do
@@ -49,4 +48,4 @@ main = scotty 3000 $ do
     
     -- Endpoint group 5: JSON response with logging
     get "/json" $ do
-        json $ object ["message" .= ("This JSON response was logged" :: TL.Text)]
+        json $ object ["message" .= "This JSON response was logged"]
