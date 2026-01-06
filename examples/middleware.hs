@@ -3,7 +3,7 @@ module Main (main) where
 
 import Web.Scotty
 import Network.Wai.Middleware.RequestLogger
-import Network.Wai.Middleware.ValidateHeaders
+import Network.Wai.Middleware.ValidateHeaders (validateHeadersMiddleware, defaultValidateHeadersSettings)
 import Data.Aeson (object, (.=))
 import qualified Data.Text.Lazy as TL
 import qualified Data.ByteString.Lazy as BL
@@ -13,9 +13,9 @@ main = scotty 3000 $ do
     -- Request logging middleware - logs all requests to stdout in development format
     middleware logStdoutDev
     
-    -- Header validation middleware - validates that certain headers are present
-    -- This will reject requests that don't have valid headers with a 400 response
-    middleware $ validateHeaders ["User-Agent"]
+    -- Header validation middleware - validates header values to prevent header injection attacks
+    -- This will reject responses with invalid header values (e.g., containing CR/LF)
+    middleware $ validateHeadersMiddleware defaultValidateHeadersSettings
     
     -- Endpoint group 1: Basic endpoints that demonstrate logging
     get "/" $ do
@@ -25,9 +25,10 @@ main = scotty 3000 $ do
         name <- pathParam "name"
         text $ "Hello, " <> name <> "! Check the server logs to see the request details."
     
-    -- Endpoint group 2: Demonstrates header validation
-    get "/protected" $ do
-        text "This endpoint requires a User-Agent header (validated by middleware)."
+    -- Endpoint group 2: Demonstrates safe header setting
+    get "/safe-header" $ do
+        setHeader "X-Custom-Header" "safe-value"
+        text "This response has a safe custom header. Middleware validated it."
     
     -- Endpoint group 3: Multiple headers demonstration
     get "/headers" $ do
@@ -36,11 +37,10 @@ main = scotty 3000 $ do
             Just ua -> html $ mconcat 
                 [ "<h1>Header Information</h1>"
                 , "<p>Your User-Agent: ", ua, "</p>"
-                , "<p>This request was validated and logged by the middleware chain.</p>"
+                , "<p>This request was logged by the middleware chain.</p>"
+                , "<p>Response headers are validated to prevent injection attacks.</p>"
                 ]
-            -- This case should not happen due to validateHeaders middleware,
-            -- but we handle it defensively
-            Nothing -> text "No User-Agent header found"
+            Nothing -> html "<h1>Header Information</h1><p>No User-Agent header found</p>"
     
     -- Endpoint group 4: POST request to demonstrate logging of different methods
     post "/echo" $ do

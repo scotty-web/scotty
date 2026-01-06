@@ -9,7 +9,7 @@
 * Updated `Parsable` instance for `Bool` to accept `on` for HTML form checkboxes.
 * Add tests demonstrating usage of `Network.Wai.Middleware.ValidateHeaders` from wai-extra for header validation (#359).
 * Added `jsonMode` flag to `Options` to return JSON-formatted error responses instead of HTML (#97). When enabled, all default error handlers (404, 500, etc.) return JSON with format `{"status": <code>, "description": "<message>"}`. Content-Type is set to `application/json; charset=utf-8`.
-* Added middleware example demonstrating request logging and header validation using WAI middlewares (#199, #385).
+* Added middleware example demonstrating request logging and header value validation using WAI middlewares (#199, #385).
 
 ### Breaking changes
 * Remove dependency on data-default class (#386). We have been exporting constants for default config values since 0.20, and this dependency was simply unnecessary.
