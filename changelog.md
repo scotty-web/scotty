@@ -7,6 +7,7 @@
 * Add explicit redirect functions for all redirect status codes.
 * Added ActionM variants for cookie module functions (#406).
 * Updated `Parsable` instance for `Bool` to accept `on` for HTML form checkboxes.
+* Add tests demonstrating usage of `Network.Wai.Middleware.ValidateHeaders` from wai-extra for header validation (#359).
 
 ### Breaking changes
 * Remove dependency on data-default class (#386). We have been exporting constants for default config values since 0.20, and this dependency was simply unnecessary.
