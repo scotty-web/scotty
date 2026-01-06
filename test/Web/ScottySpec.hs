@@ -30,6 +30,8 @@ import qualified Control.Exception as E
 import           Web.FormUrlEncoded (FromForm)
 import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request, options)
 import qualified Web.Scotty as Scotty
+import           Web.Scotty.Trans (scottyAppT)  -- for testing JSON mode with custom Options
+import           Web.Scotty (ScottyException(..))
 import qualified Web.Scotty.Cookie as SC (getCookie, setSimpleCookie, deleteCookie)
 
 #if !defined(mingw32_HOST_OS)
@@ -147,6 +149,56 @@ spec = do
             get "/a" `shouldRespondWith` 500
           it "catches an exception after the handler is set" $ do
             get "/b" `shouldRespondWith` "ok" {matchStatus = 503}
+
+      context "custom handlers and HTTP status codes (issue noted by user)" $ do
+        withApp (do
+                    let h = Handler (\(_ :: ScottyException) -> text "Custom error message")
+                    defaultHandler h
+                    Scotty.post "/missing-body" $ do
+                      _ <- jsonData :: ActionM Int
+                      text "ok"
+                  ) $ do
+          it "custom handler catches exception before status is set (returns 200)" $ do
+            -- Note: This demonstrates the issue where custom handlers lose the original status
+            -- The scottyExceptionHandler would set 400, but custom handler runs first
+            post "/missing-body" "" `shouldRespondWith` "Custom error message" {matchStatus = 200}
+
+        withApp (do
+                    let h = Handler (\(e :: ScottyException) -> do
+                            case e of
+                              MalformedJSON _ _ -> status status400
+                              QueryParameterNotFound _ -> status status400
+                              PathParameterNotFound _ -> status status500
+                              _ -> status status500
+                            text "Custom error with status")
+                    defaultHandler h
+                    Scotty.post "/missing-body" $ do
+                      _ <- jsonData :: ActionM Int
+                      text "ok"
+                  ) $ do
+          it "custom handler can manually set appropriate status" $ do
+            -- This shows the workaround: custom handlers must explicitly set status
+            post "/missing-body" "" `shouldRespondWith` "Custom error with status" {matchStatus = 400}
+
+        withApp (do
+                    let h = Handler (\(_ :: ScottyException) -> text "Query error")
+                    defaultHandler h
+                    Scotty.get "/needs-param" $ do
+                      _ <- queryParam "missing" :: ActionM Int
+                      text "ok"
+                  ) $ do
+          it "query parameter exception also returns 200 without explicit status" $ do
+            get "/needs-param" `shouldRespondWith` "Query error" {matchStatus = 200}
+
+        withApp (do
+                    let h = Handler (\(_ :: ScottyException) -> text "Path error")
+                    defaultHandler h
+                    Scotty.get "/path/:id" $ do
+                      _ <- pathParam "nonexistent" :: ActionM Int
+                      text "ok"
+                  ) $ do
+          it "path parameter exception also returns 200 without explicit status" $ do
+            get "/path/123" `shouldRespondWith` "Path error" {matchStatus = 200}
 
 
     describe "setMaxRequestBodySize" $ do
@@ -648,6 +700,34 @@ spec = do
                         ) $ do
         it "Roundtrip of session by adding and fetching a value" $ do
           get "/scotty" `shouldRespondWith` 200
+
+  describe "JSON Mode" $ do
+    let scottyAppJson = scottyAppT (defaultOptions { jsonMode = True }) id
+    let withJsonApp = with . scottyAppJson
+    
+    describe "notFound" $ do
+      context "when JSON mode is enabled" $ do
+        withJsonApp (return ()) $ do
+          it "returns 404 with JSON response" $ do
+            get "/" `shouldRespondWith` 404 {matchHeaders = ["Content-Type" <:> "application/json; charset=utf-8"]}
+
+    describe "exception handlers" $ do
+      context "when JSON mode is enabled" $ do
+        withJsonApp (Scotty.get "/" $ throw E.DivideByZero) $ do
+          it "returns 500 with JSON response for unhandled exceptions" $ do
+            get "/" `shouldRespondWith` 500 {matchHeaders = ["Content-Type" <:> "application/json; charset=utf-8"]}
+
+        withJsonApp (Scotty.get "/param/:id" $ do
+                       (_ :: Int) <- pathParam "nonexistent"
+                       text "ok") $ do
+          it "returns 500 with JSON response for missing path parameter" $ do
+            get "/param/test" `shouldRespondWith` 500 {matchHeaders = ["Content-Type" <:> "application/json; charset=utf-8"]}
+
+        withJsonApp (Scotty.get "/query" $ do
+                       (_ :: Int) <- queryParam "missing"
+                       text "ok") $ do
+          it "returns 400 with JSON response for missing query parameter" $ do
+            get "/query" `shouldRespondWith` 400 {matchHeaders = ["Content-Type" <:> "application/json; charset=utf-8"]}
 
 -- Unix sockets not available on Windows
 #if !defined(mingw32_HOST_OS)

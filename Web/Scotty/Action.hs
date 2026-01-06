@@ -79,6 +79,7 @@ import qualified Data.ByteString.Char8      as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive       as CI
 import           Data.Traversable (for)
+import qualified Data.HashMap.Strict        as HashMap
 import qualified Data.Map.Strict            as Map
 import           Data.Int
 import           Data.List (foldl')
@@ -127,7 +128,7 @@ runAction options mh env action = do
   ok <- flip runReaderT env $ runAM $ tryNext $ action `catches` concat
     [ [actionErrorHandler]
     , maybeToList mh
-    , [scottyExceptionHandler, someExceptionHandler options]
+    , [scottyExceptionHandler options, someExceptionHandler options]
     ]
   res <- getResponse env
   return $ bool Nothing (Just $ mkResponse res) ok
@@ -143,65 +144,134 @@ actionErrorHandler = Handler $ \case
   AEFinish -> return ()
 
 -- | Default handler for exceptions from scotty
-scottyExceptionHandler :: MonadIO m => ErrorHandler m
-scottyExceptionHandler = Handler $ \case
+scottyExceptionHandler :: MonadIO m => Options -> ErrorHandler m
+scottyExceptionHandler Options{jsonMode} = Handler $ \case
   RequestTooLarge -> do
     status status413
-    text "Request body is too large"
+    if jsonMode
+      then json $ A.object ["status" A..= (413 :: Int), "description" A..= ("Request body is too large" :: T.Text)]
+      else text "Request body is too large"
   MalformedJSON bs err -> do
     status status400
-    raw $ BL.unlines
-      [ "jsonData: malformed"
-      , "Body: " <> bs
-      , "Error: " <> BL.fromStrict (encodeUtf8 err)
-      ]
+    if jsonMode
+      then json $ A.object
+        [ "status" A..= (400 :: Int)
+        , "description" A..= ("jsonData: malformed" :: T.Text)
+        , "body" A..= decodeUtf8Lenient (BL.toStrict bs)
+        , "error" A..= err
+        ]
+      else raw $ BL.unlines
+        [ "jsonData: malformed"
+        , "Body: " <> bs
+        , "Error: " <> BL.fromStrict (encodeUtf8 err)
+        ]
   FailedToParseJSON bs err -> do
     status status422
-    raw $ BL.unlines
-      [ "jsonData: failed to parse"
-      , "Body: " <> bs
-      , "Error: " <> BL.fromStrict (encodeUtf8 err)
-      ]
+    if jsonMode
+      then json $ A.object
+        [ "status" A..= (422 :: Int)
+        , "description" A..= ("jsonData: failed to parse" :: T.Text)
+        , "body" A..= decodeUtf8Lenient (BL.toStrict bs)
+        , "error" A..= err
+        ]
+      else raw $ BL.unlines
+        [ "jsonData: failed to parse"
+        , "Body: " <> bs
+        , "Error: " <> BL.fromStrict (encodeUtf8 err)
+        ]
   MalformedForm err -> do
     status status400
-    raw $ BL.unlines
-      [ "formData: malformed"
-      , "Error: " <> BL.fromStrict (encodeUtf8 err)
-      ]
+    if jsonMode
+      then json $ A.object
+        [ "status" A..= (400 :: Int)
+        , "description" A..= ("formData: malformed" :: T.Text)
+        , "error" A..= err
+        ]
+      else raw $ BL.unlines
+        [ "formData: malformed"
+        , "Error: " <> BL.fromStrict (encodeUtf8 err)
+        ]
   PathParameterNotFound k -> do
     status status500
-    text $ T.unwords [ "Path parameter", k, "not found"]
+    if jsonMode
+      then json $ A.object
+        [ "status" A..= (500 :: Int)
+        , "description" A..= T.unwords [ "Path parameter", k, "not found"]
+        ]
+      else text $ T.unwords [ "Path parameter", k, "not found"]
   QueryParameterNotFound k -> do
     status status400
-    text $ T.unwords [ "Query parameter", k, "not found"]
+    if jsonMode
+      then json $ A.object
+        [ "status" A..= (400 :: Int)
+        , "description" A..= T.unwords [ "Query parameter", k, "not found"]
+        ]
+      else text $ T.unwords [ "Query parameter", k, "not found"]
   FormFieldNotFound k -> do
     status status400
-    text $ T.unwords [ "Query parameter", k, "not found"]
+    if jsonMode
+      then json $ A.object
+        [ "status" A..= (400 :: Int)
+        , "description" A..= T.unwords [ "Form field", k, "not found"]
+        ]
+      else text $ T.unwords [ "Form field", k, "not found"]
   FailedToParseParameter k v e -> do
     status status400
-    text $ T.unwords [ "Failed to parse parameter", k, v, ":", e]
+    if jsonMode
+      then json $ A.object
+        [ "status" A..= (400 :: Int)
+        , "description" A..= T.unwords [ "Failed to parse parameter", k, v, ":", e]
+        ]
+      else text $ T.unwords [ "Failed to parse parameter", k, v, ":", e]
   WarpRequestException we -> case we of
     RequestHeaderFieldsTooLarge -> do
       status status413
+      if jsonMode
+        then json $ A.object
+          [ "status" A..= (413 :: Int)
+          , "description" A..= ("Request header fields too large" :: T.Text)
+          ]
+        else text "Request header fields too large"
     weo -> do -- FIXME fall-through case on InvalidRequest, it would be nice to return more specific error messages and codes here
       status status400
-      text $ T.unwords ["Request Exception:", T.pack (show weo)]
+      if jsonMode
+        then json $ A.object
+          [ "status" A..= (400 :: Int)
+          , "description" A..= T.unwords ["Request Exception:", T.pack (show weo)]
+          ]
+        else text $ T.unwords ["Request Exception:", T.pack (show weo)]
   WaiRequestParseException we -> do
     status status413 -- 413 Content Too Large https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/413
-    text $ T.unwords ["wai-extra Exception:", T.pack (show we)]
+    if jsonMode
+      then json $ A.object
+        [ "status" A..= (413 :: Int)
+        , "description" A..= T.unwords ["wai-extra Exception:", T.pack (show we)]
+        ]
+      else text $ T.unwords ["wai-extra Exception:", T.pack (show we)]
   ResourceTException rte -> do
     status status500
-    text $ T.unwords ["resourcet Exception:", T.pack (show rte)]
+    if jsonMode
+      then json $ A.object
+        [ "status" A..= (500 :: Int)
+        , "description" A..= T.unwords ["resourcet Exception:", T.pack (show rte)]
+        ]
+      else text $ T.unwords ["resourcet Exception:", T.pack (show rte)]
 
 -- | Uncaught exceptions turn into HTTP 500 Server Error codes
 someExceptionHandler :: MonadIO m => Options -> ErrorHandler m
-someExceptionHandler Options{verbose} =
+someExceptionHandler Options{verbose, jsonMode} =
   Handler $ \(E.SomeException e) -> do
     when (verbose > 0) $
       liftIO $
       hPutStrLn stderr $
       "Unhandled exception of " <> show (typeOf e) <> ": " <> show e
     status status500
+    if jsonMode
+      then json $ A.object
+        [ "status" A..= (500 :: Int)
+        , "description" A..= ("Internal Server Error" :: T.Text)
+        ]
+      else text "Internal Server Error"
 
 -- | Throw an exception which can be caught within the scope of the current Action with 'catch'.
 --

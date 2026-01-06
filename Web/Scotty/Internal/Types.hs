@@ -55,10 +55,11 @@ data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
                                               -- up. This likely has performance implications,
                                               -- so you may want to modify this for production
                                               -- servers using `setFdCacheDuration`.
+                       , jsonMode :: Bool -- ^ If True, return JSON error responses instead of HTML
                        }
 
 defaultOptions :: Options
-defaultOptions = Options 1 W.defaultSettings
+defaultOptions = Options 1 W.defaultSettings False
 
 newtype RouteOptions = RouteOptions { maxRequestBodySize :: Maybe Kilobytes -- max allowed request size in KB
                                     }
