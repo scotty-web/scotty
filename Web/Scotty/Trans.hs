@@ -182,7 +182,7 @@ applyAll = foldl (flip ($))
 notFoundApp :: Monad m => Options -> Application m
 notFoundApp Options{jsonMode} _ =
   if jsonMode
-    then return $ W.responseBuilder status404 [("Content-Type","application/json")]
+    then return $ W.responseBuilder status404 [("Content-Type","application/json; charset=utf-8")]
                        $ fromLazyByteString $ A.encode $ A.object
                            [ "status" A..= (404 :: Int)
                            , "description" A..= ("File Not Found!" :: T.Text)
