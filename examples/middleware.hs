@@ -5,7 +5,6 @@ import Web.Scotty
 import Network.Wai.Middleware.RequestLogger
 import Network.Wai.Middleware.ValidateHeaders (validateHeadersMiddleware, defaultValidateHeadersSettings)
 import Data.Aeson (object, (.=))
-import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.ByteString.Lazy as BL
 
