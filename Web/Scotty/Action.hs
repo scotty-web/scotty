@@ -81,6 +81,10 @@ import qualified Data.CaseInsensitive       as CI
 import           Data.Traversable (for)
 import qualified Data.Map.Strict            as Map
 import           Data.Int
+#if !MIN_VERSION_base(4,18,0)
+-- foldl' is in Prelude since base 4.18 (GHC 9.6)
+import           Data.List (foldl')
+#endif
 import           Data.Maybe                 (maybeToList)
 import qualified Data.Text                  as T
 import           Data.Text.Encoding         as STE
@@ -104,7 +108,13 @@ import           Numeric.Natural
 
 import           Web.FormUrlEncoded (Form(..), FromForm(..))
 import           Web.Scotty.Internal.Types
+#if !MIN_VERSION_text(2,0,0)
+-- decodeUtf8Lenient is in Data.Text.Encoding since text-2.0
+import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, decodeUtf8Lenient)
+#else
 import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString)
+import           Data.Text.Encoding (decodeUtf8Lenient)
+#endif
 import           UnliftIO.Exception (Handler(..), catches, throwIO)
 import           System.IO (hPutStrLn, stderr)
 
