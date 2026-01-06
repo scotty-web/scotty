@@ -57,6 +57,7 @@ Additionally, the `examples` directory shows a number of concrete use cases, e.g
 * [cookies](./examples/cookies.hs)
 * [file upload](./examples/upload.hs)
 * [session](./examples/session.hs)
+* [WAI middlewares (logging, header validation)](./examples/middleware.hs)
 * and more
 
 ## More Information
