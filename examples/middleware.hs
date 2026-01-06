@@ -47,7 +47,7 @@ main = do
         get "/headers" $ do
             allHeaders <- headers
             let formatHeader (name, value) = 
-                    TL.fromStrict name <> ": " <> TL.fromStrict value <> "\n"
+                    name <> ": " <> value <> "\n"
                 headerList = map formatHeader allHeaders
             text $ mconcat 
                 [ "Your request headers (all validated by middleware):\n\n"
