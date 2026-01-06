@@ -4,9 +4,9 @@ module Main (main) where
 import Web.Scotty
 import Network.Wai.Middleware.RequestLogger
 import Network.Wai.Middleware.ValidateHeaders
-import Network.HTTP.Types (status400)
 import Data.Aeson (object, (.=))
 import qualified Data.Text.Lazy as TL
+import qualified Data.ByteString.Lazy as BL
 
 main :: IO ()
 main = scotty 3000 $ do
@@ -38,14 +38,14 @@ main = scotty 3000 $ do
                 , "<p>Your User-Agent: ", ua, "</p>"
                 , "<p>This request was validated and logged by the middleware chain.</p>"
                 ]
-            Nothing -> do
-                status status400
-                text "User-Agent header is required"
+            -- This case should not happen due to validateHeaders middleware,
+            -- but we handle it defensively
+            Nothing -> text "No User-Agent header found"
     
     -- Endpoint group 4: POST request to demonstrate logging of different methods
     post "/echo" $ do
-        b <- body
-        text "Request body received and logged. Check server logs for details."
+        requestBody <- body
+        text $ "Request body received (" <> TL.pack (show (BL.length requestBody)) <> " bytes). Check server logs for details."
     
     -- Endpoint group 5: JSON response with logging
     get "/json" $ do

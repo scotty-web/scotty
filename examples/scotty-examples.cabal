@@ -109,7 +109,7 @@ executable scotty-middleware
   hs-source-dirs:      .
   build-depends:       base >= 4.6 && < 5,
                        aeson,
-                       http-types,
+                       bytestring,
                        scotty,
                        text,
                        wai-extra
