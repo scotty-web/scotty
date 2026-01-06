@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -31,7 +30,6 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS8 (ByteString)
 import           Data.String (IsString(..))
 import qualified Data.Text as T (Text, pack)
-import           Data.Typeable (Typeable)
 import           GHC.Stack (callStack)
 import           Network.HTTP.Types
 
@@ -126,7 +124,7 @@ data ActionError
   = AERedirect Status T.Text -- ^ Redirect
   | AENext -- ^ Stop processing this route and skip to the next one
   | AEFinish -- ^ Stop processing the request
-  deriving (Show, Typeable)
+  deriving (Show)
 instance E.Exception ActionError
 
 tryNext :: MonadUnliftIO m => m a -> m Bool
@@ -151,7 +149,7 @@ data ScottyException
   | WarpRequestException W.InvalidRequest
   | WaiRequestParseException WPS.RequestParseException -- request parsing
   | ResourceTException RT.InvalidAccess -- use after free
-  deriving (Show, Typeable)
+  deriving (Show)
 instance E.Exception ScottyException
 
 ------------------ Scotty Actions -------------------
@@ -195,7 +193,7 @@ modifyResponse f = do
   tv <- ActionT $ asks envResponse
   liftIO $ atomically $ modifyTVar' tv f
 
-data BodyPartiallyStreamed = BodyPartiallyStreamed deriving (Show, Typeable)
+data BodyPartiallyStreamed = BodyPartiallyStreamed deriving (Show)
 
 instance E.Exception BodyPartiallyStreamed
 

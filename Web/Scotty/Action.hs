@@ -79,10 +79,8 @@ import qualified Data.ByteString.Char8      as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.CaseInsensitive       as CI
 import           Data.Traversable (for)
-import qualified Data.HashMap.Strict        as HashMap
 import qualified Data.Map.Strict            as Map
 import           Data.Int
-import           Data.List (foldl')
 import           Data.Maybe                 (maybeToList)
 import qualified Data.Text                  as T
 import           Data.Text.Encoding         as STE
@@ -106,7 +104,7 @@ import           Numeric.Natural
 
 import           Web.FormUrlEncoded (Form(..), FromForm(..))
 import           Web.Scotty.Internal.Types
-import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString, decodeUtf8Lenient)
+import           Web.Scotty.Util (mkResponse, addIfNotPresent, add, replace, lazyTextToStrictByteString)
 import           UnliftIO.Exception (Handler(..), catches, throwIO)
 import           System.IO (hPutStrLn, stderr)
 

@@ -104,7 +104,7 @@ Library
   if impl(ghc < 7.10)
     build-depends:     nats                  >= 0.1      && < 2
 
-  GHC-options: -Wall -fno-warn-orphans
+  GHC-options: -Wall -Werror -fno-warn-orphans
 
 test-suite spec
   main-is:             Spec.hs
