@@ -5,9 +5,9 @@ import Web.Scotty
 import Network.Wai.Middleware.RequestLogger
 import Network.Wai.Middleware.ValidateHeaders (validateHeadersMiddleware, defaultValidateHeadersSettings)
 import Data.Aeson (object, (.=))
+import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.ByteString.Lazy as BL
-import qualified Data.CaseInsensitive as CI
 
 main :: IO ()
 main = do
@@ -48,7 +48,7 @@ main = do
         get "/headers" $ do
             allHeaders <- headers
             let formatHeader (name, value) = 
-                    TL.pack (show (CI.original name)) <> ": " <> value <> "\n"
+                    TL.fromStrict name <> ": " <> TL.fromStrict value <> "\n"
                 headerList = map formatHeader allHeaders
             text $ mconcat 
                 [ "Your request headers (all validated by middleware):\n\n"
