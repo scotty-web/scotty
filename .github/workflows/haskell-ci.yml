@@ -19,14 +19,15 @@ jobs:
           - { cabal: "3.10", os: ubuntu-latest,  ghc: "8.10.7" }
           - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.0.2"  }
           - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.2.8"  }
-          - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.4.6"  }
-          - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.6.4"  }
-          - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.8.2"  }
-          - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.10.1" }
+          - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.4.8"  }
+          - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.6.7"  }
+          - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.8.4"  }
+          - { cabal: "3.12", os: ubuntu-latest,  ghc: "9.10.3" }
+          - { cabal: "3.14", os: ubuntu-latest,  ghc: "9.12.2" }
       fail-fast: false
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
       if: github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.ref == 'refs/heads/master'
     - uses: haskell-actions/setup@v2
       id: setup-haskell-cabal
@@ -34,11 +35,12 @@ jobs:
       with:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: ${{ matrix.cabal }}
-    - uses: actions/cache@v4
+    - uses: actions/cache@v5
       name: Cache ~/.cabal/store
       with:
         path: ${{ steps.setup-haskell-cabal.outputs.cabal-store }}
-        key: ${{ runner.os }}-${{ matrix.ghc }}--${{ matrix.cabal }}-cache
+        key: ${{ runner.os }}-${{ matrix.ghc }}--${{ matrix.cabal }}-cache-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-${{ matrix.ghc }}--${{ matrix.cabal }}-cache-
     - name: Versions
       run: |
         cabal -V
