@@ -452,7 +452,7 @@ formData = do
   where
     -- This rather contrived implementation uses cons and reverse to avoid
     -- quadratic complexity when constructing a Form from a list of Param.
-    -- It's equivalent to using HashMap.insertWith (++) which does have
+    -- It's equivalent to using Map.insertWith (++) which does have
     -- quadratic complexity due to appending at the end of list.
     paramListToForm :: [Param] -> Form
     paramListToForm = Form . fmap reverse . foldl' (\f (k, v) -> Map.alter (prependValue v) k f) Map.empty
