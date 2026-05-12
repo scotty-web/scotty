@@ -1,3 +1,10 @@
+## Next
+
+* Added support for GHC 9.14, containers-0.8 (a boot lib).
+
+### Breaking changes
+* Raise lower bounds for a lot of dependencies
+
 ## 0.30 [2026.01.06]
 
 * Added sessions (#317).
