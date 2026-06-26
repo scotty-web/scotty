@@ -74,7 +74,7 @@ Library
                        Web.Scotty.Trans.Lazy
                        Web.Scotty.Util
   default-language:    Haskell2010
-  build-depends:       aeson                 >= 2.2.4.1  && < 2.3,
+  build-depends:       aeson                 >= 2.2.4.1  && < 2.4,
                        base                  >= 4.14     && < 5,
                        blaze-builder         >= 0.4.4.1  && < 0.5,
                        bytestring            >= 0.10.12.0,
