@@ -1,0 +1,9 @@
+resolver: nightly-2026-10-28
+
+packages:
+  - .
+  - examples
+
+extra-deps:
+  - http-api-data-0.7
+  - warp-3.4.17

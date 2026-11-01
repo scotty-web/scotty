@@ -10,8 +10,54 @@ defaults:
     shell: bash
 
 jobs:
+  lint:
+    name: Lint & Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: haskell-actions/setup@v2
+        id: setup-haskell
+        with:
+          ghc-version: "9.10.3"
+          cabal-version: "3.12"
+
+      - uses: actions/cache@v5
+        name: Cache ~/.cabal/store
+        with:
+          path: ${{ steps.setup-haskell.outputs.cabal-store }}
+          key: ${{ runner.os }}-9.10.3--3.12-lint-cache-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-9.10.3--3.12-lint-cache-
+
+      - name: Cabal check
+        run: |
+          cabal check
+          (cd examples && cabal check)
+
+      - name: Haddock documentation check
+        run: |
+          cabal haddock all
+
+      - name: Set up HLint
+        uses: haskell-actions/hlint-setup@v2
+        with:
+          version: '3.10'
+
+      - name: Run HLint
+        uses: haskell-actions/hlint-run@v2
+        with:
+          path: 'Web/'
+          fail-on: error
+        continue-on-error: true
+
+      - name: Fourmolu check
+        uses: haskell-actions/run-fourmolu@v12
+        with:
+          version: "0.17.0.0"
+        continue-on-error: true
+
   cabal:
-    name: ${{ matrix.os }} / ghc ${{ matrix.ghc }}
+    name: cabal / ${{ matrix.os }} / ghc ${{ matrix.ghc }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -28,28 +74,54 @@ jobs:
       fail-fast: false
 
     steps:
-    - uses: actions/checkout@v6
-      if: github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.ref == 'refs/heads/master'
-    - uses: haskell-actions/setup@v2
-      id: setup-haskell-cabal
-      name: Setup Haskell
-      with:
-        ghc-version: ${{ matrix.ghc }}
-        cabal-version: ${{ matrix.cabal }}
-    - uses: actions/cache@v5
-      name: Cache ~/.cabal/store
-      with:
-        path: ${{ steps.setup-haskell-cabal.outputs.cabal-store }}
-        key: ${{ runner.os }}-${{ matrix.ghc }}--${{ matrix.cabal }}-cache-${{ github.sha }}
-        restore-keys: ${{ runner.os }}-${{ matrix.ghc }}--${{ matrix.cabal }}-cache-
-    - name: Versions
-      run: |
-        cabal -V
-        ghc -V
-    - name: Build
-      run: |
-        cabal configure --haddock-all --enable-tests --enable-benchmarks --benchmark-option=-l
-        cabal build all --write-ghc-environment-files=always
-    - name: Test
-      run: |
-        cabal test all
+      - uses: actions/checkout@v4
+
+      - uses: haskell-actions/setup@v2
+        id: setup-haskell-cabal
+        name: Setup Haskell
+        with:
+          ghc-version: ${{ matrix.ghc }}
+          cabal-version: ${{ matrix.cabal }}
+
+      - uses: actions/cache@v5
+        name: Cache ~/.cabal/store
+        with:
+          path: ${{ steps.setup-haskell-cabal.outputs.cabal-store }}
+          key: ${{ runner.os }}-${{ matrix.ghc }}--${{ matrix.cabal }}-cache-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-${{ matrix.ghc }}--${{ matrix.cabal }}-cache-
+
+      - name: Versions
+        run: |
+          cabal -V
+          ghc -V
+
+      - name: Build
+        run: |
+          cabal configure --enable-tests --enable-benchmarks --benchmark-option=-l
+          cabal build all --write-ghc-environment-files=always
+
+      - name: Test
+        run: |
+          cabal test all --test-show-details=direct
+
+  stack:
+    name: stack / ubuntu-latest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: haskell-actions/setup@v2
+        with:
+          enable-stack: true
+          stack-no-global: true
+
+      - uses: actions/cache@v5
+        name: Cache ~/.stack
+        with:
+          path: ~/.stack
+          key: ${{ runner.os }}-stack-${{ hashFiles('stack.yaml') }}
+          restore-keys: ${{ runner.os }}-stack-
+
+      - name: Stack build and test
+        run: |
+          stack --no-terminal build --test --no-run-tests
