@@ -76,7 +76,7 @@ addHeader k v = Base.addHeader (T.toStrict k) (T.toStrict v)
 -- | Set one of the response headers. Will override any previously set value for that header.
 -- Header names are case-insensitive.
 setHeader :: MonadIO m => T.Text -> T.Text -> ActionT m ()
-setHeader k v = Base.addHeader (T.toStrict k) (T.toStrict v)
+setHeader k v = Base.setHeader (T.toStrict k) (T.toStrict v)
 
 text :: (MonadIO m) => T.Text -> ActionT m ()
 text = Base.textLazy

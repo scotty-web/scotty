@@ -645,6 +645,28 @@ spec = do
         it "doesn't override a previously set Content-Type header" $ do
           get "/scotty" `shouldRespondWith` 200 {matchHeaders = ["Content-Type" <:> "text/somethingweird"]}
 
+    describe "setHeader" $ do
+      withApp (Scotty.get "/scotty" $ do
+                  setHeader "X-Custom" "first"
+                  setHeader "X-Custom" "second"
+                  hs <- getResponseHeaders
+                  let customHeaders = filter ((== "X-Custom") . fst) hs
+                  text $ TL.pack $ show $ map snd customHeaders
+              ) $ do
+        it "overrides a previously set header rather than appending" $ do
+          get "/scotty" `shouldRespondWith` "[\"second\"]"
+
+    describe "addHeader" $ do
+      withApp (Scotty.get "/scotty" $ do
+                  addHeader "X-Custom" "first"
+                  addHeader "X-Custom" "second"
+                  hs <- getResponseHeaders
+                  let customHeaders = filter ((== "X-Custom") . fst) hs
+                  text $ TL.pack $ show $ map snd customHeaders
+              ) $ do
+        it "appends to previously set headers" $ do
+          get "/scotty" `shouldRespondWith` "[\"second\",\"first\"]"
+
     describe "finish" $ do
       withApp (Scotty.get "/scotty" $ finish) $ do
         it "responds with 200 by default" $ do
