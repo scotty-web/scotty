@@ -1,6 +1,7 @@
 ## Next
 
 * Added support for GHC 9.14, containers-0.8 (a boot lib).
+* Modernized CI/CD pipeline: added Stack support (`stack.yaml`), automated Haddock doc verification, HLint checks, Fourmolu formatting config, and Hackage validation checks.
 
 ### Breaking changes
 * Raise lower bounds for a lot of dependencies

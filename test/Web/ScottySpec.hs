@@ -31,7 +31,6 @@ import           Web.FormUrlEncoded (FromForm)
 import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request, options)
 import qualified Web.Scotty as Scotty
 import           Web.Scotty.Trans (scottyAppT)  -- for testing JSON mode with custom Options
-import           Web.Scotty (ScottyException(..))
 import qualified Web.Scotty.Cookie as SC (getCookie, setSimpleCookie, deleteCookie)
 
 #if !defined(mingw32_HOST_OS)
@@ -732,18 +731,19 @@ spec = do
 -- Unix sockets not available on Windows
 #if !defined(mingw32_HOST_OS)
   describe "scottySocket" .
-    it "works with a unix socket" .
-      withServer (Scotty.get "/scotty" $ html "") .
-        E.bracket (socket AF_UNIX Stream 0) close $ \sock -> do
-          connect sock $ SockAddrUnix socketPath
-          _ <- send sock "GET /scotty HTTP/1.1\r\n\n"
-          r1 <- recv sock 1024
-          _ <- send sock "GET /four-oh-four HTTP/1.1\r\n\n"
-          r2 <- recv sock 1024
-          (BS.take (BS.length ok) r1, BS.take (BS.length no) r2) `shouldBe` (ok, no)
+    it "works with a unix socket" $
+      withServer (Scotty.get "/scotty" $ html "") $ do
+        r1 <- sendReq "GET /scotty HTTP/1.1\r\nHost: localhost\r\n\r\n"
+        r2 <- sendReq "GET /four-oh-four HTTP/1.1\r\nHost: localhost\r\n\r\n"
+        (BS.take (BS.length ok) r1, BS.take (BS.length no) r2) `shouldBe` (ok, no)
   where ok, no :: ByteString
         ok = "HTTP/1.1 200 OK"
         no = "HTTP/1.1 404 Not Found"
+
+        sendReq req = E.bracket (socket AF_UNIX Stream 0) close $ \sock -> do
+          connect sock $ SockAddrUnix socketPath
+          _ <- send sock req
+          recv sock 1024
 
 socketPath :: FilePath
 socketPath = "/tmp/scotty-test.socket"

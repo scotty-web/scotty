@@ -1,0 +1,6 @@
+indentation: 2
+column-limit: 100
+comma-style: leading
+record-brace-space: true
+newlines-between-decls: 1
+

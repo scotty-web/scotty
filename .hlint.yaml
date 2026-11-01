@@ -1,0 +1,18 @@
+# HLint configuration for Scotty
+# https://github.com/ndmitchell/hlint
+
+- ignore: {name: "Use camelCase"}
+- ignore: {name: "Reduce duplication"}
+- ignore: {name: "Redundant do"}
+- ignore: {name: "Use newtype instead of data"}
+- ignore: {name: "Eta reduce"}
+- ignore: {name: "Use lambda-case"}
+- ignore: {name: "Use const"}
+- ignore: {name: "Avoid lambda"}
+- ignore: {name: "Use asks"}
+- ignore: {name: "Use <$>"}
+- ignore: {name: "Redundant bracket"}
+- ignore: {name: "Redundant $"}
+- ignore: {name: "Use guards"}
+- ignore: {name: "Unused LANGUAGE pragma"}
+- ignore: {name: "Use zipWith"}
