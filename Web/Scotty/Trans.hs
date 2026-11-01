@@ -26,6 +26,14 @@ module Web.Scotty.Trans
       -- are defined. All middleware is run first, followed by the first
       -- route that matches. If no route matches, a 404 response is given.
     , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound, setMaxRequestBodySize
+    , getDoc, postDoc, putDoc, deleteDoc, patchDoc, optionsDoc, addrouteDoc, matchAnyDoc
+      -- ** Swagger UI and OpenAPI Documentation
+    , DocsConfig(..), defaultDocsConfig
+    , RouteDoc(..), defaultRouteDoc
+    , ParamDoc(..), ParamIn(..)
+    , RouteInfo(..)
+    , setDocsConfig, disableDocs, setDocsTitle, setDocsVersion, setDocsDescription
+    , doc, summary, description, tags, paramDoc, queryParamDoc, headerParamDoc, pathParamDoc, deprecated, operationId
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request and its fields
@@ -72,13 +80,15 @@ module Web.Scotty.Trans
 import Blaze.ByteString.Builder (fromByteString, fromLazyByteString)
 import Blaze.ByteString.Builder.Char8 (fromString)
 
+import Control.Applicative ((<|>))
 import Control.Exception (assert)
 import Control.Monad (when)
-import Control.Monad.Reader (runReaderT)
+import Control.Monad.Reader (runReaderT, ask)
 import Control.Monad.State.Strict (execState, modify)
 import Control.Monad.IO.Class
 
 import qualified Data.Aeson as A
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 
 import Network.HTTP.Types (status404, status413, status500)
@@ -88,7 +98,24 @@ import Network.Wai.Handler.Warp (Port, runSettings, runSettingsSocket, setPort, 
 
 import Web.Scotty.Action
 import Web.Scotty.Route
-import Web.Scotty.Internal.Types (ScottyT(..), defaultScottyState, Application, RoutePattern, Options(..), defaultOptions, RouteOptions(..), defaultRouteOptions, ErrorHandler, Kilobytes, File, addMiddleware, setHandler, updateMaxRequestBodySize, routes, middlewares, ScottyException(..), ScottyState, defaultScottyState, Content(..))
+import Web.Scotty.Internal.Types
+    ( ScottyT(..), defaultScottyState, Application, RoutePattern
+    , Options(..), defaultOptions, RouteOptions(..)
+    , defaultRouteOptions, ErrorHandler, Kilobytes, File
+    , addMiddleware, setHandler, updateMaxRequestBodySize
+    , routes, middlewares, ScottyException(..), ScottyState
+    , defaultScottyState, initScottyState, Content(..)
+    , DocsConfig(..), defaultDocsConfig, RouteDoc(..), defaultRouteDoc
+    , ParamDoc(..), ParamIn(..), RouteInfo(..), addRouteInfo
+    , setDocsConfigState, routeDocs, docsConfigState
+    )
+import Web.Scotty.Docs
+    ( DocsConfig(..), defaultDocsConfig, RouteDoc(..), defaultRouteDoc
+    , ParamDoc(..), ParamIn(..), RouteInfo(..)
+    , doc, summary, description, tags, paramDoc, queryParamDoc
+    , headerParamDoc, pathParamDoc, deprecated, operationId
+    , docApp
+    )
 import Web.Scotty.Trans.Lazy as Lazy
 import Web.Scotty.Util (socketDescription)
 import Web.Scotty.Body (newBodyInfo)
@@ -145,10 +172,11 @@ scottyAppT :: (Monad m, Monad n)
            -> ScottyT m ()
            -> n W.Application
 scottyAppT opts runActionToIO defs = do
-    let s = execState (runReaderT (runS defs) opts) defaultScottyState
+    let s = execState (runReaderT (runS defs) opts) (initScottyState opts)
+    let baseApp = maybe (notFoundApp opts) (\cfg -> docApp cfg (reverse (routeDocs s)) (notFoundApp opts)) (docsConfigState s)
     let rapp req callback = do
           bodyInfo <- newBodyInfo req
-          resp <- runActionToIO (applyAll (notFoundApp opts) ([midd bodyInfo | midd <- routes s]) req)
+          resp <- runActionToIO (applyAll baseApp ([midd bodyInfo | midd <- routes s]) req)
             `catch` unhandledExceptionHandler opts
           callback resp
     return $ applyAll rapp (middlewares s)
@@ -206,4 +234,36 @@ middleware = ScottyT . modify . addMiddleware
 setMaxRequestBodySize :: Kilobytes -- ^ Request size limit
                       -> ScottyT m ()
 setMaxRequestBodySize i = assert (i > 0) $ ScottyT . modify . updateMaxRequestBodySize $ defaultRouteOptions { maxRequestBodySize = Just i }
+
+-- | Set or update the Swagger UI / OpenAPI documentation configuration.
+setDocsConfig :: Monad m => DocsConfig -> ScottyT m ()
+setDocsConfig cfg = ScottyT $ modify $ setDocsConfigState (Just cfg)
+
+-- | Disable the automatic Swagger UI (/docs) and OpenAPI (/openapi.json) endpoints.
+disableDocs :: Monad m => ScottyT m ()
+disableDocs = ScottyT $ modify $ setDocsConfigState Nothing
+
+-- | Set the API title for Swagger UI and OpenAPI documentation.
+setDocsTitle :: Monad m => T.Text -> ScottyT m ()
+setDocsTitle t = ScottyT $ do
+    opts <- ask
+    modify $ \s ->
+        let cur = fromMaybe defaultDocsConfig (docsConfigState s <|> docsConfig opts)
+        in setDocsConfigState (Just cur { docsTitle = t }) s
+
+-- | Set the API version for Swagger UI and OpenAPI documentation.
+setDocsVersion :: Monad m => T.Text -> ScottyT m ()
+setDocsVersion v = ScottyT $ do
+    opts <- ask
+    modify $ \s ->
+        let cur = fromMaybe defaultDocsConfig (docsConfigState s <|> docsConfig opts)
+        in setDocsConfigState (Just cur { docsVersion = v }) s
+
+-- | Set the API description for Swagger UI and OpenAPI documentation.
+setDocsDescription :: Monad m => T.Text -> ScottyT m ()
+setDocsDescription d = ScottyT $ do
+    opts <- ask
+    modify $ \s ->
+        let cur = fromMaybe defaultDocsConfig (docsConfigState s <|> docsConfig opts)
+        in setDocsConfigState (Just cur { docsDescription = Just d }) s
 

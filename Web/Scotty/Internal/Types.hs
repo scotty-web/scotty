@@ -7,6 +7,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Web.Scotty.Internal.Types where
 
 import           Blaze.ByteString.Builder (Builder)
@@ -44,6 +45,78 @@ import UnliftIO.Exception (Handler(..), catch, catches, StringException(..))
 
 
 
+--------------------- Docs & OpenAPI -----------------------
+
+-- | Configuration for automatically generated Swagger UI and OpenAPI documentation.
+data DocsConfig = DocsConfig
+    { docsPath          :: T.Text       -- ^ Path to serve Swagger UI, default: "/docs"
+    , openApiPath       :: T.Text       -- ^ Path to serve OpenAPI JSON spec, default: "/openapi.json"
+    , docsTitle         :: T.Text       -- ^ Title displayed in Swagger UI and OpenAPI spec
+    , docsVersion       :: T.Text       -- ^ API version string
+    , docsDescription   :: Maybe T.Text -- ^ Optional API description
+    , docsSwaggerCssUrl :: T.Text       -- ^ URL to Swagger UI stylesheet
+    , docsSwaggerJsUrl  :: T.Text       -- ^ URL to Swagger UI bundle script
+    } deriving (Eq, Show)
+
+-- | Default Swagger UI / OpenAPI configuration.
+defaultDocsConfig :: DocsConfig
+defaultDocsConfig = DocsConfig
+    { docsPath          = "/docs"
+    , openApiPath       = "/openapi.json"
+    , docsTitle         = "Scotty API"
+    , docsVersion       = "0.1.0"
+    , docsDescription   = Just "Interactive API documentation powered by Scotty & Swagger UI"
+    , docsSwaggerCssUrl = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css"
+    , docsSwaggerJsUrl  = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"
+    }
+
+-- | OpenAPI parameter location.
+data ParamIn = ParamPath | ParamQuery | ParamHeader | ParamCookie
+    deriving (Eq, Show)
+
+-- | Documentation for a parameter.
+data ParamDoc = ParamDoc
+    { pdName        :: T.Text
+    , pdIn          :: ParamIn
+    , pdRequired    :: Bool
+    , pdDescription :: Maybe T.Text
+    , pdSchemaType  :: T.Text -- ^ e.g. "string", "integer", "boolean"
+    } deriving (Eq, Show)
+
+-- | Metadata describing a route in OpenAPI / Swagger UI.
+data RouteDoc = RouteDoc
+    { rdSummary     :: Maybe T.Text
+    , rdDescription :: Maybe T.Text
+    , rdTags        :: [T.Text]
+    , rdParameters  :: [ParamDoc]
+    , rdDeprecated  :: Bool
+    , rdOperationId :: Maybe T.Text
+    } deriving (Eq, Show)
+
+-- | Default empty route documentation.
+defaultRouteDoc :: RouteDoc
+defaultRouteDoc = RouteDoc Nothing Nothing [] [] False Nothing
+
+instance Semigroup RouteDoc where
+    d1 <> d2 = RouteDoc
+        { rdSummary     = rdSummary d2 <|> rdSummary d1
+        , rdDescription = rdDescription d2 <|> rdDescription d1
+        , rdTags        = rdTags d1 ++ rdTags d2
+        , rdParameters  = rdParameters d1 ++ rdParameters d2
+        , rdDeprecated  = rdDeprecated d1 || rdDeprecated d2
+        , rdOperationId = rdOperationId d2 <|> rdOperationId d1
+        }
+
+instance Monoid RouteDoc where
+    mempty = defaultRouteDoc
+
+-- | Recorded route info for OpenAPI generation.
+data RouteInfo = RouteInfo
+    { riMethod  :: Maybe StdMethod
+    , riPattern :: RoutePattern
+    , riDoc     :: RouteDoc
+    }
+
 --------------------- Options -----------------------
 data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
                        , settings :: W.Settings -- ^ Warp 'Settings'
@@ -54,10 +127,11 @@ data Options = Options { verbose :: Int -- ^ 0 = silent, 1(def) = startup banner
                                               -- so you may want to modify this for production
                                               -- servers using `setFdCacheDuration`.
                        , jsonMode :: Bool -- ^ If True, return JSON error responses instead of HTML
+                       , docsConfig :: Maybe DocsConfig -- ^ Configuration for Swagger / OpenAPI docs
                        }
 
 defaultOptions :: Options
-defaultOptions = Options 1 W.defaultSettings False
+defaultOptions = Options 1 W.defaultSettings False (Just defaultDocsConfig)
 
 newtype RouteOptions = RouteOptions { maxRequestBodySize :: Maybe Kilobytes -- max allowed request size in KB
                                     }
@@ -90,10 +164,21 @@ data ScottyState m =
                 , routes :: [BodyInfo -> Middleware m]
                 , handler :: Maybe (ErrorHandler m)
                 , routeOptions :: RouteOptions
+                , routeDocs :: [RouteInfo]
+                , docsConfigState :: Maybe DocsConfig
                 }
 
+initScottyState :: Options -> ScottyState m
+initScottyState opts = ScottyState [] [] Nothing defaultRouteOptions [] (docsConfig opts)
+
 defaultScottyState :: ScottyState m
-defaultScottyState = ScottyState [] [] Nothing defaultRouteOptions
+defaultScottyState = initScottyState defaultOptions
+
+addRouteInfo :: RouteInfo -> ScottyState m -> ScottyState m
+addRouteInfo ri s@(ScottyState {routeDocs = rds}) = s { routeDocs = ri:rds }
+
+setDocsConfigState :: Maybe DocsConfig -> ScottyState m -> ScottyState m
+setDocsConfigState mc s = s { docsConfigState = mc }
 
 addMiddleware :: Wai.Middleware -> ScottyState m -> ScottyState m
 addMiddleware m s@(ScottyState {middlewares = ms}) = s { middlewares = m:ms }

@@ -1,6 +1,7 @@
 ## Next
 
 * Added support for GHC 9.14, containers-0.8 (a boot lib).
+* Added built-in Swagger UI (`/docs`) and OpenAPI 3.0 specification (`/openapi.json`) endpoints baked into the package, with overridability and route metadata combinators (`getDoc`, `postDoc`, `summary`, `tags`, etc.) (#435).
 
 ### Breaking changes
 * Raise lower bounds for a lot of dependencies
