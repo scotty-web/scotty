@@ -645,6 +645,28 @@ spec = do
         it "doesn't override a previously set Content-Type header" $ do
           get "/scotty" `shouldRespondWith` 200 {matchHeaders = ["Content-Type" <:> "text/somethingweird"]}
 
+    describe "setHeader" $ do
+      withApp (Scotty.get "/scotty" $ do
+                  setHeader "X-Custom" "first"
+                  setHeader "X-Custom" "second"
+                  hs <- getResponseHeaders
+                  let customHeaders = filter ((== "X-Custom") . fst) hs
+                  text $ TL.pack $ show $ map snd customHeaders
+              ) $ do
+        it "overrides a previously set header rather than appending" $ do
+          get "/scotty" `shouldRespondWith` "[\"second\"]"
+
+    describe "addHeader" $ do
+      withApp (Scotty.get "/scotty" $ do
+                  addHeader "X-Custom" "first"
+                  addHeader "X-Custom" "second"
+                  hs <- getResponseHeaders
+                  let customHeaders = filter ((== "X-Custom") . fst) hs
+                  text $ TL.pack $ show $ map snd customHeaders
+              ) $ do
+        it "appends to previously set headers" $ do
+          get "/scotty" `shouldRespondWith` "[\"second\",\"first\"]"
+
     describe "finish" $ do
       withApp (Scotty.get "/scotty" $ finish) $ do
         it "responds with 200 by default" $ do
@@ -732,18 +754,19 @@ spec = do
 -- Unix sockets not available on Windows
 #if !defined(mingw32_HOST_OS)
   describe "scottySocket" .
-    it "works with a unix socket" .
-      withServer (Scotty.get "/scotty" $ html "") .
-        E.bracket (socket AF_UNIX Stream 0) close $ \sock -> do
-          connect sock $ SockAddrUnix socketPath
-          _ <- send sock "GET /scotty HTTP/1.1\r\n\n"
-          r1 <- recv sock 1024
-          _ <- send sock "GET /four-oh-four HTTP/1.1\r\n\n"
-          r2 <- recv sock 1024
-          (BS.take (BS.length ok) r1, BS.take (BS.length no) r2) `shouldBe` (ok, no)
+    it "works with a unix socket" $
+      withServer (Scotty.get "/scotty" $ html "") $ do
+        r1 <- sendReq "GET /scotty HTTP/1.1\r\nHost: localhost\r\n\r\n"
+        r2 <- sendReq "GET /four-oh-four HTTP/1.1\r\nHost: localhost\r\n\r\n"
+        (BS.take (BS.length ok) r1, BS.take (BS.length no) r2) `shouldBe` (ok, no)
   where ok, no :: ByteString
         ok = "HTTP/1.1 200 OK"
         no = "HTTP/1.1 404 Not Found"
+
+        sendReq req = E.bracket (socket AF_UNIX Stream 0) close $ \sock -> do
+          connect sock $ SockAddrUnix socketPath
+          _ <- send sock req
+          recv sock 1024
 
 socketPath :: FilePath
 socketPath = "/tmp/scotty-test.socket"

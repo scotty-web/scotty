@@ -123,6 +123,8 @@ executable scotty-options
                        scotty,
                        wai-extra,
                        warp
+  if impl(ghc == 9.0.*)
+    build-depends:     warp < 3.4.18
   GHC-options:         -Wall -threaded
 
 executable scotty-reader
