@@ -21,6 +21,15 @@ module Web.Scotty
       -- are defined. All middleware is run first, followed by the first
       -- route that matches. If no route matches, a 404 response is given.
     , middleware, get, post, put, delete, patch, options, addroute, matchAny, notFound, nested, setMaxRequestBodySize
+    , getDoc, postDoc, putDoc, deleteDoc, patchDoc, optionsDoc, addrouteDoc, matchAnyDoc
+    -- ** Swagger UI and OpenAPI Documentation
+    , DocsConfig(..), defaultDocsConfig
+    , RouteDoc(..), defaultRouteDoc
+    , ParamDoc(..), ParamIn(..)
+    , RouteInfo(..)
+    , setDocsConfig, disableDocs, setDocsTitle, setDocsVersion, setDocsDescription
+    , doc, summary, description, tags, paramDoc, queryParamDoc, headerParamDoc, pathParamDoc, deprecated, operationId
+    , swaggerUiHtml, openApiJson
       -- ** Route Patterns
     , capture, regex, function, literal
       -- ** Accessing the Request and its fields
@@ -79,6 +88,13 @@ import qualified Network.Wai.Parse as W
 
 import Web.FormUrlEncoded (FromForm)
 import Web.Scotty.Internal.Types (ScottyT, ActionT, ErrorHandler, Param, RoutePattern, Options, defaultOptions, File, Kilobytes, ScottyState, defaultScottyState, ScottyException, Content(..))
+import Web.Scotty.Docs
+    ( DocsConfig(..), defaultDocsConfig, RouteDoc(..), defaultRouteDoc
+    , ParamDoc(..), ParamIn(..), RouteInfo(..)
+    , doc, summary, description, tags, paramDoc, queryParamDoc
+    , headerParamDoc, pathParamDoc, deprecated, operationId
+    , swaggerUiHtml, openApiJson
+    )
 import UnliftIO.Exception (Handler(..), catch)
 import qualified Web.Scotty.Cookie as Cookie 
 import Web.Scotty.Session (Session (..), SessionId, SessionJar, SessionStatus , createSessionJar,
@@ -501,6 +517,58 @@ let server = S.get "/foo/:bar" (S.pathParam "bar" >>= S.text)
 -}
 addroute :: StdMethod -> RoutePattern -> ActionM () -> ScottyM ()
 addroute = Trans.addroute
+
+-- | Documented version of 'get'
+getDoc :: RouteDoc -> RoutePattern -> ActionM () -> ScottyM ()
+getDoc = Trans.getDoc
+
+-- | Documented version of 'post'
+postDoc :: RouteDoc -> RoutePattern -> ActionM () -> ScottyM ()
+postDoc = Trans.postDoc
+
+-- | Documented version of 'put'
+putDoc :: RouteDoc -> RoutePattern -> ActionM () -> ScottyM ()
+putDoc = Trans.putDoc
+
+-- | Documented version of 'delete'
+deleteDoc :: RouteDoc -> RoutePattern -> ActionM () -> ScottyM ()
+deleteDoc = Trans.deleteDoc
+
+-- | Documented version of 'patch'
+patchDoc :: RouteDoc -> RoutePattern -> ActionM () -> ScottyM ()
+patchDoc = Trans.patchDoc
+
+-- | Documented version of 'options'
+optionsDoc :: RouteDoc -> RoutePattern -> ActionM () -> ScottyM ()
+optionsDoc = Trans.optionsDoc
+
+-- | Documented version of 'matchAny'
+matchAnyDoc :: RouteDoc -> RoutePattern -> ActionM () -> ScottyM ()
+matchAnyDoc = Trans.matchAnyDoc
+
+-- | Documented version of 'addroute'
+addrouteDoc :: RouteDoc -> StdMethod -> RoutePattern -> ActionM () -> ScottyM ()
+addrouteDoc = Trans.addrouteDoc
+
+-- | Set or update the Swagger UI / OpenAPI documentation configuration.
+setDocsConfig :: DocsConfig -> ScottyM ()
+setDocsConfig = Trans.setDocsConfig
+
+-- | Disable the automatic Swagger UI (/docs) and OpenAPI (/openapi.json) endpoints.
+disableDocs :: ScottyM ()
+disableDocs = Trans.disableDocs
+
+-- | Set the API title for Swagger UI and OpenAPI documentation.
+setDocsTitle :: T.Text -> ScottyM ()
+setDocsTitle = Trans.setDocsTitle
+
+-- | Set the API version for Swagger UI and OpenAPI documentation.
+setDocsVersion :: T.Text -> ScottyM ()
+setDocsVersion = Trans.setDocsVersion
+
+-- | Set the API description for Swagger UI and OpenAPI documentation.
+setDocsDescription :: T.Text -> ScottyM ()
+setDocsDescription = Trans.setDocsDescription
 
 
 {- | Match requests using a regular expression.

@@ -23,7 +23,7 @@ import           Network.HTTP.Types
 import           Network.Wai (Application, Request(queryString), responseLBS)
 import           Network.Wai.Middleware.ValidateHeaders (validateHeadersMiddleware, defaultValidateHeadersSettings)
 import           Network.Wai.Parse (defaultParseRequestBodyOptions)
-import           Network.Wai.Test (SResponse)
+import           Network.Wai.Test (SResponse, simpleBody)
 import qualified Control.Exception.Lifted as EL
 import qualified Control.Exception as E
 
@@ -31,7 +31,6 @@ import           Web.FormUrlEncoded (FromForm)
 import           Web.Scotty as Scotty hiding (get, post, put, patch, delete, request, options)
 import qualified Web.Scotty as Scotty
 import           Web.Scotty.Trans (scottyAppT)  -- for testing JSON mode with custom Options
-import           Web.Scotty (ScottyException(..))
 import qualified Web.Scotty.Cookie as SC (getCookie, setSimpleCookie, deleteCookie)
 
 #if !defined(mingw32_HOST_OS)
@@ -729,21 +728,90 @@ spec = do
           it "returns 400 with JSON response for missing query parameter" $ do
             get "/query" `shouldRespondWith` 400 {matchHeaders = ["Content-Type" <:> "application/json; charset=utf-8"]}
 
+  describe "Swagger UI and OpenAPI docs" $ do
+    describe "default documentation endpoints" $ do
+      withApp (Scotty.get "/hello" $ text "world") $ do
+        it "serves Swagger UI HTML on /docs by default" $ do
+          get "/docs" `shouldRespondWith` 200 {matchHeaders = ["Content-Type" <:> "text/html; charset=utf-8"]}
+
+        it "serves OpenAPI 3.0 JSON on /openapi.json by default" $ do
+          get "/openapi.json" `shouldRespondWith` 200 {matchHeaders = ["Content-Type" <:> "application/json; charset=utf-8"]}
+
+    describe "OpenAPI specification content" $ do
+      withApp (do
+        Scotty.get "/users" $ text "users"
+        Scotty.get "/users/:id" $ text "user"
+        Scotty.post "/users" $ text "create"
+        Scotty.getDoc (doc $ summary "List widgets" . tags ["Widgets"] . paramDoc (queryParamDoc "limit")) "/widgets" $ text "widgets"
+        ) $ do
+        it "includes registered paths and parameters in /openapi.json" $ do
+          resp <- get "/openapi.json"
+          let bodyStr = TLE.decodeUtf8 (simpleBody resp)
+          liftIO $ do
+            bodyStr `shouldSatisfy` TL.isInfixOf "\"openapi\":\"3.0.3\""
+            bodyStr `shouldSatisfy` TL.isInfixOf "\"/users\""
+            bodyStr `shouldSatisfy` TL.isInfixOf "\"/users/{id}\""
+            bodyStr `shouldSatisfy` TL.isInfixOf "\"name\":\"id\""
+            bodyStr `shouldSatisfy` TL.isInfixOf "\"in\":\"path\""
+            bodyStr `shouldSatisfy` TL.isInfixOf "\"required\":true"
+            bodyStr `shouldSatisfy` TL.isInfixOf "\"List widgets\""
+            bodyStr `shouldSatisfy` TL.isInfixOf "\"Widgets\""
+            bodyStr `shouldSatisfy` TL.isInfixOf "\"name\":\"limit\""
+
+    describe "overriding documentation endpoints" $ do
+      withApp (do
+        Scotty.get "/docs" $ text "Custom Docs"
+        Scotty.get "/openapi.json" $ text "{\"custom\":true}"
+        Scotty.get "/hello" $ text "world"
+        ) $ do
+        it "allows overriding /docs with a custom handler" $ do
+          get "/docs" `shouldRespondWith` "Custom Docs" {matchStatus = 200}
+
+        it "allows overriding /openapi.json with a custom handler" $ do
+          get "/openapi.json" `shouldRespondWith` "{\"custom\":true}" {matchStatus = 200}
+
+    describe "disabling documentation" $ do
+      withApp (do
+        disableDocs
+        Scotty.get "/hello" $ text "world"
+        ) $ do
+        it "returns 404 on /docs and /openapi.json when disableDocs is called" $ do
+          get "/docs" `shouldRespondWith` 404
+          get "/openapi.json" `shouldRespondWith` 404
+
+      let noDocsApp = with (scottyAppT (defaultOptions { docsConfig = Nothing }) id (Scotty.get "/hello" $ text "world"))
+      noDocsApp $ do
+        it "returns 404 on /docs and /openapi.json when docsConfig is Nothing in Options" $ do
+          get "/docs" `shouldRespondWith` 404
+          get "/openapi.json" `shouldRespondWith` 404
+
+    describe "customizing documentation endpoints" $ do
+      withApp (do
+        setDocsConfig (defaultDocsConfig { docsPath = "/swagger", openApiPath = "/spec.json", docsTitle = "Custom API" })
+        Scotty.get "/hello" $ text "world"
+        ) $ do
+        it "serves docs on the customized paths" $ do
+          get "/swagger" `shouldRespondWith` 200
+          get "/spec.json" `shouldRespondWith` 200
+          get "/docs" `shouldRespondWith` 404
+          get "/openapi.json" `shouldRespondWith` 404
+
 -- Unix sockets not available on Windows
 #if !defined(mingw32_HOST_OS)
   describe "scottySocket" .
-    it "works with a unix socket" .
-      withServer (Scotty.get "/scotty" $ html "") .
-        E.bracket (socket AF_UNIX Stream 0) close $ \sock -> do
-          connect sock $ SockAddrUnix socketPath
-          _ <- send sock "GET /scotty HTTP/1.1\r\n\n"
-          r1 <- recv sock 1024
-          _ <- send sock "GET /four-oh-four HTTP/1.1\r\n\n"
-          r2 <- recv sock 1024
-          (BS.take (BS.length ok) r1, BS.take (BS.length no) r2) `shouldBe` (ok, no)
+    it "works with a unix socket" $
+      withServer (Scotty.get "/scotty" $ html "") $ do
+        r1 <- sendReq "GET /scotty HTTP/1.1\r\nHost: localhost\r\n\r\n"
+        r2 <- sendReq "GET /four-oh-four HTTP/1.1\r\nHost: localhost\r\n\r\n"
+        (BS.take (BS.length ok) r1, BS.take (BS.length no) r2) `shouldBe` (ok, no)
   where ok, no :: ByteString
         ok = "HTTP/1.1 200 OK"
         no = "HTTP/1.1 404 Not Found"
+
+        sendReq req = E.bracket (socket AF_UNIX Stream 0) close $ \sock -> do
+          connect sock $ SockAddrUnix socketPath
+          _ <- send sock req
+          recv sock 1024
 
 socketPath :: FilePath
 socketPath = "/tmp/scotty-test.socket"

@@ -2,6 +2,7 @@
              OverloadedStrings, RankNTypes, ScopedTypeVariables #-}
 module Web.Scotty.Route
     ( get, post, put, delete, patch, options, addroute, matchAny, notFound,
+      getDoc, postDoc, putDoc, deleteDoc, patchDoc, optionsDoc, addrouteDoc, matchAnyDoc,
       capture, regex, function, literal
     ) where
 
@@ -23,7 +24,7 @@ import qualified Text.Regex as Regex
 
 import           Web.Scotty.Action
 
-import           Web.Scotty.Internal.Types (Options, RoutePattern(..), RouteOptions, ActionEnv(..), ScottyState(..), ScottyT(..), ErrorHandler, Middleware, BodyInfo, File, handler, addRoute, defaultScottyResponse)
+import           Web.Scotty.Internal.Types (Options, RoutePattern(..), RouteOptions, ActionEnv(..), ScottyState(..), ScottyT(..), ErrorHandler, Middleware, BodyInfo, File, handler, addRoute, defaultScottyResponse, RouteDoc(..), defaultRouteDoc, RouteInfo(..), addRouteInfo)
 
 import           Web.Scotty.Util (decodeUtf8Lenient)
 import Web.Scotty.Body (cloneBodyInfo, getBodyAction, getBodyChunkAction, getFormParamsAndFilesAction)
@@ -57,39 +58,68 @@ withScotty serv act = bracket (forkIO $ S.scottyOpts (S.defaultOptions{ S.verbos
 :}
 -}
 
+-- | Documented version of 'get'
+getDoc :: (MonadUnliftIO m) => RouteDoc -> RoutePattern -> ActionT m () -> ScottyT m ()
+getDoc rdoc = addrouteDoc rdoc GET
+
+-- | Documented version of 'post'
+postDoc :: (MonadUnliftIO m) => RouteDoc -> RoutePattern -> ActionT m () -> ScottyT m ()
+postDoc rdoc = addrouteDoc rdoc POST
+
+-- | Documented version of 'put'
+putDoc :: (MonadUnliftIO m) => RouteDoc -> RoutePattern -> ActionT m () -> ScottyT m ()
+putDoc rdoc = addrouteDoc rdoc PUT
+
+-- | Documented version of 'delete'
+deleteDoc :: (MonadUnliftIO m) => RouteDoc -> RoutePattern -> ActionT m () -> ScottyT m ()
+deleteDoc rdoc = addrouteDoc rdoc DELETE
+
+-- | Documented version of 'patch'
+patchDoc :: (MonadUnliftIO m) => RouteDoc -> RoutePattern -> ActionT m () -> ScottyT m ()
+patchDoc rdoc = addrouteDoc rdoc PATCH
+
+-- | Documented version of 'options'
+optionsDoc :: (MonadUnliftIO m) => RouteDoc -> RoutePattern -> ActionT m () -> ScottyT m ()
+optionsDoc rdoc = addrouteDoc rdoc OPTIONS
+
 -- | get = 'addroute' 'GET'
 get :: (MonadUnliftIO m) => RoutePattern -> ActionT m () -> ScottyT m ()
-get = addroute GET
+get = getDoc defaultRouteDoc
 
 -- | post = 'addroute' 'POST'
 post :: (MonadUnliftIO m) => RoutePattern -> ActionT m () -> ScottyT m ()
-post = addroute POST
+post = postDoc defaultRouteDoc
 
 -- | put = 'addroute' 'PUT'
 put :: (MonadUnliftIO m) => RoutePattern -> ActionT m () -> ScottyT m ()
-put = addroute PUT
+put = putDoc defaultRouteDoc
 
 -- | delete = 'addroute' 'DELETE'
 delete :: (MonadUnliftIO m) => RoutePattern -> ActionT m () -> ScottyT m ()
-delete = addroute DELETE
+delete = deleteDoc defaultRouteDoc
 
 -- | patch = 'addroute' 'PATCH'
 patch :: (MonadUnliftIO m) => RoutePattern -> ActionT m () -> ScottyT m ()
-patch = addroute PATCH
+patch = patchDoc defaultRouteDoc
 
 -- | options = 'addroute' 'OPTIONS'
 options :: (MonadUnliftIO m) => RoutePattern -> ActionT m () -> ScottyT m ()
-options = addroute OPTIONS
+options = optionsDoc defaultRouteDoc
 
 -- | Add a route that matches regardless of the HTTP verb.
 matchAny :: (MonadUnliftIO m) => RoutePattern -> ActionT m () -> ScottyT m ()
-matchAny pat action =
+matchAny = matchAnyDoc defaultRouteDoc
+
+-- | Documented version of 'matchAny'
+matchAnyDoc :: (MonadUnliftIO m) => RouteDoc -> RoutePattern -> ActionT m () -> ScottyT m ()
+matchAnyDoc rdoc pat action =
   ScottyT $ do
     serverOptions <- MR.ask
     MS.modify $ \s ->
-      addRoute
-        (route serverOptions (routeOptions s) (handler s) Nothing pat action)
-        s
+      let s' = addRouteInfo (RouteInfo Nothing pat rdoc) s
+      in addRoute
+           (route serverOptions (routeOptions s') (handler s') Nothing pat action)
+           s'
 
 -- | Specify an action to take if nothing else is found. Note: this _always_ matches,
 -- so should generally be the last route specified.
@@ -112,13 +142,18 @@ let server = S.get "/foo/:bar" (S.pathParam "bar" >>= S.text)
 "something"
 -}
 addroute :: (MonadUnliftIO m) => StdMethod -> RoutePattern -> ActionT m () -> ScottyT m ()
-addroute method pat action =
+addroute = addrouteDoc defaultRouteDoc
+
+-- | Documented version of 'addroute'
+addrouteDoc :: (MonadUnliftIO m) => RouteDoc -> StdMethod -> RoutePattern -> ActionT m () -> ScottyT m ()
+addrouteDoc rdoc method pat action =
   ScottyT $ do
     serverOptions <- MR.ask
     MS.modify $ \s ->
-      addRoute
-        (route serverOptions (routeOptions s) (handler s) (Just method) pat action)
-        s
+      let s' = addRouteInfo (RouteInfo (Just method) pat rdoc) s
+      in addRoute
+           (route serverOptions (routeOptions s') (handler s') (Just method) pat action)
+           s'
 
 
 route :: (MonadUnliftIO m) =>
